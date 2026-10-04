@@ -645,14 +645,18 @@
   // its own figure is coloured on screen: 500 a month profit; 50% ROI on the cash left in (or nothing left in); the money
   // back within 6 months (nothing left in counts as 0 months, never paying back as never); and all the cash recycled
   // (the figure shown as left in is 0 or less). A flip is judged on the 25% target alone. v is the exit's figures from
-  // ledger(): monthly, roi, cashLeft, breakeven for a let; margin and profit for a flip.
+  // ledger(): monthly, roi, cashLeft, breakeven for a let; margin and profit for a flip. ps (optional) is the deal's
+  // figures: with no end value or no purchase price there is no deal to score, so the verdict asks for them instead.
   var LET_TARGETS = ['£500 a month', '50% ROI', 'Money back in 6 months', 'All cash recycled'];
-  function dealVerdict(exit, v) {
+  function dealEntered(ps) { return Number(ps && ps.endValue) > 0 && Number(ps && ps.purchasePrice) > 0; }
+  function dealVerdict(exit, v, ps) {
     v = v || {};
+    if (ps && !dealEntered(ps)) return { kind: 'empty', score: null, of: null, hits: [], targets: [], tone: 'none', title: 'Enter the deal figures',
+      detail: 'add end value and purchase price', misses: [], line: '' };
     if (exit === 'none' || exit === 'flip') {
       var ok = flipVerdict(v.margin) === 'good', tone = ok ? 'good' : v.profit > 0 ? 'amber' : 'bad';
       var m = typeof v.margin === 'number' && isFinite(v.margin) ? (v.margin * 100).toFixed(1) + '%' : '—';
-      return { kind: 'flip', score: ok ? 1 : 0, of: 1, hits: [ok], tone: tone, title: ok ? 'Good flip' : v.profit > 0 ? 'Thin flip' : 'Loss-making flip',
+      return { kind: 'flip', score: ok ? 1 : 0, of: 1, hits: [ok], targets: ['25% margin'], tone: tone, title: ok ? 'Good flip' : v.profit > 0 ? 'Thin flip' : 'Loss-making flip',
         detail: m + ' margin · target ' + Math.round(FLIP_TARGET * 100) + '%', misses: ok ? [] : ['25% margin'],
         line: ok ? 'Clears the 25% flip target' : 'Misses the 25% flip target' };
     }
@@ -660,12 +664,12 @@
     var hits = [monthlyProfitVerdict(v.monthly) === 'good', recycled || cashRoiVerdict(v.roi) === 'good',
       paybackVerdict(v.breakeven, recycled ? 0 : v.cashLeft) === 'good', recycled];
     var n = hits.filter(Boolean).length, misses = LET_TARGETS.filter(function (t, i) { return !hits[i]; });
-    return { kind: 'let', score: n, of: 4, hits: hits, tone: n >= 3 ? 'good' : n === 2 ? 'amber' : 'bad',
+    return { kind: 'let', score: n, of: 4, hits: hits, targets: LET_TARGETS.slice(), tone: n >= 3 ? 'good' : n === 2 ? 'amber' : 'bad',
       title: n === 4 ? 'Strong deal' : n === 3 ? 'Good deal' : n === 2 ? 'Borderline' : 'Weak deal',
       detail: n === 4 ? 'hits all 4 targets' : 'hits ' + n + ' of 4 targets', misses: misses,
       line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
 
-  var api = { dealVerdict: dealVerdict, LET_TARGETS: LET_TARGETS, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  var api = { dealVerdict: dealVerdict, dealEntered: dealEntered, LET_TARGETS: LET_TARGETS, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(this);

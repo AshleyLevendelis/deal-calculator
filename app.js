@@ -290,6 +290,10 @@
   function statRow(label, cls) { var row = h('div', 'lg-stat'), l = h('span', '', label), v = h('b', 'fig ' + (cls || '')); row.appendChild(l); row.appendChild(v); return { row: row, label: l, val: v }; }
   // A result tile under "How {exit} does": the figure in its verdict colour, the label underneath.
   function tile(label) { var t = h('div', 'lg-tile'), v = h('b', 'fig'), l = h('span', '', label); t.appendChild(v); t.appendChild(l); return { el: t, val: v, label: l }; }
+  function blankTiles(T) { Object.keys(T).forEach(function (k) { T[k].val.textContent = '—'; T[k].val.className = 'fig faint'; }); }
+  // The verdict strip's targets: shut to start with, then open or shut as last left for the rest of the session.
+  var TARGETS_KEY = 'deal-analyser:targetsOpen', targetsOpen = false;
+  try { targetsOpen = !!sessionStorage.getItem(TARGETS_KEY); } catch (e) {}
   // A fold card under "More detail": a header that opens it (only one open at a time) with a one-line summary when closed.
   var openFold = null, folds = [];
   function fold(key, title) {
@@ -313,8 +317,9 @@
     if (openFold === 'let' && !isLet) openFold = null;
 
     // ---- 1. the pinned answer ----
-    var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset');
-    resetAll.type = 'button'; right.appendChild(resetAll); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
+    var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset'), savePin = h('button', 'pin-save', 'Save');
+    resetAll.type = 'button'; savePin.type = 'button'; savePin.onclick = saveDeal;
+    right.appendChild(resetAll); right.appendChild(savePin); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
     head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(right); pin.appendChild(head);
     resetAll.onclick = function () { DEAL_ORDER.forEach(function (id) { deal[id] = ledgerStart[id]; }); store(DEAL, deal); refreshLedger(); };
     R.push(function () { resetAll.hidden = !DEAL_ORDER.some(function (id) { return cur(id) !== ledgerStart[id]; }); });
@@ -327,6 +332,13 @@
     box.appendChild(pin);
     R.push(function (L, X) {
       var v = X.v, loan = num(v.newMortgage), tin = num(v.totalIn), big = Math.max(tin, loan) || 1;
+      tag.hidden = !bridgeOn; tag.textContent = bridgeOn ? 'Includes ' + money(L.bridgeCost) + ' bridging' : '';
+      if (!Calc.dealEntered(L.ps)) {                                   // no end value or no price: nothing to show yet
+        eye.textContent = 'No deal entered yet'; hero.textContent = '—'; hero.className = 'pin-fig fig faint';
+        sideFig.textContent = '—'; sideFig.className = 'pin-side-fig fig faint'; sideCap.textContent = 'Add end value and price';
+        barA.style.width = '0%'; barB.style.width = '0%'; capL.textContent = 'Lender pays —'; capR.textContent = '';
+        return;
+      }
       if (isLet) {
         var k = Calc.cashKind(v.cashLeft), out = v.cashLeft <= 0;
         eye.textContent = k === 'in' ? 'Left in after the refinance' : k === 'out' ? 'Pulled out by the refinance' : 'All your money back';
@@ -343,8 +355,28 @@
       barA.style.width = (Math.min(loan, tin) / big * 100).toFixed(1) + '%'; barB.style.width = (Math.abs(tin - loan) / big * 100).toFixed(1) + '%';
       barB.className = 'b ' + (tin > loan ? 'in' : 'out');
       capL.textContent = 'Lender pays ' + money(loan);
-      tag.hidden = !bridgeOn; tag.textContent = bridgeOn ? 'Includes ' + money(L.bridgeCost) + ' bridging' : '';
     });
+
+    // ---- the verdict strip, inside the pinned panel: one row, tap for the targets ----
+    var strip = h('div', 'vstrip'), sbtn = h('button', 'vs-row'), score = h('span', 'vs-score'), vtxt = h('span', 'vs-txt'), vtitle = h('span'), vdet = h('span', 'vs-detail'), vlab = h('span', 'vs-lab');
+    var chipsBox = h('div', 'vs-chips');
+    sbtn.type = 'button'; vtxt.appendChild(vtitle); vtxt.appendChild(vdet); sbtn.appendChild(score); sbtn.appendChild(vtxt); sbtn.appendChild(vlab);
+    strip.appendChild(sbtn); strip.appendChild(chipsBox); pin.appendChild(strip);
+    var drawStrip = function (vd) {
+      var any = vd.targets.length > 0, open = any && targetsOpen;
+      strip.className = 'vstrip ' + vd.tone; score.textContent = vd.score == null ? '–' : vd.score + '/' + vd.of;
+      vtitle.textContent = vd.title; vdet.textContent = ' · ' + vd.detail;
+      vlab.hidden = !any; vlab.textContent = open ? 'Hide ▴' : 'Targets ▾';
+      sbtn.setAttribute('aria-expanded', open); sbtn.disabled = !any;
+      chipsBox.hidden = !open; chipsBox.innerHTML = '';
+      vd.targets.forEach(function (t, i) {
+        var c = h('span', 'vs-chip'), m = h('span', 'vs-mark ' + (vd.hits[i] ? 'good' : 'bad'), vd.hits[i] ? '✓' : '✗');
+        m.setAttribute('aria-label', vd.hits[i] ? 'Met:' : 'Missed:'); c.appendChild(m); c.appendChild(h('span', '', t)); chipsBox.appendChild(c);
+      });
+    };
+    var lastVerdict = null;
+    sbtn.onclick = function () { targetsOpen = !targetsOpen; try { sessionStorage.setItem(TARGETS_KEY, targetsOpen ? '1' : ''); } catch (e) {} if (lastVerdict) drawStrip(lastVerdict); };
+    R.push(function (L, X) { lastVerdict = Calc.dealVerdict(exit, X.v, L.ps); drawStrip(lastVerdict); });
 
     // ---- 2. the four exits, side by side ----
     var exits = h('div', 'lg-exits');
@@ -353,8 +385,8 @@
       b.type = 'button'; b.setAttribute('aria-pressed', on); b.appendChild(h('span', 'nm', ec[1])); b.appendChild(big);
       b.onclick = function () { if (on) return; setLet(key); renderCalculator(); };
       R.push(function (L) {
-        var v = L.exits[key].v, vd = key === 'none' ? Calc.flipVerdict(v.margin) : Calc.cashRoiVerdict(v.roi);
-        big.textContent = pctText(key === 'none' ? v.margin : v.roi); big.className = 'big fig ' + (vd || '');
+        var v = L.exits[key].v, vd = key === 'none' ? Calc.flipVerdict(v.margin) : Calc.cashRoiVerdict(v.roi), none = !Calc.dealEntered(L.ps);
+        big.textContent = none ? '—' : pctText(key === 'none' ? v.margin : v.roi); big.className = 'big fig ' + (none ? 'faint' : vd || '');
         b.setAttribute('aria-label', ec[1] + ', ' + (key === 'none' ? 'margin ' : 'ROI ') + big.textContent);
       });
       exits.appendChild(b);
@@ -362,7 +394,11 @@
     box.appendChild(exits);
 
     // ---- 3. the deal: one card per figure ----
-    box.appendChild(h('p', 'lg-h', 'The deal'));
+    var dh = h('div', 'lg-hrow'), clr = h('button', 'clear-pill'); clr.type = 'button';
+    clr.appendChild(h('span', 'x', '×')); clr.appendChild(document.createTextNode('Clear figures'));
+    // Empties end value, price and refurb (legal and every other figure stay), ready for a new deal. Reset brings them back.
+    clr.onclick = function () { ['endValue', 'purchasePrice', 'refurb'].forEach(function (id) { deal[id] = 0; }); store(DEAL, deal); refreshLedger(); };
+    dh.appendChild(h('p', 'lg-h', 'The deal')); dh.appendChild(clr); box.appendChild(dh);
     DEAL_ORDER.forEach(function (id) {
       var cfg = DEAL_ROWS[id], f = fieldDef(FLIP_CALC, id), card = h('section', 'lg-card deal-card'), isPrice = id === 'purchasePrice', recP = null, hint = null, snapTo = null;
       var win = valueWindow(cfg, ledgerStart[id], function () { return cur(id); }), lo = win.lo, hi = win.hi;
@@ -381,7 +417,9 @@
       // The recycle price as its own full-width button below the slider, so nothing tappable sits in the slider's way.
       var recBtn = null, recTxt = null;
       if (isPrice) {
-        recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; var rl = h('span', 'rec-l'); rl.appendChild(h('i', 'rec-tick')); recTxt = h('span', 'rec-txt'); rl.appendChild(recTxt); recBtn.appendChild(rl); recBtn.appendChild(h('span', 'rec-set', 'Set price'));
+        recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; recBtn.appendChild(h('i', 'rec-tick'));
+        var rs = h('span', 'rec-txt'); rs.appendChild(h('span', 'rec-eye', 'Recycle price')); recTxt = h('b', 'rec-amt fig'); rs.appendChild(recTxt); rs.appendChild(h('span', 'rec-note', 'Pay this or less to get every pound back'));
+        recBtn.appendChild(rs); var set = h('span', 'rec-set', 'Set price '); set.appendChild(h('span', 'arr', '→')); recBtn.appendChild(set);
         card.appendChild(recBtn);
         recBtn.onclick = function () { if (recP != null) { setFig(id, recP); sl._snap(recP); } };
       }
@@ -404,11 +442,11 @@
         subBase = id === 'endValue' ? 'Lender pays ' + L.ltv + '% = ' + money(num(X.v.newMortgage)) : ''; drawSub();
         reset.hidden = d === 0; reset.textContent = signedMoney(d) + ' from ' + money(ledgerStart[id]) + ' ↺';
         if (isPrice) {
-          recP = X.recyclePrice; sdVal.textContent = money(X.own.sdlt);
+          recP = Calc.dealEntered(L.ps) ? X.recyclePrice : null; sdVal.textContent = money(X.own.sdlt);
           var p = recP == null ? -1 : (recP - lo()) / ((hi() - lo()) || 1), show = p >= 0 && p <= 1;
           mark.hidden = !show; recBtn.hidden = recP == null;
           if (show) mark.style.left = sl._at(recP);
-          if (recP != null) { recTxt.textContent = 'Recycle all your cash '; recTxt.appendChild(h('b', '', '≤ ' + money(recP))); }
+          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', 'Recycle price ' + money(recP) + '. Set price'); }
         }
       });
     });
@@ -433,6 +471,7 @@
         back: tile('Months to get money back (green ≤ 6, amber ≤ 24)'), roi: tile('ROI on cash left in (target 50%)'), pay: tile('Most you can pay and get it back in 2 years') };
       ['income', 'expenses', 'monthly', 'annual', 'back', 'roi', 'pay'].forEach(function (k) { tiles.appendChild(T[k].el); });
       R.push(function (L) {
+        if (!Calc.dealEntered(L.ps)) { blankTiles(T); return; }
         var v = L.exits[exit].v, mv = Calc.monthlyProfitVerdict(v.monthly), bv = Calc.paybackVerdict(v.breakeven, v.cashLeft);
         T.income.val.textContent = money2(v.monthly + v.expenses); T.expenses.val.textContent = '−' + money2(v.expenses);
         T.monthly.val.textContent = money2(v.monthly) + tickOf(mv); T.monthly.val.className = 'fig ' + (mv || '');
@@ -444,7 +483,7 @@
     } else {
       var F = { tin: tile('Total in'), sell: tile('Sell for'), ret: tile('Return on money in') };
       ['tin', 'sell', 'ret'].forEach(function (k) { tiles.appendChild(F[k].el); });
-      R.push(function (L) { var v = L.exits.none.v; F.tin.val.textContent = money(v.totalIn); F.sell.val.textContent = money(num(L.ps.endValue)); F.ret.val.textContent = pctText(v.flipRoi); });
+      R.push(function (L) { if (!Calc.dealEntered(L.ps)) { blankTiles(F); return; } var v = L.exits.none.v; F.tin.val.textContent = money(v.totalIn); F.sell.val.textContent = money(num(L.ps.endValue)); F.ret.val.textContent = pctText(v.flipRoi); });
     }
 
     // ---- 6. more detail: three fold cards, one open at a time ----
@@ -533,21 +572,8 @@
     var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); box.appendChild(foot);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
 
-    // ---- 7. the verdict, docked above the buttons ----
-    var dock = h('div', 'verdict-dock'), score = h('span', 'vd-score'), vt = h('span', 'vd-txt'), vtitle = h('b'), vname = h('span'), vdet = h('span', 'vd-detail'), vmiss = h('small');
-    vtitle.appendChild(vname); vtitle.appendChild(vdet); vt.appendChild(vtitle); vt.appendChild(vmiss); dock.appendChild(score); dock.appendChild(vt);
-    dock.setAttribute('role', 'status'); box.appendChild(dock);
-    R.push(function (L, X) {
-      var vd = Calc.dealVerdict(exit, X.v);
-      dock.className = 'verdict-dock ' + vd.tone; score.textContent = vd.score + '/' + vd.of;
-      vname.textContent = vd.title + ' · '; vdet.textContent = vd.detail; vmiss.textContent = vd.line;
-    });
-
-    // ---- 8. the bar above the tabs ----
-    var sbar = $('sticky-bar'); sbar.innerHTML = '';
-    var save = h('button', 'sec', 'Save'), go = h('button', 'primary', 'Compare side by side');
-    save.onclick = saveDeal; go.onclick = function () { location.hash = '#compare'; };
-    sbar.appendChild(save); sbar.appendChild(go);
+    // ---- no fixed action bar on this screen: Save sits in the panel; only the tab bar stays fixed ----
+    var sbar = $('sticky-bar'); sbar.innerHTML = ''; sbar.hidden = true;
     refreshLedger();
   }
   function renderCalculator() {
@@ -646,7 +672,7 @@
       if (v.impossible) return;
       deal.purchasePrice = v.maxPrice; store(DEAL, deal); location.hash = '#c/brr';
     };
-    bar.appendChild(save); bar.appendChild(go); nodes.go = go;
+    bar.appendChild(save); bar.appendChild(go); bar.hidden = false; nodes.go = go;
     update();
   }
 

@@ -53,5 +53,15 @@ ok('the verdict agrees with the colours on screen (monthly, ROI, months back)', 
   return x.hits[0] === (Calc.monthlyProfitVerdict(v.monthly) === 'good') && x.hits[1] === (out || Calc.cashRoiVerdict(v.roi) === 'good') && x.hits[2] === (Calc.paybackVerdict(v.breakeven, v.cashLeft) === 'good' || out);
 })));
 ok('the targets are listed in the order the screen names them', Calc.LET_TARGETS.join('|') === '£500 a month|50% ROI|Money back in 6 months|All cash recycled');
+// The targets the strip shows as chips, and the empty state (no end value or no purchase price).
+ok('a let lists its four targets as chips, ticked as scored', JSON.stringify(V('btl', left()).targets) === JSON.stringify(Calc.LET_TARGETS) && V('btl', left()).hits.join() === 'true,true,true,false');
+ok('a flip lists one target, 25% margin', V('none', { margin: 0.3, profit: 1 }).targets.join() === '25% margin');
+const empties = [{ endValue: 0, purchasePrice: 125000 }, { endValue: 230000, purchasePrice: 0 }, { endValue: '', purchasePrice: 125000 }, { endValue: 230000, purchasePrice: '' }, {}];
+ok('no end value or no price: "Enter the deal figures", no score, no targets, no misses line, for every exit',
+  empties.every(ps => ['none', 'btl', 'hmo', 'sa'].every(x => { const e = V(x, best, ps); return e.kind === 'empty' && e.score === null && e.of === null && e.title === 'Enter the deal figures' && e.detail === 'add end value and purchase price' && e.tone === 'none' && !e.targets.length && !e.hits.length && e.line === ''; })));
+ok('with both figures entered the deal is scored as normal', V('btl', best, { endValue: 1, purchasePrice: 1 }).kind === 'let' && V('none', { margin: 0.3, profit: 1 }, { endValue: 1, purchasePrice: 1 }).kind === 'flip');
+ok('dealEntered needs both figures above 0', Calc.dealEntered({ endValue: 5, purchasePrice: 5 }) && !Calc.dealEntered({ endValue: 5 }) && !Calc.dealEntered({ endValue: -5, purchasePrice: 5 }) && !Calc.dealEntered(null));
+const blank = Calc.ledger({ endValue: 0, purchasePrice: 0, refurb: 0, legal: 1500 }, false);
+ok('a blank deal would otherwise score a let (640% ROI): the empty state stops that', V('btl', blank.exits.btl.v).kind === 'let' && V('btl', blank.exits.btl.v, blank.ps).kind === 'empty');
 console.log(n + ' checks ran');
 if (fails) process.exit(1);

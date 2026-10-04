@@ -1,5 +1,6 @@
 // Drives the Calculator's main screen (design 6c) in a real browser: the slider's bubble, drag and snap tick, Set price,
-// the arrow keys, Reset, the fold cards (one open at a time), the remembered exit and bridging, and 44px tap targets.
+// the arrow keys, Reset, the fold cards (one open at a time), the remembered exit and bridging, the verdict strip, Save in
+// the panel, Clear figures and the empty state, nothing hidden behind the panel or tab bar, and 44px tap targets.
 // Needs Playwright with Chromium (installed in Claude's cloud sessions). Run: node test-browser.js
 const http = require('http'), fs = require('fs'), path = require('path');
 let pw; try { pw = require('playwright'); } catch (e) { try { pw = require('/opt/node-tools/node_modules/playwright'); } catch (e2) { console.log('skipped: Playwright is not installed here'); process.exit(0); } }
@@ -30,7 +31,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // Set price: snaps to the recycle price with a tick, glow and the snapped text.
   const buzz0 = await p.evaluate(() => window.__buzz);
   await price.locator('.rec-btn').click(); await p.waitForTimeout(60);
-  const rec = (await price.locator('.rec-txt b').textContent()).replace('≤ ', '');
+  const rec = await price.locator('.rec-amt').textContent();
   ok('Set price sets the recycle price', '£' + (await val('purchasePrice')) === rec, (await val('purchasePrice')) + ' vs ' + rec);
   ok('Set price buzzes once', (await p.evaluate(() => window.__buzz)) === buzz0 + 1);
   ok('the thumb glows', await sl.evaluate(e => e.classList.contains('snapped')));
@@ -94,5 +95,45 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // Tap targets on this screen
   const small = await p.evaluate(() => [...document.querySelectorAll('#v-home button, #v-home input:not(.scrub-in), #sticky-bar button')].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e, '::after'); let w = r.width, h = r.height; if (cs.content !== 'none' && cs.position === 'absolute') { const i = parseFloat(cs.top) || 0; w -= 2 * i; h -= 2 * i; } return { t: (e.textContent || e.id || e.className).slice(0, 30), w: Math.round(w), h: Math.round(h) }; }).filter(x => x.h < 44));
   ok('every tap target is 44px tall or more', !small.length, JSON.stringify(small));
+  // ---- the revised panel: verdict strip, Save, no fixed action bar ----
+  await p.evaluate(() => { sessionStorage.clear(); scrollTo(0, 0); }); await p.reload(); await p.waitForTimeout(300);
+  ok('no fixed Save / Compare bar on this screen, and no Compare button', !(await p.isVisible('#sticky-bar')) && !(await p.locator('#v-home button:has-text("Compare side by side")').count()));
+  ok('the collapsed panel is no taller than the design (229px)', (await p.evaluate(() => document.querySelector('.pin').offsetHeight)) <= 230 || (await p.isVisible('.pin-tag')), String(await p.evaluate(() => document.querySelector('.pin').offsetHeight)));
+  ok('the verdict strip starts shut, saying "Targets ▾"', (await p.locator('.vs-lab').textContent()) === 'Targets ▾' && !(await p.isVisible('.vs-chips')));
+  await p.click('.vs-row'); await p.waitForTimeout(50);
+  const chips = await p.locator('.vs-chip').allTextContents();
+  ok('tapping it shows a ✓ or ✗ chip for each of the four targets, and "Hide ▴"', chips.length === 4 && chips.every(c => /^[✓✗]/.test(c)) && (await p.locator('.vs-lab').textContent()) === 'Hide ▴', JSON.stringify(chips));
+  ok('the chips agree with the score', (await p.locator('.vs-score').textContent()) === chips.filter(c => c[0] === '✓').length + '/4');
+  ok('chip labels are never cut off', await p.evaluate(() => [...document.querySelectorAll('.vs-chip span:last-child')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
+  await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80);
+  ok('it stays open when the exit changes (remembered), and a flip has one chip: 25% margin', await p.isVisible('.vs-chips') && (await p.locator('.vs-chip').allTextContents()).join() .endsWith('25% margin') && (await p.locator('.vs-chip').count()) === 1);
+  await p.reload(); await p.waitForTimeout(300);
+  ok('open or shut is remembered for the session', await p.isVisible('.vs-chips'));
+  await p.click('.vs-row'); await p.waitForTimeout(50); ok('tapping again shuts it', !(await p.isVisible('.vs-chips')));
+  await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(80);
+  let saidSaved = false; const onDialog = d => { if (d.type() === 'prompt') d.accept('Panel save test'); else { saidSaved = /Saved/.test(d.message()); d.accept(); p.off('dialog', onDialog); } }; p.on('dialog', onDialog);
+  await p.click('.pin-save'); await p.waitForTimeout(150);
+  ok('Save in the panel saves the deal', saidSaved && (await p.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:deals') || '[]').some(d => d.name === 'Panel save test' && d.letting === 'btl'))));
+  // ---- Clear figures and the empty state ----
+  await p.click('.vs-row'); await p.waitForTimeout(30);                      // targets open, then clear: no empty chip area left behind
+  await p.click('.clear-pill'); await p.waitForTimeout(100);
+  ok('Clear figures empties end value, price and refurb, and leaves legal', (await val('endValue')) === '' && (await val('purchasePrice')) === '' && (await val('refurb')) === '' && (await val('legal')) !== '', [await val('endValue'), await val('purchasePrice'), await val('refurb'), await val('legal')].join('|'));
+  ok('empty state: "No deal entered yet", dashes, "Add end value and price"', (await p.locator('.pin-eye').textContent()) === 'No deal entered yet' && (await p.locator('.pin-fig').textContent()) === '—' && (await p.locator('.pin-side-fig').textContent()) === '—' && (await p.locator('.pin-side-cap').textContent()) === 'Add end value and price');
+  ok('empty state: money bar empty, "Lender pays —"', (await p.locator('.pin-caps span >> nth=0').textContent()) === 'Lender pays —' && (await p.evaluate(() => [...document.querySelectorAll('.pin-bar i')].every(i => i.style.width === '0%'))));
+  ok('empty state: the strip asks for the figures, score "–", no targets', (await p.locator('.vs-score').textContent()) === '–' && (await p.locator('.vs-txt').textContent()) === 'Enter the deal figures · add end value and purchase price' && !(await p.isVisible('.vs-lab')) && !(await p.locator('.vs-chip').count()));
+  ok('empty state: every exit tile and result tile shows a dash', (await p.locator('.exit-tile .big').allTextContents()).every(t => t === '—') && (await p.locator('.lg-tile b').allTextContents()).every(t => t === '—'));
+  ok('empty state: the recycle card and marker are hidden', !(await p.isVisible('.rec-btn')) && !(await p.isVisible('.rec-mark')));
+  ok('empty state: no target chips or empty chip area, even with the targets left open', !(await p.isVisible('.vs-chips')) && !(await p.locator('.vs-chip').count()));
+  ok('empty state: no NaN, undefined or Infinity anywhere', !(await p.evaluate(() => /NaN|undefined|Infinity/.test(document.body.innerText + [...document.querySelectorAll('input')].map(i => i.value).join(' ')))));
+  await p.fill('#lg-endValue', '230000'); await p.evaluate(() => document.activeElement.blur());
+  ok('one figure is not enough: still the empty state, and no recycle price offered', (await p.locator('.pin-eye').textContent()) === 'No deal entered yet' && !(await p.isVisible('.rec-btn')));
+  await p.click('.pin-reset'); await p.waitForTimeout(80);
+  ok('Reset brings the starting figures back and the deal is scored again', (await val('purchasePrice')) !== '' && /\d\/4/.test(await p.locator('.vs-score').textContent()));
+  // ---- nothing hidden behind the panel or the tab bar ----
+  await p.evaluate(() => scrollTo(0, 1e6)); await p.waitForTimeout(80);
+  const clear = await p.evaluate(() => { const last = [...document.querySelectorAll('#v-home > *')].filter(e => e.offsetParent).pop().getBoundingClientRect().bottom; return { last, tabs: document.getElementById('tabs').getBoundingClientRect().top }; });
+  ok('the last thing on the page clears the tab bar', clear.last <= clear.tabs, JSON.stringify(clear));
+  await p.evaluate(() => { location.hash = '#c/recycle'; }); await p.waitForTimeout(150);
+  ok('the other calculators keep their Save / Compare bar', await p.isVisible('#sticky-bar') && (await p.locator('#sticky-bar button').count()) === 2);
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

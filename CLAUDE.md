@@ -11,7 +11,7 @@ Copied on 4 Oct 2026 from GitHub AshleyLevendelis/deal-analyser (branch main, co
 here: never change or push to it. What was copied, and how:
 - calc.js, pdf.js, icon.svg, fonts/, test.js, test-calcs.js, test-pdf.js: byte for byte, unchanged at the copy.
   calc.js still holds a few helpers only the deal feed used (saleLabel, feedOrder, valueNote...). They are left in on
-  purpose. Since the copy, calc.js has had ONE addition (4 Oct 2026, design 6c): dealVerdict + LET_TARGETS. Nothing that
+  purpose. Since the copy, calc.js has had ONE addition (4 Oct 2026, design 6c): dealVerdict, dealEntered and LET_TARGETS. Nothing that
   existed was edited, so every figure is still identical to the Deal Analyser's (checked: 364 figures on the main screen,
   every exit, bridging off and on). Ashley chose to put 6c into this app only; the Deal Analyser keeps design 3a.
 - index.html: the same CSS with only the deal-feed rules deleted; the bottom tab bar has two columns instead of three;
@@ -40,7 +40,8 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
   the app name, and no deal-feed code, page parts or styles left. test-verdict.js checks Calc.dealVerdict and its edges.
   test-browser.js drives the main screen in Chromium (it serves the folder itself; skips if Playwright is missing):
   slider bubble, drag, snap tick once per entry, Set price, arrow keys, Reset, one fold open at a time, remembered exit
-  and bridging, 44px tap targets.
+  and bridging, the verdict strip and its chips, Save in the panel, no action bar, Clear figures and the empty state,
+  nothing behind the tab bar, 44px tap targets.
 - Every change that touches a precached file bumps the cache name in sw.js (deal-calculator-v1, v2, ...).
 - Push straight to main is fine. Do the tests first.
 - The live site and the Vercel project cannot be read from a cloud session (the egress proxy blocks *.vercel.app and the
@@ -53,20 +54,35 @@ and "Redo the setup questions" (onboarding: how you will use it, then price, end
 Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, sabtl, r2rhmo, r2rsa, bridging; old
 #c/flip, #c/hmobrr, #c/sabrr land on the ledger with the right exit), #compare, #report, #saved, #saved-compare, #usual.
 - Calculator primary screen = design 6c "Verdict docked" (4 Oct 2026, from Ashley's hand-off bundle "Design Requirements
-  Inquiry.zip" / design_handoff_calculator_6c; only phone 6c was approved). A restyle and rearrangement of the 3a Live
+  Inquiry.zip" / design_handoff_calculator_6c; only phone 6c was approved; built, then rebuilt the same day from her
+  REVISED bundle, which moved the verdict into the panel and dropped the fixed action bar). A restyle and rearrangement of the 3a Live
   ledger: every field, formula, slider behaviour, target and colour rule from 3a is unchanged. Top to bottom:
-  - pinned answer panel (sticky, rounded bottom): "Calculator", a Reset text button (only when one of the four figures
-    differs from the start; puts all four back), the exit pill (Flip / BRR → BTL / BRR → HMO / BRR → SA), the eyebrow,
-    the hero (cash left in / pulled out, or flip profit), the ROI or margin chip, the money bar, "Includes £X bridging".
+  - pinned answer panel (sticky, rounded bottom, 229px like the design; the design's own wording can wrap it to ~250):
+    "Calculator", a Reset text button (only when one of the four figures differs from the start; puts all four back), a
+    small outlined Save pill (the existing Save; 44px hit area), the exit pill (Flip / BRR → BTL / BRR → HMO / BRR → SA),
+    the eyebrow, the hero, the ROI or margin chip, the money bar, "Includes £X bridging", then the VERDICT STRIP: one 40px
+    row (44px hit area) with the score circle, "Good deal · hits 3 of 4 targets" and "Targets ▾"; tapping it shows a ✓/✗
+    chip per target (lets: £500 a month, 50% ROI, Money back in 6 months, All cash recycled; flip: 25% margin) and
+    "Hide ▴". Starts shut; open/shut is remembered for the session (sessionStorage deal-analyser:targetsOpen).
+  - NO fixed action bar and NO "Compare side by side" on this screen (Ashley's revised hand-off). Only the tab bar is
+    fixed; the page's bottom padding just clears it. Compare stays reachable from the other calculators ("Compare all
+    strategies" bar button, "Compare every strategy for this deal →"). The other calculators keep their Save / Compare bar.
   - exit row: Flip, BTL, HMO, SA side by side, each with its headline % in its verdict colour.
-  - The deal: one card per figure (end value, price, refurb, legal): typed number, 42px round −/+ and the custom slider,
-    a sub line (drag hint, "✓ Snapped to …", or "Lender pays …") with the "+£X from £Y ↺" reset. The price card holds
-    the "Recycle all your cash ≤ £X · Set price" button and stamp duty (worked out, read-only).
+  - The deal, with a "× Clear figures" pill beside the heading: it sets end value, price and refurb to 0 (shown blank;
+    legal and every other figure stay; Reset brings the start figures back). One card per figure (end value, price,
+    refurb, legal): typed number, 42px round −/+ and the custom slider, a sub line (drag hint, "✓ Snapped to …", or
+    "Lender pays …") with the "+£X from £Y ↺" reset. The price card holds the recycle card button ("RECYCLE PRICE",
+    the amount, "Pay this or less to get every pound back", a solid "Set price →" pill; the whole card sets the price)
+    and stamp duty (worked out, read-only).
+  - EMPTY STATE whenever end value or price is blank or 0 (Calc.dealEntered): "No deal entered yet", dashes for the hero,
+    chip, exit tiles and every result tile, "Add end value and price", empty money bar with "Lender pays —", the strip
+    says "Enter the deal figures · add end value and purchase price" with score "–" and no targets, recycle card and
+    marker hidden. Never scored (a blank deal would otherwise show a let at 640% ROI). No NaN anywhere (test-browser.js).
   - Lender pays / Deposit cards. "How {exit} does": result tiles in 3a's order (7 for a let, 3 for the flip).
   - More detail: three fold cards, ONLY ONE OPEN AT A TIME (openFold in app.js), each with a one-line summary when closed:
     "{exit} figures" (the letting fields, 36px −/+ with a 44px hit area, custom sliders; lets only), "Your own money in",
     "Paying for it" (own cash / bridging toggle and the whole bridging block).
-  - Verdict dock: fixed just above the Save / Compare bar. Calc.dealVerdict(exit, v) in calc.js. Lets score 4 targets,
+  - The verdict (in the strip): Calc.dealVerdict(exit, v, ps) in calc.js; ps gives the empty state. Lets score 4 targets,
     each judged as its figure is coloured: £500 a month (monthlyProfitVerdict), 50% ROI or nothing left in, money back
     in 6 months (paybackVerdict; nothing left in = 0, never = never), all cash recycled (shown cash left ≤ £0). 4 Strong,
     3 Good, 2 Borderline (amber), 0-1 Weak (bad); 3-4 good colour. Misses listed in that order. Flip: Good flip (25%+),
