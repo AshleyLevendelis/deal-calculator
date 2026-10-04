@@ -148,8 +148,9 @@
     var val = h('b', 'fig ro-val'); row.appendChild(lab); row.appendChild(val); card.appendChild(row);
     nodes.calcs.push([k, val, row, src]);
   }
-  // ---- The Live ledger (design 3a): the Calculator's primary screen ---------------------------------------------
-  // One screen: a pinned answer, the deal with sliders, how it is paid for, then four ways out. Every number comes from
+  // ---- The Live ledger (design 6c "Verdict docked"): the Calculator's primary screen ---------------------------
+  // One screen: a pinned answer, the four ways out side by side, the deal with sliders, how the chosen way out does, the
+  // detail folded into cards, and a plain-words verdict docked above the buttons. Every number comes from
   // Calc.ledger; this file only draws it. The DOM is built once and refreshLedger() updates figures in place, so a slider
   // being dragged or a number being typed is never rebuilt under the finger.
   var BRIDGE_KEY = 'deal-analyser:brrBridge', bridgeOn = !!load(BRIDGE_KEY, false), ledgerStart = null, holdT = null, holdI = null;
@@ -164,7 +165,6 @@
     furnishing: [0, 20000, 250], maintPct: [0, 20, 0.5], council: [0, 400, 1], utilities: [0, 800, 5], other: [0, 800, 5], nightlyRate: [40, 400, 5], occupancyPct: [30, 100, 1],
     commPct: [0, 30, 0.5], maintOnMortgagePct: [0, 30, 0.5], channel: [0, 100, 1] };
   var EXIT_CARDS = [['none', 'Flip'], ['btl', 'BTL'], ['hmo', 'HMO'], ['sa', 'SA']];
-  var EXIT_FULL = { none: 'Buy, refurb, sell', btl: 'Buy to let', hmo: 'House in multiple occupation', sa: 'Serviced accommodation' };
   var EXIT_NAME = { none: 'Flip', btl: 'BRR → BTL', hmo: 'BRR → HMO', sa: 'BRR → SA' };
   var BRIDGE_FIELDS = ['grossLoan', 'termMonths', 'monthlyRatePct', 'arrangementFeePct', 'exitFeePct', 'valuationFee', 'bridgeLegal', 'brokerFeePct'];
   function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
@@ -198,29 +198,43 @@
     return input;
   }
   // The small − and + beside a slider: one step a tap, repeating while held.
-  function nudge(dir, o) {
-    var b = h('button', 'nudge', dir < 0 ? '−' : '+'); b.type = 'button'; b.setAttribute('aria-label', (dir < 0 ? 'Less: ' : 'More: ') + o.label);
+  function nudge(dir, o, cls) {
+    var b = h('button', 'nudge' + (cls ? ' ' + cls : ''), dir < 0 ? '−' : '+'); b.type = 'button'; b.setAttribute('aria-label', (dir < 0 ? 'Less: ' : 'More: ') + o.label);
     var bump = function () { var v = Number((Math.round((o.get() + dir * o.step) / o.step) * o.step).toFixed(4)); o.set(Math.max(minOf(o), Math.min(o.max(), v))); };
     b.addEventListener('pointerdown', function () { holdEnd(); bump(); holdT = setTimeout(function () { holdI = setInterval(bump, 70); }, 380); });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, holdEnd); });
     b.addEventListener('click', function (e) { if (e.detail === 0) bump(); });            // keyboard (Enter / Space) has no pointer
     return b;
   }
-  // The precision slider. Looks like a native range, but the finger is tracked by the wrapper: dragging is relative (nothing
-  // jumps on touch), sliding the finger DOWN gives finer steps, and at full speed it snaps to magnets (the start figure,
-  // the recycle price). A tap with no movement jumps to that point.
+  // The precision slider (design 6c). The finger is tracked by the wrapper exactly as before: dragging is relative (nothing
+  // jumps on touch), sliding the finger DOWN gives finer steps, and at full speed it snaps to magnets (the start figure, the
+  // recycle price). A tap with no movement jumps to that point. What is drawn is new: a 20px track, a fill, a 34px thumb,
+  // a value bubble while the finger is on it, and a green glow with a small vibration whenever it settles on a magnet.
+  // A visually hidden range input keeps it reachable by keyboard and screen readers; its arrow keys step like − and +.
   function scrubber(o) {
-    var wrap = h('div', 'scrub'), r = h('input'); r.type = 'range'; r.min = minOf(o); r.step = 'any'; r.setAttribute('aria-label', o.label);
-    wrap.appendChild(r);
+    var wrap = h('div', 'scrub'), r = h('input'); r.type = 'range'; r.className = 'scrub-in'; r.min = minOf(o); r.step = 'any'; r.setAttribute('aria-label', o.label);
+    var track = h('div', 'scrub-track'), fill = h('i', 'scrub-fill'), thumb = h('div', 'scrub-thumb'), bubble = h('div', 'scrub-bubble');
+    track.appendChild(fill); bubble.hidden = true;
+    wrap.appendChild(r); wrap.appendChild(track); wrap.appendChild(thumb); wrap.appendChild(bubble);
     var rt = function (v, st) { return Number((Math.round(v / st) * st).toFixed(4)); };
     var clampV = function (v) { return Math.max(minOf(o), Math.min(o.max(), v)); };
     var magnet = function (v) { var s = o.snaps ? o.snaps() : [], span = o.max() - minOf(o); for (var i = 0; i < s.length; i++) if (s[i] != null && Math.abs(v - s[i]) <= span * 0.015) return s[i]; return null; };
+    var snapT = null;
+    // The snap tick: a short buzz (phones that allow it), the thumb glows and the caller can say what it snapped to.
+    wrap._snap = function (to) {
+      try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+      wrap.classList.add('snapped'); if (o.onSnap) o.onSnap(to);
+      clearTimeout(snapT); snapT = setTimeout(function () { wrap.classList.remove('snapped'); if (o.onSnap) o.onSnap(null); }, 900);
+    };
+    // Where a value sits along the track: the thumb's centre runs from 20px in at the left to 20px in at the right.
+    wrap._at = function (v) { var lo = minOf(o), span = (o.max() - lo) || 1, p = Math.max(0, Math.min(1, (v - lo) / span)); return 'calc(20px + (100% - 40px) * ' + p.toFixed(4) + ')'; };
     var sc = null;
     wrap.addEventListener('pointerdown', function (e) {
       e.preventDefault(); try { wrap.setPointerCapture(e.pointerId); } catch (x) {}
       scrubbing = true;
       var b = wrap.getBoundingClientRect();
-      sc = { x: e.clientX, y: e.clientY, lastX: e.clientX, v: o.get(), w: b.width || 1, left: b.left, moved: false, level: 0 };
+      sc = { x: e.clientX, y: e.clientY, lastX: e.clientX, v: o.get(), w: b.width || 1, left: b.left, moved: false, level: 0, snapAt: magnet(o.get()) };   // starting on a magnet is not arriving at it
+      wrap.classList.add('dragging'); bubble.hidden = false; wrap._sync();
       if (o.onLevel) o.onLevel(0);
     });
     wrap.addEventListener('pointermove', function (e) {
@@ -228,19 +242,30 @@
       var dx = e.clientX - sc.lastX; sc.lastX = e.clientX; if (Math.abs(e.clientX - sc.x) > 3) sc.moved = true; if (!sc.moved) return;
       var dy = Math.abs(e.clientY - sc.y), level = dy < 40 ? 0 : dy < 100 ? 1 : 2, span = o.max() - minOf(o);
       sc.v = clampV(sc.v + dx / sc.w * span * [1, 0.25, 0.08][level]);
-      var out = rt(sc.v, o.levels[level]); if (level === 0) { var m = magnet(sc.v); if (m != null) out = m; }
+      var out = rt(sc.v, o.levels[level]);
+      if (level === 0) { var m = magnet(sc.v); if (m != null) { out = m; if (sc.snapAt !== m) { sc.snapAt = m; wrap._snap(m); } } else sc.snapAt = null; }   // once per entry
       if (sc.level !== level) { sc.level = level; if (o.onLevel) o.onLevel(level); }
       o.set(clampV(out));
     });
     var end = function (e) {
       if (!sc) return;
-      if (!sc.moved && e.type === 'pointerup') { var v = minOf(o) + Math.max(0, Math.min(1, (e.clientX - sc.left) / sc.w)) * (o.max() - minOf(o)), m = magnet(v); o.set(m != null ? m : clampV(rt(v, o.levels[0]))); }
-      sc = null; scrubbing = false; if (o.onLevel) o.onLevel(null);
-      if (o.onEnd) o.onEnd();                                  // e.g. let the slider's top stretch now the finger is off
+      if (!sc.moved && e.type === 'pointerup') { var v = minOf(o) + Math.max(0, Math.min(1, (e.clientX - sc.left) / sc.w)) * (o.max() - minOf(o)), m = magnet(v); if (m != null) wrap._snap(m); o.set(m != null ? m : clampV(rt(v, o.levels[0]))); }
+      sc = null; scrubbing = false; wrap.classList.remove('dragging'); bubble.hidden = true; if (o.onLevel) o.onLevel(null);
+      if (o.onEnd) o.onEnd();                                  // e.g. let the slider's window move now the finger is off
     };
     wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
-    r.addEventListener('input', function () { o.set(clampV(rt(Number(r.value), o.levels[0]))); });   // keyboard arrows
-    wrap._sync = function () { r.min = minOf(o); r.max = o.max(); r.value = o.get(); };
+    var step = function (dir) { var v = Number((Math.round((o.get() + dir * o.step) / o.step) * o.step).toFixed(4)); o.set(clampV(v)); if (o.onEnd) o.onEnd(); };
+    r.addEventListener('keydown', function (e) {
+      var dir = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[e.key];
+      if (dir) { e.preventDefault(); step(dir); }
+    });
+    r.addEventListener('input', function () { o.set(clampV(rt(Number(r.value), o.levels[0]))); });   // assistive tech setting a value
+    wrap._sync = function () {
+      var v = o.get(), at = wrap._at(v);
+      r.min = minOf(o); r.max = o.max(); r.value = v; if (o.bubble) r.setAttribute('aria-valuetext', o.bubble(v));
+      fill.style.width = at; thumb.style.left = at; bubble.style.left = at;
+      if (!bubble.hidden && o.bubble) bubble.textContent = o.bubble(v);
+    };
     return wrap;
   }
   // A slider's top that is never a ceiling: it starts at the usual top or 1.5 times the figure the deal opened with, and
@@ -263,17 +288,36 @@
       grow: function () { if (!scrubbing && get() >= top * 0.97) top = Math.max(top, Math.min(up(get() * 1.5), base * 4)); } };   // never runs away: at most 4x the usual top unless typed
   }
   function statRow(label, cls) { var row = h('div', 'lg-stat'), l = h('span', '', label), v = h('b', 'fig ' + (cls || '')); row.appendChild(l); row.appendChild(v); return { row: row, label: l, val: v }; }
+  // A result tile under "How {exit} does": the figure in its verdict colour, the label underneath.
+  function tile(label) { var t = h('div', 'lg-tile'), v = h('b', 'fig'), l = h('span', '', label); t.appendChild(v); t.appendChild(l); return { el: t, val: v, label: l }; }
+  // A fold card under "More detail": a header that opens it (only one open at a time) with a one-line summary when closed.
+  var openFold = null, folds = [];
+  function fold(key, title) {
+    var card = h('section', 'lg-fold'), head = h('button', 'fold-head'), txt = h('span', 'fold-txt'), tt = h('b', '', title), sum = h('small'), sign = h('span', 'fold-sign');
+    head.type = 'button'; txt.appendChild(tt); txt.appendChild(sum); head.appendChild(txt); head.appendChild(sign); card.appendChild(head);
+    var body = h('div', 'fold-body'); card.appendChild(body);
+    var f = { key: key, card: card, body: body, sum: sum, title: tt, head: head, sign: sign };
+    head.onclick = function () { openFold = openFold === key ? null : key; folds.forEach(drawFold); };
+    folds.push(f); drawFold(f); return f;
+  }
+  function drawFold(f) { var on = openFold === f.key; f.body.hidden = !on; f.sign.textContent = on ? '−' : '+'; f.head.setAttribute('aria-expanded', on); f.card.classList.toggle('open', on); }
 
   function renderLedger(box) {
-    var R = []; nodes.ledger = R;
+    var R = []; nodes.ledger = R; folds = [];
     var exit = Calc.BRR_LETTING.hasOwnProperty(brrLet) ? brrLet : 'none', isLet = exit !== 'none';
     var L0 = Calc.ledger(eff(deal), bridgeOn);
     current = Calc.find(L0.exits[exit].calcId);
     if (!ledgerStart) { ledgerStart = {}; DEAL_ORDER.forEach(function (id) { ledgerStart[id] = num(L0.ps[id]); }); }
     var cur = function (id) { return num(Calc.stateFor(FLIP_CALC, eff(deal))[id]); };
+    var exitName = EXIT_CARDS.filter(function (e) { return e[0] === exit; })[0][1];
+    if (openFold === 'let' && !isLet) openFold = null;
 
     // ---- 1. the pinned answer ----
-    var pin = h('div', 'pin'), head = h('div', 'pin-head'); head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(h('span', 'pin-exit', EXIT_NAME[exit])); pin.appendChild(head);
+    var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset');
+    resetAll.type = 'button'; right.appendChild(resetAll); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
+    head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(right); pin.appendChild(head);
+    resetAll.onclick = function () { DEAL_ORDER.forEach(function (id) { deal[id] = ledgerStart[id]; }); store(DEAL, deal); refreshLedger(); };
+    R.push(function () { resetAll.hidden = !DEAL_ORDER.some(function (id) { return cur(id) !== ledgerStart[id]; }); });
     var eye = h('div', 'pin-eye'); pin.appendChild(eye);
     var heroRow = h('div', 'pin-row'), hero = h('div', 'pin-fig fig'), side = h('div', 'pin-side'), sideFig = h('div', 'pin-side-fig fig'), sideCap = h('div', 'pin-side-cap');
     side.appendChild(sideFig); side.appendChild(sideCap); heroRow.appendChild(hero); heroRow.appendChild(side); pin.appendChild(heroRow);
@@ -302,43 +346,58 @@
       tag.hidden = !bridgeOn; tag.textContent = bridgeOn ? 'Includes ' + money(L.bridgeCost) + ' bridging' : '';
     });
 
-    // ---- 2. the deal ----
-    var dh = h('div', 'lg-head'), backStart = h('button', 'lg-link', 'Back to start'); dh.appendChild(h('p', 'eyebrow', 'The deal')); dh.appendChild(backStart); box.appendChild(dh);
-    backStart.onclick = function () { DEAL_ORDER.forEach(function (id) { deal[id] = ledgerStart[id]; }); store(DEAL, deal); refreshLedger(); };
-    R.push(function () { backStart.hidden = !DEAL_ORDER.some(function (id) { return cur(id) !== ledgerStart[id]; }); });
-    var dealCard = h('section', 'lg-card deal-rows');
+    // ---- 2. the four exits, side by side ----
+    var exits = h('div', 'lg-exits');
+    EXIT_CARDS.forEach(function (ec) {
+      var key = ec[0], on = key === exit, b = h('button', 'exit-tile' + (on ? ' on' : '')), big = h('span', 'big fig');
+      b.type = 'button'; b.setAttribute('aria-pressed', on); b.appendChild(h('span', 'nm', ec[1])); b.appendChild(big);
+      b.onclick = function () { if (on) return; setLet(key); renderCalculator(); };
+      R.push(function (L) {
+        var v = L.exits[key].v, vd = key === 'none' ? Calc.flipVerdict(v.margin) : Calc.cashRoiVerdict(v.roi);
+        big.textContent = pctText(key === 'none' ? v.margin : v.roi); big.className = 'big fig ' + (vd || '');
+        b.setAttribute('aria-label', ec[1] + ', ' + (key === 'none' ? 'margin ' : 'ROI ') + big.textContent);
+      });
+      exits.appendChild(b);
+    });
+    box.appendChild(exits);
+
+    // ---- 3. the deal: one card per figure ----
+    box.appendChild(h('p', 'lg-h', 'The deal'));
     DEAL_ORDER.forEach(function (id) {
-      var cfg = DEAL_ROWS[id], f = fieldDef(FLIP_CALC, id), row = h('div', 'lg-row'), isPrice = id === 'purchasePrice', recP = null, hint = null;
+      var cfg = DEAL_ROWS[id], f = fieldDef(FLIP_CALC, id), card = h('section', 'lg-card deal-card'), isPrice = id === 'purchasePrice', recP = null, hint = null, snapTo = null;
       var win = valueWindow(cfg, ledgerStart[id], function () { return cur(id); }), lo = win.lo, hi = win.hi;
-      var l1 = h('div', 'lg-l1'); l1.appendChild(h('label', '', f.label)); l1.firstChild.setAttribute('for', 'lg-' + id);
+      var lab = h('label', 'lg-label', f.label); lab.setAttribute('for', 'lg-' + id); card.appendChild(lab);
       var numWrap = h('div', 'lg-num'); numWrap.appendChild(h('span', 'cur', '£'));
       var box1 = numBox({ id: 'lg-' + id, cls: 'big-num fig', label: f.label, get: function () { return cur(id); }, show: function (v) { return v ? v.toLocaleString('en-GB') : ''; },
         set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-      numWrap.appendChild(box1); l1.appendChild(numWrap); row.appendChild(l1);
+      numWrap.appendChild(box1); card.appendChild(numWrap);
       var o = { label: f.label, get: function () { return cur(id); }, set: function (v) { setFig(id, v); }, min: lo, max: hi, step: cfg.nudge, levels: cfg.levels,
-        snaps: function () { return [isPrice ? recP : null, ledgerStart[id]]; }, onLevel: function (lv) { hint = lv; drawSub(); }, onEnd: refreshLedger };
-      var l2 = h('div', 'lg-l2'), sl = scrubber(o), mark = null; l2.appendChild(nudge(-1, o)); l2.appendChild(sl); l2.appendChild(nudge(1, o)); row.appendChild(l2);
-      var recBtn = null;
-      if (isPrice) {
-        mark = h('div', 'rec-mark'); sl.appendChild(mark);
-      }
-      var l3 = h('div', 'lg-l3'), sub = h('span', 'lg-sub'), reset = h('button', 'lg-reset'); reset.type = 'button'; l3.appendChild(sub); l3.appendChild(reset); row.appendChild(l3);
-      // The recycle price as its own full-width button below the slider, so nothing tappable sits in the slider's way.
-      var recTxt = null;
-      if (isPrice) {
-        recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; recBtn.appendChild(h('i', 'rec-tick')); recTxt = h('span', 'rec-txt'); recBtn.appendChild(recTxt); recBtn.appendChild(h('span', 'rec-set', 'Set price'));
-        row.appendChild(recBtn);
-        recBtn.onclick = function () { if (recP != null) setFig(id, recP); };
-      }
+        snaps: function () { return [isPrice ? recP : null, ledgerStart[id]]; }, onLevel: function (lv) { hint = lv; drawSub(); }, onEnd: refreshLedger,
+        bubble: function (v) { return money(v); }, onSnap: function (to) { snapTo = to; drawSub(); } };
+      var l2 = h('div', 'lg-l2'), sl = scrubber(o), mark = null; l2.appendChild(nudge(-1, o)); l2.appendChild(sl); l2.appendChild(nudge(1, o)); card.appendChild(l2);
+      if (isPrice) { mark = h('div', 'rec-mark'); sl.appendChild(mark); }
+      var l3 = h('div', 'lg-l3'), sub = h('span', 'lg-sub'), reset = h('button', 'lg-reset'); reset.type = 'button'; l3.appendChild(sub); l3.appendChild(reset); card.appendChild(l3);
       reset.onclick = function () { setFig(id, ledgerStart[id]); };
+      // The recycle price as its own full-width button below the slider, so nothing tappable sits in the slider's way.
+      var recBtn = null, recTxt = null;
+      if (isPrice) {
+        recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; var rl = h('span', 'rec-l'); rl.appendChild(h('i', 'rec-tick')); recTxt = h('span', 'rec-txt'); rl.appendChild(recTxt); recBtn.appendChild(rl); recBtn.appendChild(h('span', 'rec-set', 'Set price'));
+        card.appendChild(recBtn);
+        recBtn.onclick = function () { if (recP != null) { setFig(id, recP); sl._snap(recP); } };
+      }
       var subBase = '';
-      var drawSub = function () { sub.textContent = hint == null ? subBase : ['Slide your finger down for finer steps', 'Finer: ' + money(cfg.levels[1]) + ' steps', 'Finest: ' + money(cfg.levels[2]) + ' steps'][hint]; };
+      var drawSub = function () {
+        var snapped = hint == null && snapTo != null;
+        sub.classList.toggle('good', snapped);
+        sub.textContent = hint != null ? ['Slide your finger down for finer steps', 'Finer: ' + money(cfg.levels[1]) + ' steps', 'Finest: ' + money(cfg.levels[2]) + ' steps'][hint]
+          : snapped ? (isPrice && snapTo === recP ? '✓ Snapped to the recycle price' : '✓ Snapped to the starting figure') : subBase;
+      };
       var sdVal = null;
       if (isPrice) {
-        var sd = h('div', 'lg-sdlt'), sl2 = h('span', '', 'Stamp duty'); sl2.appendChild(h('small', '', 'Worked out for an additional property'));
-        var sdBox = h('div', 'auto-box'); sdBox.appendChild(h('span', 'auto', 'Auto')); sdVal = h('b', 'fig'); sdBox.appendChild(sdVal); sd.appendChild(sl2); sd.appendChild(sdBox); row.appendChild(sd);
+        var sd = h('div', 'lg-sdlt'), sl2 = h('span', '', 'Stamp duty'); sl2.appendChild(h('small', '', 'Worked out automatically'));
+        sdVal = h('b', 'fig'); sd.appendChild(sl2); sd.appendChild(sdVal); card.appendChild(sd);
       }
-      dealCard.appendChild(row);
+      box.appendChild(card);
       R.push(function (L, X) {
         var c = cur(id), d = c - ledgerStart[id];
         win.settle(); box1._sync(); sl._sync();
@@ -348,32 +407,76 @@
           recP = X.recyclePrice; sdVal.textContent = money(X.own.sdlt);
           var p = recP == null ? -1 : (recP - lo()) / ((hi() - lo()) || 1), show = p >= 0 && p <= 1;
           mark.hidden = !show; recBtn.hidden = recP == null;
-          if (show) mark.style.left = 'calc(8px + (100% - 16px) * ' + p.toFixed(4) + ')';
+          if (show) mark.style.left = sl._at(recP);
           if (recP != null) { recTxt.textContent = 'Recycle all your cash '; recTxt.appendChild(h('b', '', '≤ ' + money(recP))); }
         }
       });
     });
-    box.appendChild(dealCard);
 
-    // ---- 3. lender pays / deposit ----
+    // ---- 4. lender pays / deposit ----
     var chips = h('div', 'lg-chips');
     [['ltv', 'Lender pays'], ['depositPct', 'Deposit']].forEach(function (c) {
-      var id = c[0], chip = h('div', 'lg-chip'), top = h('div', 'top'), amt = h('div', 'amt'), w = h('div', 'pct');
+      var id = c[0], chip = h('div', 'lg-chip'), amt = h('div', 'amt'), w = h('div', 'pct');
       var lab = h('label', '', c[1]); lab.setAttribute('for', 'lg-' + id);
       var inp = numBox({ id: 'lg-' + id, decimal: true, label: c[1] + ' percent', get: function () { return Calc.stateFor(FLIP_CALC, eff(deal))[id]; }, show: function (v) { return String(v); },
         set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-      w.appendChild(inp); w.appendChild(h('span', '', '%')); top.appendChild(lab); top.appendChild(w); chip.appendChild(top); chip.appendChild(amt); chips.appendChild(chip);
+      w.appendChild(inp); w.appendChild(h('span', '', '%')); chip.appendChild(lab); chip.appendChild(w); chip.appendChild(amt); chips.appendChild(chip);
       R.push(function (L, X) { inp._sync(); amt.textContent = id === 'ltv' ? '= ' + money(num(L.ps.endValue) * L.ltv / 100) + ' refinance' : '= ' + money(X.own.deposit) + ' of the price'; });
     });
     box.appendChild(chips);
 
-    // ---- 4. your own money in ----
-    var ownCard = h('section', 'lg-card own'), oh = h('div', 'own-head'), ol = h('div'), ownTotal = h('div', 'own-total fig'), ownCap = h('div', 'own-cap');
-    ol.appendChild(h('div', 'eyebrow', 'Your own money in')); ol.appendChild(ownTotal); oh.appendChild(ol); oh.appendChild(ownCap); ownCard.appendChild(oh);
-    var ownRows = h('div'); ownCard.appendChild(ownRows); box.appendChild(ownCard);
+    // ---- 5. how the chosen exit does ----
+    box.appendChild(h('p', 'lg-h', 'How ' + exitName + ' does'));
+    var tiles = h('div', 'lg-tiles'); box.appendChild(tiles);
+    if (isLet) {
+      var T = { income: tile('Monthly income'), expenses: tile('Monthly expenses'), monthly: tile('Monthly profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET) + ')'), annual: tile('Annual profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET * 12) + ')'),
+        back: tile('Months to get money back (green ≤ 6, amber ≤ 24)'), roi: tile('ROI on cash left in (target 50%)'), pay: tile('Most you can pay and get it back in 2 years') };
+      ['income', 'expenses', 'monthly', 'annual', 'back', 'roi', 'pay'].forEach(function (k) { tiles.appendChild(T[k].el); });
+      R.push(function (L) {
+        var v = L.exits[exit].v, mv = Calc.monthlyProfitVerdict(v.monthly), bv = Calc.paybackVerdict(v.breakeven, v.cashLeft);
+        T.income.val.textContent = money2(v.monthly + v.expenses); T.expenses.val.textContent = '−' + money2(v.expenses);
+        T.monthly.val.textContent = money2(v.monthly) + tickOf(mv); T.monthly.val.className = 'fig ' + (mv || '');
+        T.annual.val.textContent = money(v.annual) + tickOf(mv); T.annual.val.className = 'fig ' + (mv || '');
+        T.back.val.textContent = v.cashLeft <= 0 ? '—' : typeof v.breakeven === 'number' && isFinite(v.breakeven) ? fmt('months', v.breakeven) : 'Never at this rent'; T.back.val.className = 'fig ' + bv;
+        var rv = Calc.cashRoiVerdict(v.roi); T.roi.val.textContent = pctText(v.roi) + tickOf(rv); T.roi.val.className = 'fig ' + (rv || '');
+        T.pay.val.textContent = v.paybackPrice == null ? '—' : money(v.paybackPrice);
+      });
+    } else {
+      var F = { tin: tile('Total in'), sell: tile('Sell for'), ret: tile('Return on money in') };
+      ['tin', 'sell', 'ret'].forEach(function (k) { tiles.appendChild(F[k].el); });
+      R.push(function (L) { var v = L.exits.none.v; F.tin.val.textContent = money(v.totalIn); F.sell.val.textContent = money(num(L.ps.endValue)); F.ret.val.textContent = pctText(v.flipRoi); });
+    }
+
+    // ---- 6. more detail: three fold cards, one open at a time ----
+    box.appendChild(h('p', 'lg-h', 'More detail'));
+    if (isLet) {
+      var lf = fold('let', exitName + ' figures'), EC = Calc.find(Calc.BRR_LETTING[exit]), shown = [];
+      var val = function (id) { return Calc.ledger(eff(deal), bridgeOn).exits[exit].state[id]; };
+      Calc.simplePlan('brr', exit).rental.forEach(function (id) {
+        var f = fieldDef(EC, id); if (!f) return;
+        shown.push(f);
+        var rr = RENT_RANGE[id] || [0, 1000, 1], sp = rr[2], rtop = stretchTop(rr[1], val(id), Math.max(sp, rr[1] / 10), function () { return num(val(id)); }), hi = rtop.hi;
+        var lv = [sp, sp / 5, sp / 25].map(function (q) { return sp < 1 ? Math.max(q, 0.01) : Math.max(q, 1); });
+        var o = { label: f.label, get: function () { return num(val(id)); }, set: function (v) { setFig(id, v); }, min: rr[0], max: hi, step: sp, levels: lv, snaps: function () { return [f.def]; }, onEnd: refreshLedger,
+          bubble: function (v) { return (f.unit === '£' ? '£' : '') + v + (f.unit === '%' ? '%' : ''); } };
+        var row = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', f.label); lab.setAttribute('for', 'lg-' + id);
+        if (/per month|per night|per room/.test(f.note || '')) lab.appendChild(h('span', 'unit', ' · ' + f.note.replace('per room, per month', 'per room/month')));
+        var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: true, label: f.label, get: function () { return val(id); }, show: function (v) { return String(v); }, set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
+        if (f.unit === '£') w.appendChild(h('span', '', '£')); w.appendChild(inp); if (f.unit === '%') w.appendChild(h('span', '', '%'));
+        l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
+        var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'sm')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'sm')); row.appendChild(l2);
+        lf.body.appendChild(row);
+        R.push(function () { rtop.grow(); inp._sync(); sl._sync(); });
+      });
+      R.push(function (L) {
+        var st = L.exits[exit].state;
+        lf.sum.textContent = shown.slice(0, 2).map(function (f) { var v = st[f.id]; return f.label + ' ' + (f.unit === '£' ? money2(num(v)).replace(/\.00$/, '') : v + (f.unit === '%' ? '%' : '')); }).join(' · ');
+      });
+    }
+    var of = fold('own', 'Your own money in'), ownRows = h('div'), ownCap = h('div', 'own-cap'); of.body.appendChild(ownRows); of.body.appendChild(ownCap);
     R.push(function (L, X) {
       var w = X.own, P0 = num(L.ps.purchasePrice);
-      ownTotal.textContent = money(w.total);
+      of.sum.textContent = money(w.total) + ' · total in ' + money(w.totalIn);
       ownCap.textContent = w.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
       var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal], ['Refurb costs', w.refurb]];
       if (w.furnishing) rows.push(['Furnishing', w.furnishing]); if (w.bridge) rows.push(['Bridging cost', w.bridge]);
@@ -382,21 +485,20 @@
       var m = statRow('Mortgage covers', 'faint'); m.row.classList.add('solid'); m.val.textContent = money(w.mortgage); ownRows.appendChild(m.row);
       var t = statRow('Total money in (deposit, mortgage, stamp duty, legal, refurb' + (w.furnishing ? ', furniture' : '') + (w.bridge ? ', bridging' : '') + ')'); t.row.classList.add('solid'); t.val.textContent = money(w.totalIn); ownRows.appendChild(t.row);
     });
-
-    // ---- 5. paying for it ----
-    box.appendChild(h('p', 'eyebrow sect', 'Paying for it'));
+    var pf = fold('pay', 'Paying for it');
     var seg = h('div', 'segmented lg-seg');
     [[false, 'Own cash / mortgage'], [true, 'Bridging loan']].forEach(function (m) {
       var b = h('button', '', m[1]); b.type = 'button'; b.setAttribute('aria-pressed', bridgeOn === m[0]);
       b.onclick = function () { if (bridgeOn === m[0]) return; bridgeOn = m[0]; store(BRIDGE_KEY, bridgeOn); renderCalculator(); };
       seg.appendChild(b);
     });
-    box.appendChild(seg);
+    pf.body.appendChild(seg);
+    R.push(function (L) { pf.sum.textContent = bridgeOn ? 'Bridging loan · ' + money(num(L.bridgeCost)) + ' cost' : 'Own cash / mortgage'; });
     if (bridgeOn) {
       var BC = Calc.find('bridging'), bst = function () { return Calc.stateFor(BC, eff(deal)); };
-      var bc = h('section', 'lg-card bridge'), bh = h('div', 'own-head'), bl = h('div'), bTotal = h('div', 'own-total fig amber');
-      bl.appendChild(h('div', 'eyebrow', 'Total cost of borrowing')); bl.appendChild(bTotal); bh.appendChild(bl); bh.appendChild(h('div', 'own-cap', 'Added to the cash left in, and taken off the flip profit')); bc.appendChild(bh);
-      var match = h('button', 'lg-link block'); match.type = 'button'; bc.appendChild(match);
+      var bh = h('div', 'own-head'), bl = h('div'), bTotal = h('div', 'own-total fig amber');
+      bl.appendChild(h('div', 'lg-label', 'Total cost of borrowing')); bl.appendChild(bTotal); bh.appendChild(bl); bh.appendChild(h('div', 'own-cap', 'Added to the cash left in, and taken off the flip profit')); pf.body.appendChild(bh);
+      var match = h('button', 'lg-link block'); match.type = 'button'; pf.body.appendChild(match);
       match.onclick = function () { var ps = Calc.stateFor(FLIP_CALC, eff(deal)); setFig('grossLoan', num(ps.purchasePrice) + num(ps.refurb)); };
       var grid = h('div', 'bridge-grid'), syncs = [];
       BRIDGE_FIELDS.forEach(function (id) {
@@ -406,15 +508,15 @@
         if (f.unit === '%') w.appendChild(h('span', '', '%')); if (id === 'termMonths') w.appendChild(h('span', '', 'mo'));
         cell.appendChild(lab); cell.appendChild(w); grid.appendChild(cell); syncs.push(inp);
       });
-      bc.appendChild(grid);
-      bc.appendChild(h('div', 'bridge-q', 'How the interest is charged'));
+      pf.body.appendChild(grid);
+      pf.body.appendChild(h('div', 'bridge-q', 'How the interest is charged'));
       var types = h('div', 'pills'), typeBtns = [];
       [['rolled', 'Rolled up'], ['monthly', 'Paid monthly']].forEach(function (t) {
         var b = h('button', '', t[1]); b.type = 'button'; b.onclick = function () { setFig('interestType', t[0]); }; types.appendChild(b); typeBtns.push([t[0], b]);
       });
-      bc.appendChild(types);
-      var typeNote = h('p', 'note'); bc.appendChild(typeNote);
-      var bRows = h('div'); bc.appendChild(bRows); box.appendChild(bc);
+      pf.body.appendChild(types);
+      var typeNote = h('p', 'note'); pf.body.appendChild(typeNote);
+      var bRows = h('div'); pf.body.appendChild(bRows);
       R.push(function (L) {
         var bv = L.bridge || {}, s = bst(), it = s.interestType || 'rolled', ps = L.ps;
         bTotal.textContent = money(num(bv.totalCost)); match.textContent = 'Use price + refurb (' + money(num(ps.purchasePrice) + num(ps.refurb)) + ')';
@@ -427,73 +529,21 @@
         bRows.innerHTML = ''; rows.forEach(function (r) { var st = statRow(r[0]); st.val.textContent = r[1]; bRows.appendChild(st.row); });
       });
     }
-
-    // ---- 6. then what? ----
-    box.appendChild(h('p', 'eyebrow sect', 'Then what?'));
-    var exits = h('div', 'lg-exits');
-    EXIT_CARDS.forEach(function (ec) {
-      var key = ec[0], on = key === exit, card = h('div', 'exit' + (on ? ' on' : '')), hb = h('button', 'exit-head'); hb.type = 'button'; hb.setAttribute('aria-pressed', on);
-      var radio = h('span', 'radio'); radio.appendChild(h('i')); var mid = h('span', 'mid'), nm = h('b', '', ec[1]), line = h('small'); mid.appendChild(nm); mid.appendChild(line);
-      var right = h('span', 'right'), big = h('span', 'big fig'), bigCap = h('span', 'cap'); right.appendChild(big); right.appendChild(bigCap);
-      hb.appendChild(radio); hb.appendChild(mid); hb.appendChild(right); card.appendChild(hb);
-      hb.onclick = function () { if (on) return; setLet(key); renderCalculator(); };
-      // The line under the name and the caption under the figure break only between their parts, never inside one.
-      var parts = function (el, list) { el.innerHTML = ''; list.forEach(function (t, i) { el.appendChild(h('span', i ? 'seg' : 'seg name', t + (i < list.length - 1 ? ' \u00b7 ' : ''))); el.appendChild(document.createTextNode(' ')); }); };
-      R.push(function (L) {
-        var v = L.exits[key].v;
-        if (key === 'none') { var fv = Calc.flipVerdict(v.margin); big.textContent = pctText(v.margin); big.className = 'big fig ' + (fv || ''); parts(bigCap, ['of end value', 'needs ' + FLIP_PCT]); parts(line, [EXIT_FULL.none, 'Profit ' + minusMoney(Math.round(v.profit))]); }
-        else {
-          big.textContent = pctText(v.roi); big.className = 'big fig ' + (Calc.cashRoiVerdict(v.roi) || '');
-          parts(bigCap, v.cashLeft <= 0 ? ['More out than you put in'] : ['ROI on cash left', 'needs 50%']);
-          parts(line, [EXIT_FULL[key], money2(v.monthly) + ' a month', cashText(v.cashLeft) + (v.cashLeft > 0 ? ' left in' : ' out')]);
-        }
-      });
-      if (on) {
-        var body = h('div', 'exit-body');
-        if (key !== 'none') {
-          var EC = Calc.find(Calc.BRR_LETTING[key]), fields = h('div', 'exit-fields');
-          var val = function (id) { return Calc.ledger(eff(deal), bridgeOn).exits[key].state[id]; };
-          Calc.simplePlan('brr', key).rental.forEach(function (id) {
-            var f = fieldDef(EC, id); if (!f) return;
-            var rr = RENT_RANGE[id] || [0, 1000, 1], sp = rr[2], rtop = stretchTop(rr[1], val(id), Math.max(sp, rr[1] / 10), function () { return num(val(id)); }), hi = rtop.hi;
-            var lv = [sp, sp / 5, sp / 25].map(function (q) { return sp < 1 ? Math.max(q, 0.01) : Math.max(q, 1); });
-            var o = { label: f.label, get: function () { return num(val(id)); }, set: function (v) { setFig(id, v); }, min: rr[0], max: hi, step: sp, levels: lv, snaps: function () { return [f.def]; }, onEnd: refreshLedger };
-            var row = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', f.label); lab.setAttribute('for', 'lg-' + id);
-            if (/per month|per night|per room/.test(f.note || '')) lab.appendChild(h('span', 'unit', ' · ' + f.note.replace('per room, per month', 'per room/month')));
-            var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: true, label: f.label, get: function () { return val(id); }, show: function (v) { return String(v); }, set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-            if (f.unit === '£') w.appendChild(h('span', '', '£')); w.appendChild(inp); if (f.unit === '%') w.appendChild(h('span', '', '%'));
-            l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
-            var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o)); l2.appendChild(sl); l2.appendChild(nudge(1, o)); row.appendChild(l2);
-            fields.appendChild(row);
-            R.push(function () { rtop.grow(); inp._sync(); sl._sync(); });
-          });
-          body.appendChild(fields);
-          var S = { income: statRow('Monthly income'), expenses: statRow('Monthly expenses'), monthly: statRow('Monthly profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET) + ')'), annual: statRow('Annual profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET * 12) + ')'),
-            back: statRow('Months to get money back (green\u00a0≤\u00a06, amber\u00a0≤\u00a024)'), roi: statRow('ROI on cash left in (target 50%)'), pay: statRow('Most you can pay and get it back in 2 years') };
-          ['income', 'expenses', 'monthly', 'annual', 'back', 'roi', 'pay'].forEach(function (k) { body.appendChild(S[k].row); });
-          R.push(function (L) {
-            var v = L.exits[key].v, mv = Calc.monthlyProfitVerdict(v.monthly), bv = Calc.paybackVerdict(v.breakeven, v.cashLeft);
-            S.income.val.textContent = money2(v.monthly + v.expenses); S.expenses.val.textContent = '−' + money2(v.expenses);
-            S.monthly.val.textContent = money2(v.monthly) + tickOf(mv); S.monthly.val.className = 'fig ' + (mv || '');
-            S.annual.val.textContent = money(v.annual) + tickOf(mv); S.annual.val.className = 'fig ' + (mv || '');
-            S.back.val.textContent = v.cashLeft <= 0 ? '—' : typeof v.breakeven === 'number' && isFinite(v.breakeven) ? fmt('months', v.breakeven) : 'Never at this rent'; S.back.val.className = 'fig ' + bv;
-            var rv = Calc.cashRoiVerdict(v.roi); S.roi.val.textContent = pctText(v.roi) + tickOf(rv); S.roi.val.className = 'fig ' + (rv || '');
-            S.pay.val.textContent = v.paybackPrice == null ? '—' : money(v.paybackPrice);
-          });
-        } else {
-          var F = { tin: statRow('Total in'), sell: statRow('Sell for'), ret: statRow('Return on money in') };
-          ['tin', 'sell', 'ret'].forEach(function (k) { body.appendChild(F[k].row); });
-          R.push(function (L) { var v = L.exits.none.v; F.tin.val.textContent = money(v.totalIn); F.sell.val.textContent = money(num(L.ps.endValue)); F.ret.val.textContent = pctText(v.flipRoi); });
-        }
-        card.appendChild(body);
-      }
-      exits.appendChild(card);
-    });
-    box.appendChild(exits);
+    folds.forEach(function (f) { box.appendChild(f.card); });
     var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); box.appendChild(foot);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
 
-    // ---- 7. the bar above the tabs ----
+    // ---- 7. the verdict, docked above the buttons ----
+    var dock = h('div', 'verdict-dock'), score = h('span', 'vd-score'), vt = h('span', 'vd-txt'), vtitle = h('b'), vname = h('span'), vdet = h('span', 'vd-detail'), vmiss = h('small');
+    vtitle.appendChild(vname); vtitle.appendChild(vdet); vt.appendChild(vtitle); vt.appendChild(vmiss); dock.appendChild(score); dock.appendChild(vt);
+    dock.setAttribute('role', 'status'); box.appendChild(dock);
+    R.push(function (L, X) {
+      var vd = Calc.dealVerdict(exit, X.v);
+      dock.className = 'verdict-dock ' + vd.tone; score.textContent = vd.score + '/' + vd.of;
+      vname.textContent = vd.title + ' · '; vdet.textContent = vd.detail; vmiss.textContent = vd.line;
+    });
+
+    // ---- 8. the bar above the tabs ----
     var sbar = $('sticky-bar'); sbar.innerHTML = '';
     var save = h('button', 'sec', 'Save'), go = h('button', 'primary', 'Compare side by side');
     save.onclick = saveDeal; go.onclick = function () { location.hash = '#compare'; };

@@ -7,4 +7,4 @@ Compare every strategy, save deals and compare them side by side, and export a P
 
 Static site, no build step. Installable on a phone and works offline. Deployed to Vercel from this repo's `main` branch.
 
-Tests: `node test.js && node test-calcs.js && node test-pdf.js && node test-sw.js && node test-app.js`
+Tests: `node test.js && node test-calcs.js && node test-pdf.js && node test-sw.js && node test-app.js && node test-verdict.js && node test-browser.js`

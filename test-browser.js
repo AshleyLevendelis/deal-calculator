@@ -1,0 +1,98 @@
+// Drives the Calculator's main screen (design 6c) in a real browser: the slider's bubble, drag and snap tick, Set price,
+// the arrow keys, Reset, the fold cards (one open at a time), the remembered exit and bridging, and 44px tap targets.
+// Needs Playwright with Chromium (installed in Claude's cloud sessions). Run: node test-browser.js
+const http = require('http'), fs = require('fs'), path = require('path');
+let pw; try { pw = require('playwright'); } catch (e) { try { pw = require('/opt/node-tools/node_modules/playwright'); } catch (e2) { console.log('skipped: Playwright is not installed here'); process.exit(0); } }
+const { chromium } = pw;
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const server = http.createServer((req, res) => { const f = path.join(__dirname, decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html');
+  if (!f.startsWith(__dirname) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res); });
+let fails = 0; const ok = (n, c, x) => { console.log((c ? 'ok:   ' : 'FAIL: ') + n + (c ? '' : ' ' + (x || ''))); if (!c) fails++; };
+server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + server.address().port; const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', hasTouch: false });
+  await ctx.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); window.__buzz = 0; navigator.vibrate = () => { window.__buzz++; return true; }; });
+  const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
+  await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
+  for (const [id, v] of [['lg-endValue', 230000], ['lg-purchasePrice', 125000], ['lg-refurb', 30000], ['lg-legal', 1500]]) await p.fill('#' + id, String(v));
+  await p.evaluate(() => document.activeElement.blur());
+  await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(100);
+  const val = id => p.$eval('#lg-' + id, e => e.value);
+  // Reopen to set the start figures to the typed deal (as opening a saved deal does): Reset and "from" use them.
+  // Drag the price slider: the bubble shows while the finger is down, and the value moves relatively.
+  const price = p.locator('.deal-card >> nth=1'), sl = price.locator('.scrub'); await sl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100); let bb = await sl.boundingBox();
+  const y = bb.y + bb.height / 2, x0 = bb.x + bb.width * 0.5;
+  await p.mouse.move(x0, y); await p.mouse.down(); await p.mouse.move(x0 + 30, y, { steps: 5 }); await p.waitForTimeout(50);
+  ok('the value bubble shows while dragging, with the price', await price.locator('.scrub-bubble').isVisible() && /^£\d{2,3},\d{3}$/.test(await price.locator('.scrub-bubble').textContent()), await price.locator('.scrub-bubble').textContent());
+  ok('the drag hint shows in the sub line', (await price.locator('.lg-sub').textContent()).includes('Slide your finger down'));
+  await p.mouse.up(); await p.waitForTimeout(50);
+  ok('the bubble hides when the finger lifts', !(await price.locator('.scrub-bubble').isVisible()));
+  ok('the drag moved the price (relative, not a jump)', (await val('purchasePrice')) !== '125,000', await val('purchasePrice'));
+  // Set price: snaps to the recycle price with a tick, glow and the snapped text.
+  const buzz0 = await p.evaluate(() => window.__buzz);
+  await price.locator('.rec-btn').click(); await p.waitForTimeout(60);
+  const rec = (await price.locator('.rec-txt b').textContent()).replace('≤ ', '');
+  ok('Set price sets the recycle price', '£' + (await val('purchasePrice')) === rec, (await val('purchasePrice')) + ' vs ' + rec);
+  ok('Set price buzzes once', (await p.evaluate(() => window.__buzz)) === buzz0 + 1);
+  ok('the thumb glows', await sl.evaluate(e => e.classList.contains('snapped')));
+  ok('the sub line says it snapped to the recycle price, in the good colour', (await price.locator('.lg-sub').textContent()) === '✓ Snapped to the recycle price' && await price.locator('.lg-sub').evaluate(e => e.classList.contains('good')));
+  ok('only that slider glows', (await p.locator('.scrub.snapped').count()) === 1);
+  await p.waitForTimeout(1000);
+  ok('the glow and text go after 900ms', !(await sl.evaluate(e => e.classList.contains('snapped'))) && (await price.locator('.lg-sub').textContent()) === '');
+  await sl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100);
+  const px = await sl.evaluate(w => { const r = w.getBoundingClientRect(), i = w.querySelector('.scrub-in'), q = (125000 - Number(i.min)) / (Number(i.max) - Number(i.min)); return r.x + 20 + (r.width - 40) * q; });
+  const pb = await sl.boundingBox(); await p.mouse.click(px, pb.y + pb.height / 2); await p.waitForTimeout(40);
+  ok('the price snapping to its starting figure says so (not the recycle price)', (await val('purchasePrice')) === '125,000' && (await price.locator('.lg-sub').textContent()) === '✓ Snapped to the starting figure', await val('purchasePrice') + ' ' + await price.locator('.lg-sub').textContent());
+  await p.waitForTimeout(950);
+  // A slow level-0 drag across the starting figure snaps once per entry.
+  const ev = p.locator('.deal-card >> nth=0'), esl = ev.locator('.scrub'); await esl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100); bb = await esl.boundingBox();
+  const ey = bb.y + bb.height / 2, thumbX = await ev.locator('.scrub-thumb').evaluate(t => { const r = t.getBoundingClientRect(); return r.x + r.width / 2; });
+  const b1 = await p.evaluate(() => window.__buzz);
+  await p.mouse.move(thumbX, ey); await p.mouse.down(); await p.mouse.move(thumbX + 40, ey, { steps: 20 });
+  const b2 = await p.evaluate(() => window.__buzz);
+  await p.mouse.move(thumbX + 2, ey, { steps: 20 }); await p.mouse.move(thumbX + 4, ey, { steps: 4 });
+  const b3 = await p.evaluate(() => window.__buzz); await p.mouse.up();
+  ok('leaving the magnet does not buzz', b2 === b1, `${b1} ${b2}`);
+  ok('coming back onto the starting figure buzzes once, not on every move', b3 === b2 + 1, `${b2} ${b3}`);
+  ok('the end value is back on its starting figure', (await val('endValue')) === '230,000', await val('endValue'));
+  // A tap that lands on a magnet ticks.
+  await p.fill('#lg-endValue', '250000'); await p.evaluate(() => document.activeElement.blur());
+  await esl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100);
+  const tapX = await esl.evaluate(w => { const r = w.getBoundingClientRect(), i = w.querySelector('.scrub-in'), q = (230000 - Number(i.min)) / (Number(i.max) - Number(i.min)); return r.x + 20 + (r.width - 40) * q; });
+  const bt = await p.evaluate(() => window.__buzz); const eb = await esl.boundingBox();
+  await p.mouse.click(tapX + 1, eb.y + eb.height / 2); await p.waitForTimeout(40);
+  ok('a tap that lands near the starting figure snaps onto it and ticks', (await val('endValue')) === '230,000' && (await p.evaluate(() => window.__buzz)) === bt + 1 && (await ev.locator('.lg-sub').textContent()) === '✓ Snapped to the starting figure', await val('endValue'));
+  await p.fill('#lg-endValue', '250000'); await p.evaluate(() => document.activeElement.blur());
+  // Keyboard: the hidden range steps like − and +.
+  await ev.locator('.scrub-in').focus(); const before = await val('endValue'); await p.keyboard.press('ArrowRight');
+  ok('the right arrow key steps the end value up by £1,000', (await val('endValue')) === '251,000', before + ' -> ' + (await val('endValue')));
+  await p.keyboard.press('ArrowLeft'); await p.keyboard.press('ArrowLeft');
+  ok('the left arrow key steps it down', (await val('endValue')) === '249,000');
+  ok('the slider is reachable by keyboard with a label', await ev.locator('.scrub-in').evaluate(e => e.type === 'range' && !!e.getAttribute('aria-label') && /£/.test(e.getAttribute('aria-valuetext') || '')));
+  // Reset in the panel brings back the starting figures.
+  ok('Reset shows once a figure has changed', await p.locator('.pin-reset').isVisible());
+  await p.click('.pin-reset'); await p.waitForTimeout(60);
+  ok('Reset puts the four figures back', (await val('endValue')) === '230,000' && !(await p.locator('.pin-reset').isVisible()), await val('endValue'));
+  // Folds: one at a time, summary when closed.
+  const fold = n => p.locator(`.lg-fold:has(.fold-txt b:text-is("${n}"))`);
+  await fold('BTL figures').locator('.fold-head').click();
+  ok('opening BTL figures shows its sliders', await fold('BTL figures').locator('.fold-body').isVisible() && (await fold('BTL figures').locator('.rent-row').count()) === 4);
+  await fold('Your own money in').locator('.fold-head').click();
+  ok('opening another closes the first', !(await fold('BTL figures').locator('.fold-body').isVisible()) && await fold('Your own money in').locator('.fold-body').isVisible());
+  ok('closed cards show a one-line summary', /^Monthly income £1,000 · Mortgage rate 5%$/.test(await fold('BTL figures').locator('small').textContent()), await fold('BTL figures').locator('small').textContent());
+  await fold('Paying for it').locator('.fold-head').click(); await p.click('.lg-seg button:has-text("Bridging loan")'); await p.waitForTimeout(100);
+  ok('turning bridging on keeps Paying for it open', await fold('Paying for it').locator('.fold-body').isVisible() && (await fold('Paying for it').locator('.bridge-grid').count()) === 1);
+  ok('its summary names the bridging cost', /^Bridging loan · £[\d,]+ cost$/.test(await fold('Paying for it').locator('small').textContent()));
+  // A rent nudge and slider in the open let fold
+  await fold('BTL figures').locator('.fold-head').click();
+  const rent = await p.$eval('#lg-monthlyRent', e => e.value); await fold('BTL figures').locator('.nudge >> nth=1').click(); await p.waitForTimeout(50);
+  ok('a rent + nudge steps the rent by £25', Number(await p.$eval('#lg-monthlyRent', e => e.value)) === Number(rent) + 25);
+  // Exit switch keeps the remembered choice
+  await p.click('.exit-tile:has(.nm:text-is("SA"))'); await p.waitForTimeout(80);
+  ok('switching exit relabels the pill, heading and fold', (await p.locator('.pin-exit').textContent()) === 'BRR → SA' && (await p.locator('.lg-h >> nth=1').textContent()) === 'How SA does' && (await fold('SA figures').count()) === 1);
+  await p.reload(); await p.waitForTimeout(300);
+  ok('the exit and bridging choice are remembered', (await p.locator('.pin-exit').textContent()) === 'BRR → SA' && (await p.locator('.pin-tag').isVisible()));
+  // Tap targets on this screen
+  const small = await p.evaluate(() => [...document.querySelectorAll('#v-home button, #v-home input:not(.scrub-in), #sticky-bar button')].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e, '::after'); let w = r.width, h = r.height; if (cs.content !== 'none' && cs.position === 'absolute') { const i = parseFloat(cs.top) || 0; w -= 2 * i; h -= 2 * i; } return { t: (e.textContent || e.id || e.className).slice(0, 30), w: Math.round(w), h: Math.round(h) }; }).filter(x => x.h < 44));
+  ok('every tap target is 44px tall or more', !small.length, JSON.stringify(small));
+  ok('no page errors', !errs.length, JSON.stringify(errs));
+  await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });
