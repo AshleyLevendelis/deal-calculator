@@ -29,7 +29,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 ## The pieces
 | Piece | Where it lives | What it does |
 |---|---|---|
-| The app | GitHub AshleyLevendelis/deal-calculator -> its own Vercel project | Plain HTML/CSS/JS PWA, no build step, no framework. Push to main = live. |
+| The app | GitHub AshleyLevendelis/deal-calculator -> Vercel project deal-calculator, live at deal-calculator-eight.vercel.app | Plain HTML/CSS/JS PWA, no build step, no framework. Push to main = live. |
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js` — all must pass. New logic gets
@@ -37,6 +37,8 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
   the code looks up exists, two tabs, the app name, and no deal-feed code, page parts or styles left.
 - Every change that touches a precached file bumps the cache name in sw.js (deal-calculator-v1, v2, ...).
 - Push straight to main is fine. Do the tests first.
+- The live site and the Vercel project cannot be read from a cloud session (the egress proxy blocks *.vercel.app and the
+  Vercel connection may not grant read access to the project). Ask Ashley to check on her phone.
 
 ## The app
 Two tabs: Calculator and Saved. Compare is a screen reached from the Calculator ("Compare side by side" on the ledger,
