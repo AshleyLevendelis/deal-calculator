@@ -33,5 +33,13 @@ const feedCss = ['.deal-card', '.day-tile', '.fbox', '.near-row', '.ctx-card', '
 const leftCss = feedCss.filter(c => html.includes(c));
 ok('no deal-feed styles', !leftCss.length, leftCss.join(', '));
 for (const f of ['geo.js', 'deals.json', 'archive.js', 'history', 'pipeline', '.github']) ok('no ' + f + ' in the repo', !fs.existsSync(__dirname + '/' + f));
+// The privacy policy: the standalone page says exactly what the app's sheet says.
+const priv = fs.readFileSync(__dirname + '/privacy.html', 'utf8'), P = eval('(' + /var PRIVACY = (\{ updated:[\s\S]*?\]\] \});/.exec(app)[1] + ')');
+const unesc = t => t.replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+const pageSecs = [...priv.matchAll(/<h2>([^<]*)<\/h2>\n<p>([^<]*)<\/p>/g)].map(m => [unesc(m[1]), unesc(m[2])]);
+ok('privacy.html has the same sections and words as the app', JSON.stringify(pageSecs) === JSON.stringify(P.sections) && priv.includes('last updated ' + P.updated), JSON.stringify(pageSecs).slice(0, 200));
+ok('the privacy policy does not describe things this app does not do (deal list, postcode search, listing links)', !/deal list|postcode|listing/i.test(JSON.stringify(P.sections)));
+ok('the contact email is a clearly marked placeholder until it is filled in', /\[CONTACT EMAIL TO BE ADDED BEFORE LAUNCH\]/.test(JSON.stringify(P.sections)) || /@/.test(P.sections[P.sections.length - 1][1]));
+ok('the disclaimer is in the app', app.includes('Estimates only, not financial, tax or legal advice.'));
 console.log(n + ' checks ran');
 if (fails) process.exit(1);

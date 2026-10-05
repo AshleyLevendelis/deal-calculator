@@ -2,19 +2,53 @@
 // Pure functions and plain data: no DOM, so the same file runs in the app and in test.js.
 // Each calculator is a spec: a layout (what the screen shows) and compute(state) -> { v: values by id }.
 (function (root) {
-  // England/NI stamp duty for an additional property (the sheets' bands: 5/7/10/15/17%).
-  var SDLT_BANDS = [[125000, 0.05], [250000, 0.07], [925000, 0.10], [1500000, 0.15], [Infinity, 0.17]];
-
-  function stampDuty(price) {
-    if (price > 1500000) return price * 0.17; // sheets: whole price at 17% above 1.5m
+  // ---- Property tax on the purchase: where the property is and who is buying (5 Oct 2026) ----------------------
+  // England & NI: Stamp Duty Land Tax. Scotland: Land and Buildings Transaction Tax plus the Additional Dwelling
+  // Supplement. Wales: Land Transaction Tax. Rates as at October 2026 (checked against the published 2026-27 rates:
+  // SDLT unchanged since 1 April 2025, the 5% surcharge since 31 October 2024; LBTT and the 8% ADS kept for 2026-27;
+  // LTT main rates since 10 October 2022 and higher rates since 11 December 2024, kept for 2026-27). Each band is
+  // [upper limit, rate] and is charged only on the slice of the price inside it.
+  var TAX_RATES = {
+    eng: { name: 'England & NI', tax: 'SDLT', main: [[125000, 0], [250000, 0.02], [925000, 0.05], [1500000, 0.10], [Infinity, 0.12]],
+      ftb: [[300000, 0], [500000, 0.05]], ftbCap: 500000, surcharge: 0.05 },
+    sco: { name: 'Scotland', tax: 'LBTT', main: [[145000, 0], [250000, 0.02], [325000, 0.05], [750000, 0.10], [Infinity, 0.12]],
+      ftb: [[175000, 0], [250000, 0.02], [325000, 0.05], [750000, 0.10], [Infinity, 0.12]], surcharge: 0.08 },
+    wal: { name: 'Wales', tax: 'LTT', main: [[225000, 0], [400000, 0.06], [750000, 0.075], [1500000, 0.10], [Infinity, 0.12]],
+      higher: [[180000, 0.05], [250000, 0.085], [400000, 0.10], [750000, 0.125], [1500000, 0.15], [Infinity, 0.17]], ftb: null }
+  };
+  // The extra charge for an additional home (surcharge, ADS or higher rates) never applies to a price under 40,000.
+  var HIGHER_RATES_FROM = 40000;
+  var BUYERS = { add: 'Additional property', main: 'Main home', ftb: 'First-time buyer' };
+  function bandsTax(price, bands) {
     var tax = 0, lower = 0;
-    for (var i = 0; i < SDLT_BANDS.length; i++) {
-      var upper = SDLT_BANDS[i][0], rate = SDLT_BANDS[i][1];
-      if (price > lower) tax += (Math.min(price, upper) - lower) * rate;
-      lower = upper;
-    }
+    for (var i = 0; i < bands.length; i++) { var upper = bands[i][0]; if (price > lower) tax += (Math.min(price, upper) - lower) * bands[i][1]; lower = upper; }
     return tax;
   }
+  // Wales has no first-time buyer relief, so a first-time buyer there pays the main rates.
+  function taxBasis(region, buyer) {
+    var r = TAX_RATES.hasOwnProperty(region) ? region : 'eng', b = BUYERS.hasOwnProperty(buyer) ? buyer : 'add';
+    if (b === 'ftb' && !TAX_RATES[r].ftb) b = 'main';
+    return { region: r, buyer: b };
+  }
+  function propertyTax(price, region, buyer) {
+    price = Number(price); if (!(price > 0) || !isFinite(price)) return 0;
+    var k = taxBasis(region, buyer), R = TAX_RATES[k.region], higher = k.buyer === 'add' && price >= HIGHER_RATES_FROM;
+    if (k.region === 'wal') return bandsTax(price, higher ? R.higher : R.main);
+    if (k.buyer === 'ftb') return k.region === 'eng' && price > R.ftbCap ? bandsTax(price, R.main) : bandsTax(price, R.ftb);
+    return bandsTax(price, R.main) + (higher ? price * R.surcharge : 0);
+  }
+  // The setting every calculator uses (one per phone; the app sets it from what was chosen). Default: England & NI,
+  // additional property, as the app always assumed.
+  var TAX = { region: 'eng', buyer: 'add' };
+  function setTax(t) { TAX = taxBasis(t && t.region, t && t.buyer); return { region: TAX.region, buyer: TAX.buyer }; }
+  function taxSetting() { return { region: TAX.region, buyer: TAX.buyer }; }
+  // e.g. { tax: 'LBTT', place: 'Scotland', buyer: 'Main home', short: 'Scotland, main home' }
+  function taxLabel(t) {
+    var k = taxBasis(t ? t.region : TAX.region, t ? t.buyer : TAX.buyer), R = TAX_RATES[k.region];
+    return { tax: R.tax, place: R.name, buyer: BUYERS[k.buyer], short: R.name + ', ' + BUYERS[k.buyer].toLowerCase() };
+  }
+  // Every caller in this file works out stamp duty through this, so the setting reaches every calculator.
+  function stampDuty(price) { return propertyTax(price, TAX.region, TAX.buyer); }
 
   function n(v) { v = Number(v); return isFinite(v) ? v : 0; }
   var NO_CASH = '∞ (no cash left in)';
@@ -417,7 +451,8 @@
   function rank(roi) { return typeof roi === 'number' ? roi : (typeof roi === 'string' && roi.charAt(0) === '∞') ? Infinity : -Infinity; }
   // A flip is acceptable at 20% net profit (profit as a share of the end value) or more. The test is made on the
   // figure as it is shown (one decimal place), so a flip shown as 20.0% is never coloured as if it missed.
-  // Three bands (Ashley, 5 Oct 2026): 25% or more good (green), 20% up to 25% an OK flip (amber), below 20% weak (red).
+  // Three bands (Ashley, 5 Oct 2026): the target (25% to start) or more good (green), up to 5 points below it an OK flip
+  // (amber; 20% to 25% with the starting target), below that weak (red). The target is the person's own (setTargets).
   var FLIP_TARGET = 0.25, FLIP_OK = 0.2;
   function flipVerdict(margin) {
     if (typeof margin !== 'number' || !isFinite(margin)) return null;
@@ -649,7 +684,27 @@
   // (the figure shown as left in is 0 or less). A flip is judged on the 25% target alone. v is the exit's figures from
   // ledger(): monthly, roi, cashLeft, breakeven for a let; margin and profit for a flip. ps (optional) is the deal's
   // figures: with no end value or no purchase price there is no deal to score, so the verdict asks for them instead.
-  var LET_TARGETS = ['£500 a month', '50% ROI', 'Money back in 6 months', 'All cash recycled'];
+  // ---- The person's own targets (5 Oct 2026): every verdict, colour and label reads these, never fixed figures ----
+  var DEFAULT_TARGETS = { flip: 25, monthly: 500, roi: 50, payback: 6 }, TG = { flip: 25, monthly: 500, roi: 50, payback: 6 };
+  var TARGET_LIMITS = { flip: [1, 100], monthly: [0, 100000], roi: [1, 1000], payback: [1, PAYBACK_OK] };
+  function setTargets(t) {
+    var c = {};
+    Object.keys(DEFAULT_TARGETS).forEach(function (k) {
+      var v = Number(t && t[k]), lim = TARGET_LIMITS[k];
+      c[k] = t && t[k] !== '' && t[k] != null && isFinite(v) ? Math.min(lim[1], Math.max(lim[0], Math.round(v * 100) / 100)) : DEFAULT_TARGETS[k];
+    });
+    TG = c;
+    FLIP_TARGET = c.flip / 100; FLIP_OK = Math.max(0, c.flip - 5) / 100; CASH_ROI_TARGET = c.roi / 100; MONTHLY_PROFIT_TARGET = c.monthly; PAYBACK_GOOD = c.payback;
+    if (typeof api !== 'undefined') { api.FLIP_TARGET = FLIP_TARGET; api.FLIP_OK = FLIP_OK; api.CASH_ROI_TARGET = CASH_ROI_TARGET; api.MONTHLY_PROFIT_TARGET = MONTHLY_PROFIT_TARGET; api.PAYBACK_GOOD = PAYBACK_GOOD; }
+    return targets();
+  }
+  function targets() { return { flip: TG.flip, monthly: TG.monthly, roi: TG.roi, payback: TG.payback }; }
+  function defaultTargets() { return { flip: DEFAULT_TARGETS.flip, monthly: DEFAULT_TARGETS.monthly, roi: DEFAULT_TARGETS.roi, payback: DEFAULT_TARGETS.payback }; }
+  function poundsText(v) { return '\u00a3' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 2 }); }
+  // The targets as the screen names them, e.g. '25% flip · £500/mo · 50% ROI · 6 mo back'.
+  function targetsSummary(t) { t = t || TG; return t.flip + '% flip \u00b7 ' + poundsText(t.monthly) + '/mo \u00b7 ' + t.roi + '% ROI \u00b7 ' + t.payback + ' mo back'; }
+  // The four let targets, named from the current figures: £500 a month, 50% ROI, Money back in 6 months, All cash recycled.
+  function letTargets() { return [poundsText(TG.monthly) + ' a month', TG.roi + '% ROI', 'Money back in ' + TG.payback + (TG.payback === 1 ? ' month' : ' months'), 'All cash recycled']; }
   function dealEntered(ps) { return Number(ps && ps.endValue) > 0 && Number(ps && ps.purchasePrice) > 0; }
   function dealVerdict(exit, v, ps) {
     v = v || {};
@@ -657,21 +712,22 @@
       detail: 'add end value and purchase price', misses: [], line: '' };
     if (exit === 'none' || exit === 'flip') {
       var fv = flipVerdict(v.margin), ok = fv === 'good', tone = fv === 'amber' ? 'amber' : ok ? 'good' : 'bad';
-      var m = typeof v.margin === 'number' && isFinite(v.margin) ? (v.margin * 100).toFixed(1) + '%' : '—';
-      return { kind: 'flip', score: ok ? 1 : 0, of: 1, hits: [ok], targets: ['25% margin'], tone: tone, title: ok ? 'Good flip' : fv === 'amber' ? 'OK flip' : v.profit > 0 ? 'Weak flip' : 'Loss-making flip',
-        detail: m + ' margin · target ' + Math.round(FLIP_TARGET * 100) + '%', misses: ok ? [] : ['25% margin'],
-        line: ok ? 'Clears the 25% flip target' : fv === 'amber' ? 'OK: between 20% and the 25% target' : 'Below 20%: misses the 25% flip target' };
+      var m = typeof v.margin === 'number' && isFinite(v.margin) ? (v.margin * 100).toFixed(1) + '%' : '\u2014', tp = TG.flip + '%', okp = Math.max(0, TG.flip - 5) + '%';
+      return { kind: 'flip', score: ok ? 1 : 0, of: 1, hits: [ok], targets: [tp + ' margin'], tone: tone, title: ok ? 'Good flip' : fv === 'amber' ? 'OK flip' : v.profit > 0 ? 'Weak flip' : 'Loss-making flip',
+        detail: m + ' margin \u00b7 target ' + tp, misses: ok ? [] : [tp + ' margin'],
+        line: ok ? 'Clears the ' + tp + ' flip target' : fv === 'amber' ? 'OK: between ' + okp + ' and the ' + tp + ' target' : 'Below ' + okp + ': misses the ' + tp + ' flip target' };
     }
     var recycled = typeof v.cashLeft === 'number' && cashKind(v.cashLeft) !== 'in';
     var hits = [monthlyProfitVerdict(v.monthly) === 'good', recycled || cashRoiVerdict(v.roi) === 'good',
       paybackVerdict(v.breakeven, recycled ? 0 : v.cashLeft) === 'good', recycled];
-    var n = hits.filter(Boolean).length, misses = LET_TARGETS.filter(function (t, i) { return !hits[i]; });
-    return { kind: 'let', score: n, of: 4, hits: hits, targets: LET_TARGETS.slice(), tone: n >= 3 ? 'good' : n === 2 ? 'amber' : 'bad',
+    var names = letTargets(), n = hits.filter(Boolean).length, misses = names.filter(function (t, i) { return !hits[i]; });
+    return { kind: 'let', score: n, of: 4, hits: hits, targets: names, tone: n >= 3 ? 'good' : n === 2 ? 'amber' : 'bad',
       title: n === 4 ? 'Strong deal' : n === 3 ? 'Good deal' : n === 2 ? 'Borderline' : 'Weak deal',
       detail: n === 4 ? 'hits all 4 targets' : 'hits ' + n + ' of 4 targets', misses: misses,
       line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
 
-  var api = { dealVerdict: dealVerdict, dealEntered: dealEntered, LET_TARGETS: LET_TARGETS, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  setTargets(DEFAULT_TARGETS);
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(this);

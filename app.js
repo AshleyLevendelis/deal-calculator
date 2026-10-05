@@ -22,14 +22,19 @@
     el.classList.remove('good', 'bad');
     if (typeof v === 'number' && v !== 0) el.classList.add(v > 0 ? 'good' : 'bad');
   }
-  var FLIP_PCT = Math.round(Calc.FLIP_TARGET * 100) + '%';
+  // The person's own targets and stamp duty setting (Settings and the Calculator). Applied before anything is drawn;
+  // every verdict, colour and label then reads them from calc.js.
+  var TARGETS_STORE = 'deal-analyser:targets', TAX_STORE = 'deal-analyser:tax';
+  Calc.setTargets(load(TARGETS_STORE, null) || {}); Calc.setTax(load(TAX_STORE, null) || {});
+  function flipPct() { return Calc.targets().flip + '%'; }
   // Flip net profit: green at the target (25%) or more, amber from 20%, red below. A tick or cross goes with green and red
   // so it does not rely on colour alone; an OK flip (amber) has neither.
-  var FLIP_OK_PCT = Math.round(Calc.FLIP_OK * 100) + '%';
+  function flipOkPct() { return Math.max(0, Calc.targets().flip - 5) + '%'; }
+  function roiPct() { return Calc.targets().roi + '%'; }
   function flipMarginText(m) { var t = fmt('pct', m), v = Calc.flipVerdict(m); return v === 'good' ? t + ' ✓' : v === 'bad' ? t + ' ✗' : t; }
   function setVerdict(el, m) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.flipVerdict(m); if (v) el.classList.add(v); }
-  function flipNote(v) { return v === 'good' ? ' (meets the ' + FLIP_PCT + ' target)' : v === 'amber' ? ' (OK: between ' + FLIP_OK_PCT + ' and the ' + FLIP_PCT + ' target)' : v === 'bad' ? ' (below ' + FLIP_OK_PCT + ')' : ''; }
-  // ROI on cash left in: green at 50% or more, red below. A tick or cross goes with the colour so it does not rely on colour alone.
+  function flipNote(v) { return v === 'good' ? ' (meets the ' + flipPct() + ' target)' : v === 'amber' ? ' (OK: between ' + flipOkPct() + ' and the ' + flipPct() + ' target)' : v === 'bad' ? ' (below ' + flipOkPct() + ')' : ''; }
+  // ROI on cash left in: green at the target (50% to start) or more, red below. A tick or cross goes with the colour so it does not rely on colour alone.
   function cashRoiText(r) { var t = fmt('pct', r), v = Calc.cashRoiVerdict(r); return typeof r === 'number' ? (v === 'good' ? t + ' \u2713' : v === 'bad' ? t + ' \u2717' : t) : t; }
   function setCashRoi(el, r) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.cashRoiVerdict(r); if (v) el.classList.add(v); }
   function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -133,7 +138,7 @@
     if (typeof val === 'string' && val.charAt(0) === '\u221e') return { text: '\u221e', cls: 'good', cap: 'No cash left in' };
     if (def.kind === 'cashroi') {
       var cv = Calc.cashRoiVerdict(val);
-      return { text: typeof val === 'number' ? fmt('pct', val) : '\u2014', cls: cv || '', cap: def.cap + (cv === 'good' ? ' \u2014 meets the 50% target' : cv === 'bad' ? ' \u2014 below the 50% target' : '') };
+      return { text: typeof val === 'number' ? fmt('pct', val) : '\u2014', cls: cv || '', cap: def.cap + (cv === 'good' ? ' \u2014 meets the ' + roiPct() + ' target' : cv === 'bad' ? ' \u2014 below the ' + roiPct() + ' target' : '') };
     }
     if (typeof val !== 'number') return { text: '\u2014', cls: '', cap: def.cap };
     return { text: fmt('pct', val), cls: val < 0 ? 'bad' : val < 0.08 ? 'amber' : 'good', cap: def.cap };
@@ -146,8 +151,8 @@
   // A worked-out figure shown among the inputs, so nothing in the sum is hidden: stamp duty is not typed, but it is seen.
   // It is filled by update() like a working row ('p' = from the primary screen's flip calculator).
   function readonlyRow(card, k, src) {
-    var row = h('div', 'row ro-row'), lab = h('label', '', k.label);
-    if (k.note) lab.appendChild(h('small', '', k.note));
+    var row = h('div', 'row ro-row'), lab = h('label', '', k.label), note = k.id === 'sdlt' ? 'Worked out for ' + Calc.taxLabel().short + ' (' + Calc.taxLabel().tax + ')' : k.note;
+    if (note) lab.appendChild(h('small', '', note));
     var val = h('b', 'fig ro-val'); row.appendChild(lab); row.appendChild(val); card.appendChild(row);
     nodes.calcs.push([k, val, row, src]);
   }
@@ -352,7 +357,7 @@
       } else {
         var fv = Calc.flipVerdict(v.margin);
         eye.textContent = 'Flip profit'; hero.textContent = minusMoney(Math.round(v.profit)); hero.className = 'pin-fig fig ' + (v.profit < 0 ? 'bad' : fv || '');
-        sideFig.textContent = pctText(v.margin); sideFig.className = 'pin-side-fig fig ' + (fv || ''); sideCap.textContent = 'of end value · ' + FLIP_PCT + ' target';
+        sideFig.textContent = pctText(v.margin); sideFig.className = 'pin-side-fig fig ' + (fv || ''); sideCap.textContent = 'of end value · ' + flipPct() + ' target';
         capR.textContent = 'In ' + money(tin);
       }
       barA.style.width = (Math.min(loan, tin) / big * 100).toFixed(1) + '%'; barB.style.width = (Math.abs(tin - loan) / big * 100).toFixed(1) + '%';
@@ -364,14 +369,18 @@
     var strip = h('div', 'vstrip'), sbtn = h('button', 'vs-row'), score = h('span', 'vs-score'), vtxt = h('span', 'vs-txt'), vtitle = h('span'), vdet = h('span', 'vs-detail'), vlab = h('span', 'vs-lab');
     var chipsBox = h('div', 'vs-chips');
     sbtn.type = 'button'; vtxt.appendChild(vtitle); vtxt.appendChild(vdet); sbtn.appendChild(score); sbtn.appendChild(vtxt); sbtn.appendChild(vlab);
-    strip.appendChild(sbtn); strip.appendChild(chipsBox); pin.appendChild(strip);
+    var shead = h('div', 'vs-head'), edit = h('button', 'vs-edit', 'Edit targets'); edit.type = 'button'; edit.onclick = openTargets;
+    shead.appendChild(sbtn); shead.appendChild(edit);
+    var tfoot = h('div', 'vs-foot'), tsum = h('span', 'vs-sum'), tlink = h('button', 'vs-link', 'Edit targets →'); tlink.type = 'button'; tlink.onclick = openTargets;
+    tfoot.appendChild(tsum); tfoot.appendChild(tlink);
+    strip.appendChild(shead); strip.appendChild(chipsBox); strip.appendChild(tfoot); pin.appendChild(strip);
     var drawStrip = function (vd) {
       var any = vd.targets.length > 0, open = any && targetsOpen;
       strip.className = 'vstrip ' + vd.tone; score.textContent = vd.score == null ? '–' : vd.score + '/' + vd.of;
       vtitle.textContent = vd.title; vdet.textContent = ' · ' + vd.detail;
       vlab.hidden = !any; vlab.textContent = open ? 'Hide ▴' : 'Targets ▾';
       sbtn.setAttribute('aria-expanded', open); sbtn.disabled = !any;
-      chipsBox.hidden = !open; chipsBox.innerHTML = '';
+      chipsBox.hidden = !open; tfoot.hidden = !open; tsum.textContent = Calc.targetsSummary(); chipsBox.innerHTML = '';
       vd.targets.forEach(function (t, i) {
         var c = h('span', 'vs-chip'), m = h('span', 'vs-mark ' + (vd.hits[i] ? 'good' : 'bad'), vd.hits[i] ? '✓' : '✗');
         m.setAttribute('aria-label', vd.hits[i] ? 'Met:' : 'Missed:'); c.appendChild(m); c.appendChild(h('span', '', t)); chipsBox.appendChild(c);
@@ -435,8 +444,7 @@
       };
       var sdVal = null;
       if (isPrice) {
-        var sd = h('div', 'lg-sdlt'), sl2 = h('span', '', 'Stamp duty'); sl2.appendChild(h('small', '', 'Worked out automatically'));
-        sdVal = h('b', 'fig'); sd.appendChild(sl2); sd.appendChild(sdVal); card.appendChild(sd);
+        sdVal = h('b', 'fig'); card.appendChild(taxBlock(sdVal));
       }
       box.appendChild(card);
       R.push(function (L, X) {
@@ -471,7 +479,7 @@
     var tiles = h('div', 'lg-tiles'); box.appendChild(tiles);
     if (isLet) {
       var T = { income: tile('Monthly income'), expenses: tile('Monthly expenses'), monthly: tile('Monthly profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET) + ')'), annual: tile('Annual profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET * 12) + ')'),
-        back: tile('Months to get money back (green ≤ 6, amber ≤ 24)'), roi: tile('ROI on cash left in (target 50%)'), pay: tile('Most you can pay and get it back in 2 years') };
+        back: tile('Months to get money back (green\u00a0≤\u00a0' + Calc.targets().payback + ', amber\u00a0≤\u00a0' + Calc.PAYBACK_OK + ')'), roi: tile('ROI on cash left in (target ' + roiPct() + ')'), pay: tile('Most you can pay and get it back in 2 years') };
       ['income', 'expenses', 'monthly', 'annual', 'back', 'roi', 'pay'].forEach(function (k) { tiles.appendChild(T[k].el); });
       R.push(function (L) {
         if (!Calc.dealEntered(L.ps)) { blankTiles(T); return; }
@@ -574,6 +582,7 @@
     folds.forEach(function (f) { box.appendChild(f.card); });
     var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); box.appendChild(foot);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
+    box.appendChild(legalFooter());
 
     // ---- no fixed action bar on this screen: Save sits in the panel; only the tab bar stays fixed ----
     var sbar = $('sticky-bar'); sbar.innerHTML = ''; sbar.hidden = true;
@@ -921,6 +930,8 @@
       var f = fieldFor(id), v = deal[id]; if (!f || v === '' || v == null) return;
       out.push([PDF_LABELS[id] || f.label, f.unit === '£' ? money2(Number(v) || 0).replace(/\.00$/, '') : f.unit === '%' ? v + '%' : String(v)]);
     });
+    var P = num(Calc.stateFor(FLIP_CALC, eff(deal)).purchasePrice);
+    if (P > 0) out.push(['Stamp duty (' + Calc.taxLabel().short + ')', money(Calc.stampDuty(P))]);
     return out;
   }
   function sortLabel() { return SORTS.filter(function (s) { return s[0] === sortBy; })[0][1]; }
@@ -1207,6 +1218,117 @@
     box.appendChild(h('p', 'note', 'Deals you have already saved keep the figures they were saved with.'));
   }
 
+  // ---- Redraw the screen in place (after targets or the tax setting change), keeping the scroll position ----
+  function redraw() { var y = window.scrollY; route(); window.scrollTo(0, y); }
+
+  // ---- The stamp duty block: the amount, the basis, and (tapped) where the property is and who is buying ----------
+  var taxOpen = false;
+  var TAX_NOTES = {
+    eng: { add: 'SDLT with the 5% surcharge on the whole price for additional homes (none under £40,000).', main: 'Standard SDLT rates for a home you will live in.', ftb: 'First-time buyer relief: nothing to pay up to £300,000, then 5% to £500,000. No relief above £500,000.' },
+    sco: { add: 'LBTT plus the 8% Additional Dwelling Supplement on the whole price (none under £40,000).', main: 'Standard LBTT rates for a home you will live in.', ftb: 'LBTT with the first-time buyer nil band up to £175,000.' },
+    wal: { add: 'LTT higher rates for additional homes (none under £40,000).', main: 'Standard LTT rates for a home you will live in.' } };
+  function taxBlock(sdVal) {
+    var wrap = h('div', 'tax-block'), head = h('button', 'tax-head'), left = h('span', 'tax-l'), sum = h('small'), right = h('span', 'tax-r'), chev = h('span', 'tax-chev');
+    head.type = 'button'; left.appendChild(h('b', '', 'Stamp duty')); left.appendChild(sum); right.appendChild(sdVal); right.appendChild(chev);
+    head.appendChild(left); head.appendChild(right); wrap.appendChild(head);
+    var body = h('div', 'tax-body'); wrap.appendChild(body);
+    function draw() {
+      var t = Calc.taxSetting(), lab = Calc.taxLabel();
+      sum.textContent = lab.tax + ' · ' + lab.place + ' · ' + lab.buyer; chev.textContent = taxOpen ? 'Done' : 'Change';
+      head.setAttribute('aria-expanded', taxOpen); body.hidden = !taxOpen; body.innerHTML = '';
+      if (!taxOpen) return;
+      body.appendChild(h('div', 'tax-q', 'Where is the property?'));
+      var regs = h('div', 'segmented tax-seg');
+      [['eng', 'England & NI'], ['sco', 'Scotland'], ['wal', 'Wales']].forEach(function (r) {
+        var b = h('button', '', r[1]); b.type = 'button'; b.setAttribute('aria-pressed', t.region === r[0]);
+        b.onclick = function () { setTax({ region: r[0], buyer: load(TAX_STORE, {}).buyer || t.buyer }); }; regs.appendChild(b);
+      });
+      body.appendChild(regs);
+      body.appendChild(h('div', 'tax-q', 'Who is buying?'));
+      var buyers = h('div', 'tax-buyers'), wanted = load(TAX_STORE, {}).buyer || t.buyer;
+      [['add', 'Additional property'], ['main', 'Main home'], ['ftb', 'First-time buyer']].forEach(function (k) {
+        var dis = k[0] === 'ftb' && t.region === 'wal', b = h('button', '', k[1]); b.type = 'button'; b.disabled = dis;
+        b.setAttribute('aria-pressed', !dis && t.buyer === k[0]);
+        b.onclick = function () { if (!dis) setTax({ region: t.region, buyer: k[0] }); }; buyers.appendChild(b);
+      });
+      body.appendChild(buyers);
+      body.appendChild(h('p', 'tax-note', TAX_NOTES[t.region][t.buyer] + (t.region === 'wal' ? ' Wales has no first-time buyer relief.' : '') + (t.region === 'wal' && wanted === 'ftb' ? ' Worked out as a main home.' : '')));
+      body.appendChild(h('p', 'tax-rates', 'Rates as at October 2026. Your conveyancer confirms the final figure.'));
+    }
+    // The choice is kept as asked (a first-time buyer stays one), and calc.js works out what it means for that place.
+    function setTax(t) { store(TAX_STORE, t); Calc.setTax(t); draw(); refreshLedger(); }
+    head.onclick = function () { taxOpen = !taxOpen; draw(); };
+    draw(); return wrap;
+  }
+
+  // ---- Footer under the Calculator: the disclaimer, the privacy policy and the targets ----
+  function legalFooter() {
+    var f = h('div', 'legal-foot'); f.appendChild(document.createTextNode('Estimates only, not financial, tax or legal advice. Results depend on the figures you enter. Check them with a qualified adviser before you buy.'));
+    var row = h('div', 'legal-links'), pp = h('button', '', 'Privacy policy'), yt = h('button', '', 'Your targets');
+    pp.type = 'button'; yt.type = 'button'; pp.onclick = openPrivacy; yt.onclick = openTargets; row.appendChild(pp); row.appendChild(yt); f.appendChild(row);
+    return f;
+  }
+
+  // ---- Bottom sheets: your targets, the privacy policy (drawn in the settings sheet's place) ----
+  function openSheet(fill) {
+    var sheet = $('settings-sheet'); sheet.innerHTML = ''; sheet.className = 'sheet big-sheet';
+    sheet.appendChild(h('div', 'grab'));
+    fill(sheet); $('settings-overlay').hidden = false; sheet.hidden = false;
+  }
+  function sheetHead(sheet, title, btn) {
+    var hd = h('div', 'bs-head'), done = h('button', 'bs-done', btn); done.type = 'button'; done.onclick = closeSettings;
+    hd.appendChild(h('h2', '', title)); hd.appendChild(done); sheet.appendChild(hd);
+  }
+  var TARGET_ROWS = [['flip', 'Flip margin', '%', 1, 'Profit as a share of end value'], ['monthly', 'Monthly profit', '£', 50, 'BTL, HMO and SA, after all costs'],
+    ['roi', 'ROI on cash left in', '%', 5, 'Yearly profit ÷ cash left in'], ['payback', 'Money back within', 'mo', 1, 'Amber up to ' + Calc.PAYBACK_OK + ' months']];
+  function openTargets() {
+    openSheet(function (sheet) {
+      sheetHead(sheet, 'Your targets', 'Done');
+      sheet.appendChild(h('p', 'bs-intro', 'The verdict, the colours and every ✓ / ✗ use these. They start from the app’s figures; change them to suit how you invest.'));
+      var list = h('div', 'tg-list'), foot = h('div', 'tg-foot'), back = h('button', 'tg-back'); back.type = 'button';
+      var D = Calc.defaultTargets(), inputs = {};
+      function save(t) { t = Calc.setTargets(t); store(TARGETS_STORE, t); sync(t); redraw(); }
+      function sync(t) {
+        Object.keys(inputs).forEach(function (k) { if (document.activeElement !== inputs[k]) inputs[k].value = String(t[k]); });
+        var changed = Object.keys(D).some(function (k) { return t[k] !== D[k]; });
+        back.hidden = !changed; back.textContent = 'Back to ' + D.flip + '% · £' + D.monthly + ' · ' + D.roi + '% · ' + D.payback + ' mo';
+      }
+      TARGET_ROWS.forEach(function (r) {
+        var k = r[0], row = h('div', 'tg-row'), txt = h('span', 'tg-txt'), ctl = h('span', 'tg-ctl'), val = h('span', 'tg-val');
+        var lab = h('label', '', r[1]); lab.setAttribute('for', 'tg-' + k); txt.appendChild(lab); txt.appendChild(h('small', '', r[4]));
+        var inp = h('input'); inp.id = 'tg-' + k; inp.setAttribute('inputmode', 'decimal'); inp.setAttribute('autocomplete', 'off'); inputs[k] = inp;
+        inp.addEventListener('focus', function () { setTimeout(function () { try { inp.select(); } catch (e) {} }, 0); });
+        inp.addEventListener('input', function () { var raw = inp.value.replace(/[^0-9.]/g, ''); if (raw !== inp.value) inp.value = raw; if (raw !== '' && raw !== '.') { var t = Calc.targets(); t[k] = Number(raw); save(t); } });
+        inp.addEventListener('blur', function () { sync(Calc.targets()); });
+        var step = function (d) { return function () { var t = Calc.targets(); t[k] = Math.round((t[k] + d * r[3]) * 100) / 100; save(t); }; };
+        var minus = h('button', 'nudge sm', '−'), plus = h('button', 'nudge sm', '+'); minus.type = plus.type = 'button';
+        minus.setAttribute('aria-label', 'Less: ' + r[1]); plus.setAttribute('aria-label', 'More: ' + r[1]); minus.onclick = step(-1); plus.onclick = step(1);
+        if (r[2] === '£') val.appendChild(h('span', 'u', '£')); val.appendChild(inp); if (r[2] !== '£') val.appendChild(h('span', 'u', r[2] === 'mo' ? ' mo' : '%'));
+        ctl.appendChild(minus); ctl.appendChild(val); ctl.appendChild(plus); row.appendChild(txt); row.appendChild(ctl); list.appendChild(row);
+      });
+      sheet.appendChild(list);
+      foot.appendChild(h('span', '', 'Saved on this phone')); foot.appendChild(back); sheet.appendChild(foot);
+      back.onclick = function () { save(Calc.defaultTargets()); };
+      sync(Calc.targets());
+    });
+  }
+  function openPrivacy() {
+    openSheet(function (sheet) {
+      sheetHead(sheet, 'Privacy policy', 'Close');
+      sheet.appendChild(h('div', 'bs-date', 'Last updated ' + PRIVACY.updated));
+      PRIVACY.sections.forEach(function (sec) { sheet.appendChild(h('h3', 'bs-h', sec[0])); sheet.appendChild(h('p', 'bs-p', sec[1])); });
+    });
+  }
+  // The privacy policy. The same words are on the standalone privacy page; keep the two the same (test-app.js checks).
+  // It describes only what this app does: no account, no server of its own, no tracking.
+  var PRIVACY = { updated: '5 October 2026', sections: [
+    ['What stays on your phone', 'Your deal figures, targets, stamp duty settings, saved deals and notes are stored only on this phone, in your browser. They are not sent to us.'],
+    ['What we don’t collect', 'No account, no name or email address, no advertising or tracking cookies, no analytics. We never sell or share data.'],
+    ['Loading the app', 'The app’s files are delivered by our hosting provider. Like any website, it may briefly log your IP address and device type to keep the service running and secure.'],
+    ['Sharing a report', 'When you download or share a PDF report, your phone creates it on the phone and you choose where it goes.'],
+    ['Your choices', 'Clear everything at any time by clearing this site’s data in your browser settings, or by uninstalling the app.'],
+    ['Contact', '[CONTACT EMAIL TO BE ADDED BEFORE LAUNCH]']] };
+
   // ---- Settings sheet: theme, explanations, replay onboarding --------------------------------------------
   function closeSettings() { $('settings-overlay').hidden = true; $('settings-sheet').hidden = true; }
   function renderSettings() {
@@ -1229,10 +1351,15 @@
     expRow.appendChild(expLab); expRow.appendChild(sw); sheet.appendChild(expRow);
     var usualRow = h('div', 'setting-row'), usualBtn = h('button', 'pick', 'My usual figures');
     usualBtn.style.width = '100%'; usualBtn.onclick = function () { closeSettings(); location.hash = '#usual'; }; usualRow.appendChild(usualBtn); sheet.appendChild(usualRow);
+    [['Your targets', Calc.targetsSummary(), openTargets], ['Stamp duty', Calc.taxLabel().tax + ' · ' + Calc.taxLabel().short, function () { closeSettings(); taxOpen = true; location.hash = '#calculators'; redraw(); }],
+      ['Privacy policy', 'What stays on your phone', openPrivacy]].forEach(function (r) {
+      var row = h('div', 'setting-row'), b = h('button', 'pick'); b.appendChild(document.createTextNode(r[0])); b.appendChild(h('small', '', r[1]));
+      b.style.width = '100%'; b.onclick = r[2]; row.appendChild(b); sheet.appendChild(row);
+    });
     var replayRow = h('div', 'setting-row'), replay = h('button', 'pick', 'Redo the setup questions');
     replay.style.width = '100%'; replay.onclick = startOnboarding; replayRow.appendChild(replay); sheet.appendChild(replayRow);
   }
-  function openSettings() { renderSettings(); $('settings-overlay').hidden = false; $('settings-sheet').hidden = false; }
+  function openSettings() { $('settings-sheet').className = 'sheet'; renderSettings(); $('settings-overlay').hidden = false; $('settings-sheet').hidden = false; }
   $('gear').onclick = openSettings;
   $('settings-overlay').onclick = closeSettings;
 

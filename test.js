@@ -15,7 +15,7 @@ eq('monthly profit', r.btl.monthly, 81.25); eq('annual profit', r.btl.annual, 97
 eq('ROI for BTL', r.btl.roi, 0.14444444444444443);
 // stamp duty at every band edge, straight from the sheet's formula
 eq('SDLT 250k', stampDuty(250000), 6250 + 8750); eq('SDLT 925k', stampDuty(925000), 6250 + 8750 + 67500);
-eq('SDLT 1.5m', stampDuty(1500000), 6250 + 8750 + 67500 + 86250); eq('SDLT 2m (17% of all)', stampDuty(2000000), 340000);
+eq('SDLT 1.5m', stampDuty(1500000), 6250 + 8750 + 67500 + 86250); eq('SDLT 2m: charged slice by slice, 17% only above 1.5m (the sheet charged 17% on all of it, which HMRC does not)', stampDuty(2000000), 6250 + 8750 + 67500 + 86250 + 85000);
 // money-out case: remortgage more than is in the deal
 const m = analyse({ ...base, ltv: 90 });
 if (m.btl.cashLeft < 0 && m.btl.moneyOut && m.btl.roi === null) console.log('ok:   money-out case'); else { fail++; console.log('FAIL: money-out case'); }

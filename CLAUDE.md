@@ -12,7 +12,9 @@ here: never change or push to it. What was copied, and how:
 - calc.js, pdf.js, icon.svg, fonts/, test.js, test-calcs.js, test-pdf.js: byte for byte, unchanged at the copy.
   calc.js still holds a few helpers only the deal feed used (saleLabel, feedOrder, valueNote...). They are left in on
   purpose. Since the copy, calc.js has had: (4 Oct 2026, design 6c) dealVerdict, dealEntered and LET_TARGETS added; and
-  (5 Oct 2026, Ashley) the FLIP BANDS changed flipVerdict and its tests in test-calcs.js (see the rules below). Every
+  (5 Oct 2026, Ashley) the FLIP BANDS changed flipVerdict and its tests in test-calcs.js (see the rules below); and
+  (5 Oct 2026, her third 6c hand-off) OWN TARGETS (setTargets) and STAMP DUTY BY PLACE AND BUYER (propertyTax), which
+  replaced the sheet's stampDuty formula. At the default setting every figure up to a £1.5m price is unchanged. Every
   money figure is still identical to the Deal Analyser's (checked: 364 figures on the main screen, every exit, bridging
   off and on); only the colour and wording of a flip between 20% and 25% now differ. Ashley chose to put 6c and the flip
   bands into THIS app only. (Another session has since put 6c into the Deal Analyser as well, with the old flip rule;
@@ -38,7 +40,9 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-browser.js` — all must pass. New logic gets mutation-tested (break it on purpose,
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-browser.js` — all must pass. test-tax-targets.js
+  checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
+  targets. New logic gets mutation-tested (break it on purpose,
   check a test fails, put it back). test-app.js checks the app shell: every element the code looks up exists, two tabs,
   the app name, and no deal-feed code, page parts or styles left. test-verdict.js checks Calc.dealVerdict and its edges.
   test-browser.js drives the main screen in Chromium (it serves the folder itself; skips if Playwright is missing):
@@ -114,13 +118,41 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
 - Local-only data on the phone: the deal, usual figures, saved deals (with their notes), exit, bridging, theme,
   explanations, onboarding answers, client report names.
 
+## Own targets, stamp duty choices, disclaimer and privacy (5 Oct 2026, third 6c hand-off)
+- TARGETS: localStorage 'deal-analyser:targets' = {flip, monthly, roi, payback}; start 25 / 500 / 50 / 6. calc.js
+  setTargets (clamped: flip 1-100, monthly >= 0, roi 1-1000, payback 1-24) drives flipVerdict, cashRoiVerdict,
+  monthlyProfitVerdict, paybackVerdict and dealVerdict; letTargets() and targetsSummary() name them. Amber for a flip is
+  the 5 points below the flip target (20-25% at the start); payback amber stays at 24 months (PAYBACK_OK). Never write 25
+  / 500 / 50 / 6 anywhere else (test-tax-targets.js checks dealVerdict). Every label follows them. Entry points: the
+  "Edit targets" pill in the verdict strip, "Edit targets →" under the chips, "Your targets" in the footer, a Settings row.
+  The targets sheet (and the privacy sheet) draw in the settings sheet's place (class big-sheet); changes redraw the
+  screen in place (redraw()).
+- STAMP DUTY: localStorage 'deal-analyser:tax' = {region: eng|sco|wal, buyer: add|main|ftb}; default eng + add. calc.js
+  propertyTax(price, region, buyer); stampDuty(price) uses the current setting (setTax), so every calculator, the
+  recycle price, cash left at a price, payback price and max price follow it. Bands (TAX_RATES) checked on 5 Oct 2026
+  against published 2026-27 rates via several secondary sources (gov.uk, Revenue Scotland and gov.wales are blocked from
+  cloud sessions): SDLT 0/2/5/10/12 at 125k/250k/925k/1.5m, first-time buyer 0% to 300k and 5% to 500k (none above
+  500k), +5% on the whole price for additional homes; LBTT 0/2/5/10/12 at 145k/250k/325k/750k, first-time buyer nil band
+  175k, ADS 8% of the whole price; LTT main 0/6/7.5/10/12 at 225k/400k/750k/1.5m, higher 5/8.5/10/12.5/15/17 at
+  180k/250k/400k/750k/1.5m, no first-time buyer relief (worked out as a main home). No extra charge for an additional
+  home under £40,000 anywhere. CORRECTED from the sheet: over £1.5m the sheet charged 17% on the whole price; tax is
+  per slice (£2m: £253,750, not £340,000). Re-check the bands whenever a UK, Scottish or Welsh budget changes them.
+  The price card's stamp duty block is tappable (Change / Done): where is the property, who is buying, a note, "Rates as
+  at October 2026. Your conveyancer confirms the final figure." The other calculators' stamp duty row and the client
+  report name the basis, e.g. "Stamp duty (Scotland, main home)".
+- DISCLAIMER under the Calculator ("Estimates only, not financial, tax or legal advice...") with Privacy policy and Your
+  targets links. PRIVACY policy: PRIVACY in app.js (sheet) and privacy.html (standalone, precached, for store listings);
+  test-app.js checks they say the same. Written for what THIS app does (no deal list, postcode search or listing links,
+  unlike the design's draft). BEFORE LAUNCH Ashley must add a contact email (placeholder "[CONTACT EMAIL TO BE ADDED
+  BEFORE LAUNCH]") and have the text reviewed.
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell.
   test-calcs.js holds the yellow-cell list per calculator (YELLOW) and fails on any extra field. Max price and Bridging
   have no spreadsheet; their fields are her own design.
 - STAMP DUTY IS CALCULATED ONLY: no box anywhere, Max price included; a stored stampDutyOverride is ignored. The flip has
   no selling / holding extras.
-- Flip target 25% of end value (Calc.FLIP_TARGET). FLIP BANDS (Ashley, 5 Oct 2026), everywhere a flip margin is coloured
+- Flip target 25% of end value to start (Calc.FLIP_TARGET; now the person's own, see Own targets). FLIP BANDS (Ashley, 5 Oct 2026), everywhere a flip margin is coloured
   (hero, % chip, exit tile, Compare, the other calculators' working, the PDF): 25%+ green ✓; 20% up to 25% amber, "an
   OK flip", no tick or cross (Calc.FLIP_OK); below 20% red ✗, "Weak flip". Judged on the figure shown (one decimal), so
   19.96% shows 20.0% and is amber. calc.js flipVerdict returns 'good' / 'amber' / 'bad'.

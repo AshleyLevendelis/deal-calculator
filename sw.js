@@ -1,4 +1,4 @@
-var C = 'deal-calculator-v4', F = ['./', 'index.html', 'calc.js', 'pdf.js', 'app.js', 'manifest.webmanifest', 'icon.svg',
+var C = 'deal-calculator-v5', F = ['./', 'index.html', 'privacy.html', 'calc.js', 'pdf.js', 'app.js', 'manifest.webmanifest', 'icon.svg',
   'fonts/Geist-Variable.woff2', 'fonts/InstrumentSerif-Regular.woff2', 'fonts/InstrumentSerif-Italic.woff2'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(C).then(function (c) { return c.addAll(F); })); });
 self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.filter(function (x) { return x !== C; }).map(function (x) { return caches.delete(x); })); })); });
