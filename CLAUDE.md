@@ -11,9 +11,12 @@ Copied on 4 Oct 2026 from GitHub AshleyLevendelis/deal-analyser (branch main, co
 here: never change or push to it. What was copied, and how:
 - calc.js, pdf.js, icon.svg, fonts/, test.js, test-calcs.js, test-pdf.js: byte for byte, unchanged at the copy.
   calc.js still holds a few helpers only the deal feed used (saleLabel, feedOrder, valueNote...). They are left in on
-  purpose. Since the copy, calc.js has had ONE addition (4 Oct 2026, design 6c): dealVerdict, dealEntered and LET_TARGETS. Nothing that
-  existed was edited, so every figure is still identical to the Deal Analyser's (checked: 364 figures on the main screen,
-  every exit, bridging off and on). Ashley chose to put 6c into this app only; the Deal Analyser keeps design 3a.
+  purpose. Since the copy, calc.js has had: (4 Oct 2026, design 6c) dealVerdict, dealEntered and LET_TARGETS added; and
+  (5 Oct 2026, Ashley) the FLIP BANDS changed flipVerdict and its tests in test-calcs.js (see the rules below). Every
+  money figure is still identical to the Deal Analyser's (checked: 364 figures on the main screen, every exit, bridging
+  off and on); only the colour and wording of a flip between 20% and 25% now differ. Ashley chose to put 6c and the flip
+  bands into THIS app only. (Another session has since put 6c into the Deal Analyser as well, with the old flip rule;
+  that repo is still read-only from here.)
 - index.html: the same CSS with only the deal-feed rules deleted; the bottom tab bar has two columns instead of three;
   title "Deal Calculator"; no Deals tab, no property screen, no geo.js.
 - app.js: the same code with only the deal feed deleted (Deals tab, property page, "How sure is the end value?",
@@ -85,8 +88,9 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   - The verdict (in the strip): Calc.dealVerdict(exit, v, ps) in calc.js; ps gives the empty state. Lets score 4 targets,
     each judged as its figure is coloured: £500 a month (monthlyProfitVerdict), 50% ROI or nothing left in, money back
     in 6 months (paybackVerdict; nothing left in = 0, never = never), all cash recycled (shown cash left ≤ £0). 4 Strong,
-    3 Good, 2 Borderline (amber), 0-1 Weak (bad); 3-4 good colour. Misses listed in that order. Flip: Good flip (25%+),
-    Thin flip (amber, profit > 0), Loss-making flip. Lets use the bridged figures when bridging is on.
+    3 Good, 2 Borderline (amber), 0-1 Weak (bad); 3-4 good colour. Misses listed in that order. Flip: Good flip (25%+,
+    green, 1/1), OK flip (20% to under 25%, amber, 0/1), Weak flip (below 20% with a profit, red), Loss-making flip (no
+    profit, red). Never "Thin flip". Lets use the bridged figures when bridging is on.
   - Custom slider (scrubber in app.js): 3a's pointer handling kept exactly (relative drag, slide down for finer steps,
     magnets at level 0, tap jumps); drawn as a 20px track, accent fill, 34px thumb (centre at 20px + (100% − 40px) × p),
     recycle marker, value bubble while the finger is down. A visually hidden range input keeps keyboard / screen reader
@@ -116,7 +120,10 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   have no spreadsheet; their fields are her own design.
 - STAMP DUTY IS CALCULATED ONLY: no box anywhere, Max price included; a stored stampDutyOverride is ignored. The flip has
   no selling / holding extras.
-- Flip target 25% of end value (Calc.FLIP_TARGET).
+- Flip target 25% of end value (Calc.FLIP_TARGET). FLIP BANDS (Ashley, 5 Oct 2026), everywhere a flip margin is coloured
+  (hero, % chip, exit tile, Compare, the other calculators' working, the PDF): 25%+ green ✓; 20% up to 25% amber, "an
+  OK flip", no tick or cross (Calc.FLIP_OK); below 20% red ✗, "Weak flip". Judged on the figure shown (one decimal), so
+  19.96% shows 20.0% and is amber. calc.js flipVerdict returns 'good' / 'amber' / 'bad'.
 - ROI on cash left in: red below 50%, green at 50%+.
 - Every let (BTL, HMO, SA) needs £500 a month profit (Calc.MONTHLY_PROFIT_TARGET, monthlyProfitVerdict; annual uses the
   same verdict).

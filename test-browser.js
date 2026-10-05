@@ -103,6 +103,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.click('.vs-row'); await p.waitForTimeout(50);
   const chips = await p.locator('.vs-chip').allTextContents();
   ok('tapping it shows a ✓ or ✗ chip for each of the four targets, and "Hide ▴"', chips.length === 4 && chips.every(c => /^[✓✗]/.test(c)) && (await p.locator('.vs-lab').textContent()) === 'Hide ▴', JSON.stringify(chips));
+  ok('each chip tick or cross is readable (not the same colour as its circle)', await p.evaluate(() => [...document.querySelectorAll('.vs-mark')].every(m => { const cs = getComputedStyle(m); return cs.color !== cs.backgroundColor; })));
   ok('the chips agree with the score', (await p.locator('.vs-score').textContent()) === chips.filter(c => c[0] === '✓').length + '/4');
   ok('chip labels are never cut off', await p.evaluate(() => [...document.querySelectorAll('.vs-chip span:last-child')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
   await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80);

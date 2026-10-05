@@ -23,9 +23,12 @@
     if (typeof v === 'number' && v !== 0) el.classList.add(v > 0 ? 'good' : 'bad');
   }
   var FLIP_PCT = Math.round(Calc.FLIP_TARGET * 100) + '%';
-  // Flip net profit: green at the target (25%) or more, red below. A tick or cross goes with the colour so it does not rely on colour alone.
+  // Flip net profit: green at the target (25%) or more, amber from 20%, red below. A tick or cross goes with green and red
+  // so it does not rely on colour alone; an OK flip (amber) has neither.
+  var FLIP_OK_PCT = Math.round(Calc.FLIP_OK * 100) + '%';
   function flipMarginText(m) { var t = fmt('pct', m), v = Calc.flipVerdict(m); return v === 'good' ? t + ' ✓' : v === 'bad' ? t + ' ✗' : t; }
-  function setVerdict(el, m) { el.classList.remove('good', 'bad'); var v = Calc.flipVerdict(m); if (v) el.classList.add(v); }
+  function setVerdict(el, m) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.flipVerdict(m); if (v) el.classList.add(v); }
+  function flipNote(v) { return v === 'good' ? ' (meets the ' + FLIP_PCT + ' target)' : v === 'amber' ? ' (OK: between ' + FLIP_OK_PCT + ' and the ' + FLIP_PCT + ' target)' : v === 'bad' ? ' (below ' + FLIP_OK_PCT + ')' : ''; }
   // ROI on cash left in: green at 50% or more, red below. A tick or cross goes with the colour so it does not rely on colour alone.
   function cashRoiText(r) { var t = fmt('pct', r), v = Calc.cashRoiVerdict(r); return typeof r === 'number' ? (v === 'good' ? t + ' \u2713' : v === 'bad' ? t + ' \u2717' : t) : t; }
   function setCashRoi(el, r) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.cashRoiVerdict(r); if (v) el.classList.add(v); }
@@ -126,7 +129,7 @@
         cap: ck === 'in' ? 'Cash left in after the refinance' : ck === 'out' ? 'Cash pulled out by the refinance (minus = pulled out)' : ck === 'even' ? 'All your money back in the refinance' : '' };
     }
     if (def.kind === 'cost') return { text: fmt('gbp', val), cls: '', cap: def.cap };
-    if (def.kind === 'flip') { var fv = Calc.flipVerdict(val); return { text: fmt('pct', val), cls: typeof val !== 'number' ? '' : val < 0 ? 'bad' : fv === 'good' ? 'good' : 'amber', cap: def.cap + (fv === 'good' ? ' \u2014 meets the ' + FLIP_PCT + ' target' : fv === 'bad' ? ' \u2014 below the ' + FLIP_PCT + ' target' : '') }; }
+    if (def.kind === 'flip') { var fv = Calc.flipVerdict(val); return { text: fmt('pct', val), cls: typeof val !== 'number' ? '' : val < 0 ? 'bad' : fv || '', cap: def.cap + (fv ? ' \u2014' + flipNote(fv).replace(/[()]/g, '') : '') }; }
     if (typeof val === 'string' && val.charAt(0) === '\u221e') return { text: '\u221e', cls: 'good', cap: 'No cash left in' };
     if (def.kind === 'cashroi') {
       var cv = Calc.cashRoiVerdict(val);
@@ -932,7 +935,7 @@
       title: 'Deal comparison', sortLabel: sortLabel(), details: detailLines(), date: today(),
       rows: sortRows(data.rows).map(function (r) { return pdfRow(r); }),
       flip: { profit: money(f.profit), roi: fmt('pct', f.roi), moneyIn: money(f.moneyIn), marginVerdict: Calc.flipVerdict(f.margin),
-        margin: fmt('pct', f.margin) + (Calc.flipVerdict(f.margin) === 'good' ? ' (meets the ' + FLIP_PCT + ' target)' : Calc.flipVerdict(f.margin) === 'bad' ? ' (below the ' + FLIP_PCT + ' target)' : '') }
+        margin: fmt('pct', f.margin) + flipNote(Calc.flipVerdict(f.margin)) }
     };
   }
   function savedPdfInput(rows) {

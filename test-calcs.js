@@ -134,18 +134,22 @@ eq('compareAll still returns the flip block', Calc.compareAll({}).flip.profit, 5
 // ---- Flip target: 25% net profit (of end value) is acceptable; at or above is good, below is bad ----
 eq('flip target is 25%', Calc.FLIP_TARGET, 0.25);
 eq('exactly 25% is acceptable', Calc.flipVerdict(0.25), 'good');
-eq('24.9% is below', Calc.flipVerdict(0.249), 'bad');
-eq('the old 20% target no longer passes', Calc.flipVerdict(0.2), 'bad');
+eq('24.9% is an OK flip (amber)', Calc.flipVerdict(0.249), 'amber');
+eq('exactly 20% is an OK flip (amber), not a pass', Calc.flipVerdict(0.2), 'amber');
+eq('19.9% is weak (red)', Calc.flipVerdict(0.199), 'bad');
+eq('19.96% shows as 20.0%, so it is amber', Calc.flipVerdict(0.1996), 'amber');
+eq('19.94% shows as 19.9%, so it is red', Calc.flipVerdict(0.1994), 'bad');
+eq('the OK band starts at 20%', Calc.FLIP_OK, 0.2);
 eq('25.1% is acceptable', Calc.flipVerdict(0.251), 'good');
 eq('a shown 25.0% is never coloured as a miss (24.96% rounds to 25.0%)', Calc.flipVerdict(0.2496), 'good');
-eq('24.94% shows as 24.9% and is below', Calc.flipVerdict(0.2494), 'bad');
+eq('24.94% shows as 24.9%: below the target, so amber', Calc.flipVerdict(0.2494), 'amber');
 eq('a loss is bad', Calc.flipVerdict(-0.05), 'bad');
 eq('zero profit is bad', Calc.flipVerdict(0), 'bad');
 eq('no figure gives no verdict', String(Calc.flipVerdict(null)) + String(Calc.flipVerdict('—')) + String(Calc.flipVerdict(NaN)), 'nullnullnull');
 // through the real calculator: the sheet's example flip is 22.1% (good); a lower end value makes it bad
 const flipCalc = Calc.find('flip');
 const marginAt = endValue => flipCalc.compute(Calc.stateFor(flipCalc, { endValue })).v.margin;
-eq('sheet example flip (22.1%) is now below the 25% target', Calc.flipVerdict(marginAt(230000)), 'bad');
+eq('sheet example flip (22.1%) is below the 25% target but an OK flip (amber)', Calc.flipVerdict(marginAt(230000)), 'amber');
 eq('the same deal at 250,000 end value (28.4%) is good', Calc.flipVerdict(marginAt(250000)), 'good');
 eq('same deal at 200,000 end value (10.4%) is bad', Calc.flipVerdict(marginAt(200000)), 'bad');
 eq('the flip margin row is the one marked for the target', JSON.stringify(flipCalc.layout.flatMap(s => s.items).filter(i => i.calc && i.calc.verdict === 'flip').map(i => i.calc.id)), '["margin"]');

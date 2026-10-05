@@ -39,7 +39,11 @@ ok('the score counts the hits', [best, left(), left({ monthly: 100, roi: 0.1, br
 r = V('none', { margin: 0.274, profit: 63000 });
 ok('flip at 27.4%: Good flip, 1/1, good, "27.4% margin · target 25%"', r.score === 1 && r.of === 1 && r.title === 'Good flip' && r.tone === 'good' && r.detail === '27.4% margin · target 25%' && r.line === 'Clears the 25% flip target', JSON.stringify(r));
 ok('flip at exactly 25%: Good flip', V('none', { margin: 0.25, profit: 1 }).title === 'Good flip');
-ok('flip at 24.9% with a profit: Thin flip, amber, 0/1', (r = V('none', { margin: 0.249, profit: 50000 })).title === 'Thin flip' && r.tone === 'amber' && r.score === 0 && r.line === 'Misses the 25% flip target', JSON.stringify(r));
+ok('flip at 24.9%: OK flip, amber, 0/1 (25% target not met)', (r = V('none', { margin: 0.249, profit: 50000 })).title === 'OK flip' && r.tone === 'amber' && r.score === 0 && r.line === 'OK: between 20% and the 25% target', JSON.stringify(r));
+ok('flip at exactly 20%: OK flip, amber', (r = V('none', { margin: 0.2, profit: 40000 })).title === 'OK flip' && r.tone === 'amber', JSON.stringify(r));
+ok('flip at 19.9%: Weak flip, red', (r = V('none', { margin: 0.199, profit: 40000 })).title === 'Weak flip' && r.tone === 'bad' && r.score === 0 && r.line === 'Below 20%: misses the 25% flip target', JSON.stringify(r));
+ok('flip at 5% with a small profit: Weak flip, red', (r = V('none', { margin: 0.05, profit: 9000 })).title === 'Weak flip' && r.tone === 'bad');
+ok('no flip is ever called "Thin" any more', [0.3, 0.25, 0.22, 0.2, 0.1, 0, -0.1].every(m => V('none', { margin: m, profit: m * 100000 }).title !== 'Thin flip'));
 ok('flip breaking even: Loss-making flip, bad', (r = V('none', { margin: 0, profit: 0 })).title === 'Loss-making flip' && r.tone === 'bad', JSON.stringify(r));
 ok('flip losing money: Loss-making flip', V('none', { margin: -0.1, profit: -20000 }).title === 'Loss-making flip');
 ok('flip with no end value: no crash, Loss-making, dash for the margin', (r = V('none', { margin: null, profit: -5 })).detail === '— margin · target 25%', JSON.stringify(r));

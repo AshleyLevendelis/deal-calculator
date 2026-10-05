@@ -17,8 +17,8 @@
   Doc.prototype.page = function () { return this.pages[this.pages.length - 1]; };
   Doc.prototype.newPage = function () { this.pages.push([]); this.y = H - M; };
   Doc.prototype.ensure = function (h) { if (this.y - h < M + 24) this.newPage(); };
-  // colour: true = grey; 'good' = green; 'bad' = red; anything else = black
-  var COLOURS = { good: '0.08 0.5 0.2 rg', bad: '0.75 0.1 0.1 rg' };
+  // colour: true = grey; 'good' = green; 'amber' = amber; 'bad' = red; anything else = black
+  var COLOURS = { good: '0.08 0.5 0.2 rg', amber: '0.62 0.42 0.05 rg', bad: '0.75 0.1 0.1 rg' };
   Doc.prototype.text = function (x, y, str, size, bold, colour) {
     this.page().push('BT /' + (bold ? 'F2' : 'F1') + ' ' + size + ' Tf ' + (COLOURS[colour] || (colour === true ? '0.4 g' : '0 g')) + ' ' + num(x) + ' ' + num(y) + ' Td (' + esc(str) + ') Tj ET');
   };

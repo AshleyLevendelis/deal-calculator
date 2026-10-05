@@ -98,7 +98,7 @@ h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fain
 .calc{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px dashed var(--dash);font-size:14px;color:var(--mute)}
 .calc:first-of-type{border-top:0}
 .calc b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:15px;font-weight:600;color:var(--ink)}
-.calc b.good{color:var(--mint)}.calc b.bad{color:var(--red)}
+.calc b.good{color:var(--mint)}.calc b.bad{color:var(--red)}.calc b.amber{color:var(--amber)}
 .calc span{min-width:0}
 .calc span small{display:block;color:var(--faint);font-size:11px;font-weight:400;white-space:normal;margin-top:2px}
 details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;list-style:none}
@@ -135,7 +135,7 @@ details summary::-webkit-details-marker{display:none}
 .cmp .st{display:contents}
 .cmp .st div{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:1px dashed var(--dash);font-size:13.5px;color:var(--mute)}
 .cmp .st b{color:var(--ink);font-size:14.5px;font-variant-numeric:tabular-nums;font-family:var(--font-ui);font-weight:600}
-.cmp .st b.good{color:var(--mint)}.cmp .st b.bad{color:var(--red)}
+.cmp .st b.good{color:var(--mint)}.cmp .st b.bad{color:var(--red)}.cmp .st b.amber{color:var(--amber)}
 .cmp .tag{display:inline-block;background:none;color:var(--mute);border:1px solid var(--line);border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;margin-left:6px;vertical-align:middle}
 
 /* ---- Calculator cards on the Calculators list ---- */
@@ -302,6 +302,7 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex,.bridge-in input.ex{color:v
 .vs-chip{display:flex;align-items:center;gap:6px;min-width:0;padding:6px 9px;border-radius:12px;background:var(--card);font:600 11.5px/1.25 var(--font-ui);color:var(--ink)}
 .vs-mark{flex:none;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 10px/1 var(--font-ui);color:var(--bg)}
 .vs-mark.good{background:var(--good)}.vs-mark.bad{background:var(--red)}
+body.ledger #v-home .vs-mark{color:var(--bg)}
 .select-row{flex-direction:column;align-items:stretch;gap:8px}
 .select-row select{flex:none;width:100%;max-width:none;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:0 10px;font:500 15px var(--font-ui)}
 .strat-pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
