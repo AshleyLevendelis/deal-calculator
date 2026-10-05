@@ -1,6 +1,7 @@
-# Deal Calculator — operations map
+# BRR Calculator (was Deal Calculator) — operations map
 
-Ashley's phone app for working out property deals: the calculator part of her Deal Analyser app, on its own, with no
+Ashley's phone app for working out property deals, named BRR Calculator since 5 Oct 2026 (repo, Vercel project and
+web address keep the deal-calculator name; the service worker cache stays deal-calculator-vN): the calculator part of her Deal Analyser app, on its own, with no
 daily deal feed. Keep this file current when something changes.
 
 NOTE: the whole repo is served publicly by Vercel. Never commit private material here (email addresses, her buying
@@ -26,7 +27,12 @@ here: never change or push to it. What was copied, and how:
   An empty address (#) now opens the Calculator. The note on a SAVED deal ("Add a note" under each saved deal) is kept.
   localStorage keys keep the "deal-analyser:" prefix (the app lives on its own web address, so nothing is shared).
 - sw.js: same worker, own cache name (deal-calculator-vN), no geo.js in the precache list.
-- manifest.webmanifest: "Deal Calculator", short name "Deal Calc".
+- manifest.webmanifest: "BRR Calculator", short name "BRR Calc" (renamed 5 Oct 2026 from Deal Calculator).
+- ICONS (5 Oct 2026, Ashley's logo: white buildings, teal arrow, £ on navy; the original logo file is not in the repo):
+  icon-192.png, icon-512.png (mark at 68% of the width), icon-maskable-512.png (mark at 56%, safe for Android's round and
+  shaped icons), apple-touch-icon.png (180, iPhone home screen), favicon-32.png (browser tab). icon.svg was removed.
+  test-app.js checks each PNG is the size the manifest says. Store listings will also want a 1024 icon (Apple) and a
+  512 icon (Google), cut from the original logo the same way.
 Proved the same on 4 Oct 2026 (before the 6c redesign of the main screen): both apps driven side by side in Chromium (end value 230,000, price 125,000, refurb
 30,000, legal 1,500; every exit with bridging off and on; every other calculator; Compare; Client report; Saved and
 saved compare; My usual figures; Settings; onboarding) at 360px and 390px, light and dark: every figure on screen,

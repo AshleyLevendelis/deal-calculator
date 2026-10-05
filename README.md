@@ -1,4 +1,4 @@
-# Deal Calculator
+# BRR Calculator
 
 The property deal calculators from Deal Analyser as a standalone phone app: the Live ledger (flip and
 buy-refurb-refinance to BTL, HMO or SA, with or without bridging), Max price, BTL, HMO BTL, SA BTL, rent-to-rent

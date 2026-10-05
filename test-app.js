@@ -15,10 +15,16 @@ ok('two tabs: Calculator then Saved', tabs.join(',') === 't-home,t-saved', tabs.
 ok('the tab bar has two columns, one per tab', /\.tabs\{[^}]*grid-template-columns:repeat\(2,1fr\)/.test(html));
 ok('the Calculator tab starts selected and its screen starts shown', /id="t-home" aria-selected="true"/.test(html) && /<div id="v-home"><\/div>/.test(html));
 ok('an empty address opens the Calculator', /: hash === '#report' \? 'report' : 'home';/.test(app));
-ok('the page title is Deal Calculator', /<title>Deal Calculator<\/title>/.test(html) && /<h1 id="title">Deal Calculator<\/h1>/.test(html));
-ok('the header falls back to Deal Calculator', /: view === 'compare' \? 'Every strategy' : 'Deal Calculator';/.test(app));
-ok('the manifest names the app Deal Calculator', manifest.name === 'Deal Calculator' && manifest.short_name && manifest.short_name.length <= 12 && manifest.display === 'standalone');
-ok('the manifest icon exists', manifest.icons.every(i => fs.existsSync(__dirname + '/' + i.src)));
+ok('the page title is BRR Calculator', /<title>BRR Calculator<\/title>/.test(html) && /<h1 id="title">BRR Calculator<\/h1>/.test(html));
+ok('the header falls back to BRR Calculator', /: view === 'compare' \? 'Every strategy' : 'BRR Calculator';/.test(app));
+ok('the manifest names the app BRR Calculator', manifest.name === 'BRR Calculator' && manifest.short_name && manifest.short_name.length <= 12 && manifest.display === 'standalone');
+ok('the manifest icons exist', manifest.icons.every(i => fs.existsSync(__dirname + '/' + i.src)));
+// A PNG's width and height sit at bytes 16-23; an install or store listing rejects an icon whose size is wrong.
+const pngSize = f => { const b = fs.readFileSync(__dirname + '/' + f); return b.toString('latin1', 1, 4) === 'PNG' ? b.readUInt32BE(16) + 'x' + b.readUInt32BE(20) : 'not a PNG'; };
+ok('every manifest icon is a PNG of the size it says', manifest.icons.every(i => pngSize(i.src) === i.sizes), manifest.icons.map(i => i.src + ' ' + pngSize(i.src)).join(', '));
+ok('icons for installing: 192, 512 and a maskable 512 (Android shapes)', ['192x192', '512x512'].every(z => manifest.icons.some(i => i.sizes === z && i.purpose === 'any')) && manifest.icons.some(i => i.purpose === 'maskable' && i.sizes === '512x512'));
+ok('an iPhone home-screen icon (180) and a 32px tab icon are linked', /rel="apple-touch-icon" href="apple-touch-icon.png"/.test(html) && pngSize('apple-touch-icon.png') === '180x180' && /rel="icon" href="favicon-32.png"/.test(html) && pngSize('favicon-32.png') === '32x32');
+ok('the home-screen name is BRR Calc / BRR Calculator', manifest.short_name === 'BRR Calc' && /apple-mobile-web-app-title" content="BRR Calculator"/.test(html));
 const scripts = [...html.matchAll(/<script src="([^"]+)">/g)].map(m => m[1]);
 ok('the page loads calc.js, pdf.js and app.js only', scripts.join(',') === 'calc.js,pdf.js,app.js', scripts.join(','));
 

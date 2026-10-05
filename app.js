@@ -1391,7 +1391,7 @@
     document.body.classList.toggle('has-tabs', !overlayView);
     document.body.classList.toggle('has-bar', view === 'home');
     $('t-home').setAttribute('aria-selected', view === 'home'); $('t-saved').setAttribute('aria-selected', view === 'saved');
-    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'usual' ? 'My usual figures' : view === 'compare' ? 'Every strategy' : 'Deal Calculator';
+    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'usual' ? 'My usual figures' : view === 'compare' ? 'Every strategy' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
     if (view === 'home') renderCalculator();
