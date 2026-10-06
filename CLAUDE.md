@@ -89,7 +89,10 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
     legal and every other figure stay; Reset brings the start figures back). One card per figure (end value, price,
     refurb, legal): typed number, 42px round −/+ and the custom slider, a sub line (drag hint, "✓ Snapped to …", or
     "Lender pays …") with the "+£X from £Y ↺" reset. The price card holds the recycle card button ("RECYCLE PRICE",
-    the amount, "Pay this or less to get every pound back", a solid "Set price →" pill; the whole card sets the price)
+    the amount, "Pay this or less to get every pound back", a solid "Set price →" pill; the whole card sets the price;
+    6 Oct 2026: when the price already equals the recycle price, both to the nearest £1, the pill is hidden with
+    visibility (its space kept, so the card's height and everything below stay put) and the card is a disabled button
+    until the price moves; test-browser.js checks it)
     and stamp duty (worked out, read-only).
   - EMPTY STATE whenever end value or price is blank or 0 (Calc.dealEntered): "No deal entered yet", dashes for the hero,
     chip, exit tiles and every result tile, "Add end value and price", empty money bar with "Lender pays —", the strip

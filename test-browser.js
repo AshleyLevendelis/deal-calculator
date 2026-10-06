@@ -30,6 +30,9 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('the drag moved the price (relative, not a jump)', (await val('purchasePrice')) !== '125,000', await val('purchasePrice'));
   // Set price: snaps to the recycle price with a tick, glow and the snapped text.
   const buzz0 = await p.evaluate(() => window.__buzz);
+  const recBox = () => price.locator('.rec-btn').evaluate(e => ({ h: e.getBoundingClientRect().height, below: e.closest('.deal-card').nextElementSibling.getBoundingClientRect().top - e.getBoundingClientRect().top, pill: getComputedStyle(e.querySelector('.rec-set')).visibility, off: e.disabled }));
+  const recBefore = await recBox();
+  ok('away from the recycle price the Set price pill shows and the card is a button', recBefore.pill === 'visible' && !recBefore.off, JSON.stringify(recBefore));
   await price.locator('.rec-btn').click(); await p.waitForTimeout(60);
   const rec = await price.locator('.rec-amt').textContent();
   ok('Set price sets the recycle price', '£' + (await val('purchasePrice')) === rec, (await val('purchasePrice')) + ' vs ' + rec);
@@ -39,6 +42,18 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('only that slider glows', (await p.locator('.scrub.snapped').count()) === 1);
   await p.waitForTimeout(1000);
   ok('the glow and text go after 900ms', !(await sl.evaluate(e => e.classList.contains('snapped'))) && (await price.locator('.lg-sub').textContent()) === '');
+  // At the recycle price: the pill hides (its space kept) and the card stops being a button until the price moves.
+  const recAt = await recBox();
+  ok('at the recycle price the Set price pill is hidden', recAt.pill === 'hidden', JSON.stringify(recAt));
+  ok('... and the card is no longer a button', recAt.off && (await price.locator('.rec-btn').getAttribute('aria-label')).endsWith('The price is set to it'));
+  ok('... and the card keeps its height, so nothing below moves', recAt.h === recBefore.h && recAt.below === recBefore.below, JSON.stringify([recBefore, recAt]));
+  ok('the card keeps its label, amount and helper line', (await price.locator('.rec-eye').isVisible()) && (await price.locator('.rec-amt').isVisible()) && (await price.locator('.rec-note').textContent()) === 'Pay this or less to get every pound back');
+  const recN = Number(rec.replace(/[£,]/g, ''));
+  await p.fill('#lg-purchasePrice', String(recN + 1)); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
+  const recMoved = await recBox();
+  ok('£1 off the recycle price: the pill is back and the card is a button again', recMoved.pill === 'visible' && !recMoved.off && recMoved.h === recBefore.h, JSON.stringify(recMoved));
+  await p.fill('#lg-purchasePrice', String(recN)); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
+  ok('typing the recycle price by hand hides it again', (await recBox()).pill === 'hidden' && (await recBox()).off);
   await sl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100);
   const px = await sl.evaluate(w => { const r = w.getBoundingClientRect(), i = w.querySelector('.scrub-in'), q = (125000 - Number(i.min)) / (Number(i.max) - Number(i.min)); return r.x + 20 + (r.width - 40) * q; });
   const pb = await sl.boundingBox(); await p.mouse.click(px, pb.y + pb.height / 2); await p.waitForTimeout(40);

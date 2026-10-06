@@ -437,7 +437,7 @@
       if (isPrice) {
         recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; recBtn.appendChild(h('i', 'rec-tick'));
         var rs = h('span', 'rec-txt'); rs.appendChild(h('span', 'rec-eye', 'Recycle price')); recTxt = h('b', 'rec-amt fig'); rs.appendChild(recTxt); rs.appendChild(h('span', 'rec-note', 'Pay this or less to get every pound back'));
-        recBtn.appendChild(rs); var set = h('span', 'rec-set', 'Set price '); set.appendChild(h('span', 'arr', '→')); recBtn.appendChild(set);
+        var set = h('span', 'rec-set', 'Set price '); set.appendChild(h('span', 'arr', '→')); recBtn.appendChild(rs); recBtn.appendChild(set);
         card.appendChild(recBtn);
         recBtn.onclick = function () { if (recP != null) { setFig(id, recP); sl._snap(recP); } };
       }
@@ -459,7 +459,11 @@
           var p = recP == null ? -1 : (recP - lo()) / ((hi() - lo()) || 1), show = p >= 0 && p <= 1;
           mark.hidden = !show; recBtn.hidden = recP == null;
           if (show) mark.style.left = sl._at(recP);
-          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', 'Recycle price ' + money(recP) + '. Set price'); }
+          // Already at the recycle price (to the nearest £1): the pill is hidden (its space kept, so nothing moves) and the
+          // card is not a button until the price moves again.
+          var atRec = recP != null && Math.round(c) === Math.round(recP);
+          set.style.visibility = atRec ? 'hidden' : ''; recBtn.disabled = atRec;
+          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', 'Recycle price ' + money(recP) + (atRec ? '. The price is set to it' : '. Set price')); }
         }
       });
     });
