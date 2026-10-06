@@ -178,6 +178,21 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   it in every buy calculator. test-calcs.js names it in NOT_YELLOW for flip, btl, sabtl, hmobrr, sabrr. No other
   exception: any further non-yellow box still fails the test.
 
+## Design 8a (6 Oct 2026, fifth hand-off: Figures | Results)
+- Under the exit tiles, a full-width pill switch (.lg-switch: Figures / Results, 44px buttons, chosen one ink fill with bg
+  text) splits the page. The pinned panel, verdict strip and exit tiles stay above both. Figures (.lg-figures): The deal
+  with Clear figures, the 7a cards with stamp duty and the recycle card, Lender pays / Deposit, More detail (the three
+  folds). Results (.lg-results): "How {exit} does" with the bigger tiles (padding 14px, figure 22px), a "Your own money
+  in" card (own-card: same rows, summary and caption as the fold, drawn by ownMoney() in app.js) and "← Change the
+  figures" (back to Figures). The Rent to rent link, usual figures link and disclaimer sit under both.
+- Starts on Figures; the choice is kept for the session (sessionStorage deal-analyser:ledgerView), not per deal, and
+  survives an exit change. Switching (or Change the figures) scrolls so the switch sits just under the pinned panel.
+  No maths changes: Results only shows what Calc.ledger already works out, and both views refresh together.
+- NOT BUILT: the design's Rent to rent screen ("7b" and its "8b" switch, Rent to Rent.dc.html: pinned panel, 2 of 3
+  targets, R2R HMO / R2R SA tiles). This app's rent to rent is still the plain calculator screen; asked Ashley.
+- test-browser.js checks the switch (default, contents, 44px, Results contents, own money rows, live updates, exit
+  change, session memory, a new session, Change the figures, scroll position).
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
   named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).

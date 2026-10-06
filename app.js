@@ -304,6 +304,25 @@
   // The verdict strip's targets: shut to start with, then open or shut as last left for the rest of the session.
   var TARGETS_KEY = 'deal-analyser:targetsOpen', targetsOpen = false;
   try { targetsOpen = !!sessionStorage.getItem(TARGETS_KEY); } catch (e) {}
+  // Design 8a: the page under the exit tiles shows Figures (everything you enter) or Results (the answer). Figures to
+  // start with, then whichever was last chosen for the rest of the session (not per deal).
+  var VIEW_KEY = 'deal-analyser:ledgerView', ledgerView = 'figures';
+  try { ledgerView = sessionStorage.getItem(VIEW_KEY) === 'results' ? 'results' : 'figures'; } catch (e) {}
+  // "Your own money in": the rows (deposit, stamp duty, legal, other costs, refurb, furnishing, bridging when above 0, the
+  // mortgage and the total), a one-line summary and the caption. Drawn in the fold under Figures and the card under Results.
+  function ownMoney(R, rowsEl, sumEl, capEl) {
+    R.push(function (L, X) {
+      var w = X.own, P0 = num(L.ps.purchasePrice);
+      sumEl.textContent = money(w.total) + ' · total in ' + money(w.totalIn);
+      capEl.textContent = w.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
+      var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal]].concat(w.other > 0 ? [['Other costs', w.other]] : []).concat([['Refurb costs', w.refurb]]);
+      if (w.furnishing) rows.push(['Furnishing', w.furnishing]); if (w.bridge) rows.push(['Bridging cost', w.bridge]);
+      rowsEl.innerHTML = '';
+      rows.forEach(function (r) { var s = statRow(r[0]); s.val.textContent = money(r[1]); rowsEl.appendChild(s.row); });
+      var m = statRow('Mortgage covers', 'faint'); m.row.classList.add('solid'); m.val.textContent = money(w.mortgage); rowsEl.appendChild(m.row);
+      var t = statRow('Total money in (deposit, mortgage, stamp duty, legal, refurb' + (w.furnishing ? ', furniture' : '') + (w.bridge ? ', bridging' : '') + ')'); t.row.classList.add('solid'); t.val.textContent = money(w.totalIn); rowsEl.appendChild(t.row);
+    });
+  }
   // A fold card under "More detail": a header that opens it (only one open at a time) with a one-line summary when closed.
   var openFold = null, folds = [];
   function fold(key, title) {
@@ -407,6 +426,21 @@
     });
     box.appendChild(exits);
 
+    // ---- 8a: Figures | Results ----
+    var page = box, sw = h('div', 'lg-switch'), figView = h('div', 'lg-view lg-figures'), resView = h('div', 'lg-view lg-results'), swBtns = {};
+    sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', 'Show');
+    var setView = function (v, scroll) {
+      ledgerView = v; try { sessionStorage.setItem(VIEW_KEY, v); } catch (e) {}
+      figView.hidden = v !== 'figures'; resView.hidden = v !== 'results';
+      Object.keys(swBtns).forEach(function (k) { swBtns[k].setAttribute('aria-pressed', k === v); });
+      // keep the top of the content in view: the switch sits just under the pinned panel
+      if (scroll) { var pinEl = page.querySelector('.pin'); window.scrollTo(0, Math.max(0, sw.getBoundingClientRect().top + window.scrollY - (pinEl ? pinEl.offsetHeight : 0) - 8)); }
+    };
+    [['figures', 'Figures'], ['results', 'Results']].forEach(function (o) {
+      var b = h('button', '', o[1]); b.type = 'button'; b.onclick = function () { if (ledgerView !== o[0]) setView(o[0], true); }; sw.appendChild(b); swBtns[o[0]] = b;
+    });
+    page.appendChild(sw); page.appendChild(figView); page.appendChild(resView); box = figView;
+
     // ---- 3. the deal: one card per figure ----
     var dh = h('div', 'lg-hrow'), clr = h('button', 'clear-pill'); clr.type = 'button';
     clr.appendChild(h('span', 'x', '×')); clr.appendChild(document.createTextNode('Clear figures'));
@@ -481,8 +515,8 @@
     box.appendChild(chips);
 
     // ---- 5. how the chosen exit does ----
-    box.appendChild(h('p', 'lg-h', 'How ' + exitName + ' does'));
-    var tiles = h('div', 'lg-tiles'); box.appendChild(tiles);
+    resView.appendChild(h('p', 'lg-h', 'How ' + exitName + ' does'));
+    var tiles = h('div', 'lg-tiles'); resView.appendChild(tiles);
     if (isLet) {
       var T = { income: tile('Monthly income'), expenses: tile('Monthly expenses'), monthly: tile('Monthly profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET) + ')'), annual: tile('Annual profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET * 12) + ')'),
         back: tile('Months to get money back (green\u00a0≤\u00a0' + Calc.targets().payback + ', amber\u00a0≤\u00a0' + Calc.PAYBACK_OK + ')'), roi: tile('ROI on cash left in (target ' + roiPct() + ')'), pay: tile('Most you can pay and get it back in 2 years') };
@@ -530,17 +564,11 @@
       });
     }
     var of = fold('own', 'Your own money in'), ownRows = h('div'), ownCap = h('div', 'own-cap'); of.body.appendChild(ownRows); of.body.appendChild(ownCap);
-    R.push(function (L, X) {
-      var w = X.own, P0 = num(L.ps.purchasePrice);
-      of.sum.textContent = money(w.total) + ' · total in ' + money(w.totalIn);
-      ownCap.textContent = w.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
-      var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal]].concat(w.other > 0 ? [['Other costs', w.other]] : []).concat([['Refurb costs', w.refurb]]);
-      if (w.furnishing) rows.push(['Furnishing', w.furnishing]); if (w.bridge) rows.push(['Bridging cost', w.bridge]);
-      ownRows.innerHTML = '';
-      rows.forEach(function (r) { var s = statRow(r[0]); s.val.textContent = money(r[1]); ownRows.appendChild(s.row); });
-      var m = statRow('Mortgage covers', 'faint'); m.row.classList.add('solid'); m.val.textContent = money(w.mortgage); ownRows.appendChild(m.row);
-      var t = statRow('Total money in (deposit, mortgage, stamp duty, legal, refurb' + (w.furnishing ? ', furniture' : '') + (w.bridge ? ', bridging' : '') + ')'); t.row.classList.add('solid'); t.val.textContent = money(w.totalIn); ownRows.appendChild(t.row);
-    });
+    ownMoney(R, ownRows, of.sum, ownCap);
+    var oc = h('section', 'lg-card own-card'), ocHead = h('div', 'own-card-head'), ocSum = h('small'), ocRows = h('div'), ocCap = h('div', 'own-cap');
+    ocHead.appendChild(h('b', '', 'Your own money in')); ocHead.appendChild(ocSum); oc.appendChild(ocHead); oc.appendChild(ocRows); oc.appendChild(ocCap); resView.appendChild(oc);
+    ownMoney(R, ocRows, ocSum, ocCap);
+    var back = h('button', 'lg-back', '← Change the figures'); back.type = 'button'; back.onclick = function () { setView('figures', true); }; resView.appendChild(back);
     var pf = fold('pay', 'Paying for it');
     var seg = h('div', 'segmented lg-seg');
     [[false, 'Own cash / mortgage'], [true, 'Bridging loan']].forEach(function (m) {
@@ -586,9 +614,10 @@
       });
     }
     folds.forEach(function (f) { box.appendChild(f.card); });
-    var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); box.appendChild(foot);
-    var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
-    box.appendChild(legalFooter());
+    var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); page.appendChild(foot);
+    var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; page.appendChild(ul);
+    page.appendChild(legalFooter());
+    setView(ledgerView, false);
 
     // ---- no fixed action bar on this screen: Save sits in the panel; only the tab bar stays fixed ----
     var sbar = $('sticky-bar'); sbar.innerHTML = ''; sbar.hidden = true;

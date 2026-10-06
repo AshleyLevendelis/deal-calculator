@@ -104,7 +104,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('a rent + nudge steps the rent by £25', Number(await p.$eval('#lg-monthlyRent', e => e.value)) === Number(rent) + 25);
   // Exit switch keeps the remembered choice
   await p.click('.exit-tile:has(.nm:text-is("SA"))'); await p.waitForTimeout(80);
-  ok('switching exit relabels the pill, heading and fold', (await p.locator('.pin-exit').textContent()) === 'BRR → SA' && (await p.locator('.lg-h >> nth=1').textContent()) === 'How SA does' && (await fold('SA figures').count()) === 1);
+  ok('switching exit relabels the pill, heading and fold', (await p.locator('.pin-exit').textContent()) === 'BRR → SA' && (await p.locator('.lg-results .lg-h').textContent()) === 'How SA does' && (await fold('SA figures').count()) === 1);
   await p.reload(); await p.waitForTimeout(300);
   ok('the exit and bridging choice are remembered', (await p.locator('.pin-exit').textContent()) === 'BRR → SA' && (await p.locator('.pin-tag').isVisible()));
   // Tap targets on this screen
@@ -218,7 +218,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
 
   // ---- design 7a: the order of the deal and "Any other costs" ----
   await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
-  const order = await p.evaluate(() => [...document.querySelectorAll('#v-home > .lg-card')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
+  const order = await p.evaluate(() => [...document.querySelectorAll('#v-home .lg-figures > .lg-card')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
   ok('The deal reads: End value, Refurb, Legal, Any other costs, Stamp duty (its own card), Purchase price', order.join(' | ') === 'End value (GDV) | Refurb costs | Legal costs | Any other costs | stamp duty | Purchase price', order.join(' | '));
   ok('the purchase price card no longer holds the stamp duty', !(await p.locator('.deal-card:has(#lg-purchasePrice) .tax-block').count()) && (await p.locator('.deal-card:has(#lg-purchasePrice) .rec-btn').count()) === 1);
   const oc = p.locator('.deal-card:has(#lg-otherUpfront)');
@@ -233,5 +233,49 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('Clear figures empties any other costs too', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
   await p.click('.pin-reset'); await p.waitForTimeout(60);
   ok('Reset puts it back to its starting £0', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
+  // ---- design 8a: Figures | Results under the exit tiles ----
+  {
+    const c2 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await c2.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    const q = await c2.newPage(); q.on('pageerror', e => errs.push(e.message));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    for (const [id, v] of [['lg-endValue', 230000], ['lg-purchasePrice', 125000], ['lg-refurb', 45000], ['lg-legal', 3000]]) await q.fill('#' + id, String(v));
+    await q.evaluate(() => document.activeElement.blur()); await q.click('.exit-tile:has(.nm:text-is("BTL"))'); await q.waitForTimeout(100);
+    const pressed = () => q.$$eval('.lg-switch button', bs => bs.map(x => x.textContent + ':' + x.getAttribute('aria-pressed')).join());
+    ok('8a: the switch sits right under the exit tiles and starts on Figures', await q.evaluate(() => document.querySelector('.lg-exits').nextElementSibling.classList.contains('lg-switch')) && (await pressed()) === 'Figures:true,Results:false', await pressed());
+    ok('8a: Figures holds The deal, its cards, Lender pays / Deposit and More detail; Results is hidden', await q.evaluate(() => { const f = document.querySelector('.lg-figures'); return !!(f.querySelector('.clear-pill') && f.querySelector('#lg-endValue') && f.querySelector('.tax-card') && f.querySelector('.rec-btn') && f.querySelector('.lg-chips') && f.querySelectorAll('.lg-fold').length === 3) && document.querySelector('.lg-results').hidden; }));
+    ok('8a: each switch button is at least 44px tall', (await q.$$eval('.lg-switch button', bs => bs.every(x => x.getBoundingClientRect().height >= 44))));
+    await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(100);
+    const sw = await q.evaluate(() => ({ sw: document.querySelector('.lg-switch').getBoundingClientRect().top, pin: document.querySelector('.pin').getBoundingClientRect().bottom }));
+    ok('8a: Results shows How BTL does, the 7 tiles, Your own money in and Change the figures; Figures is hidden', (await q.isVisible('.lg-results .lg-h:text-is("How BTL does")')) && (await q.locator('.lg-results .lg-tile').count()) === 7 && (await q.isVisible('.own-card')) && (await q.isVisible('.lg-back')) && !(await q.isVisible('#lg-endValue')));
+    ok('8a: switching puts the switch just under the pinned panel', sw.sw >= sw.pin && sw.sw - sw.pin <= 16, JSON.stringify(sw));
+    ok('8a: Results tiles are larger (22px figures, 14px padding)', await q.$eval('.lg-results .lg-tile', t => getComputedStyle(t.querySelector('b')).fontSize === '22px' && getComputedStyle(t).paddingTop === '14px'));
+    const ownCard = await q.$$eval('.own-card .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
+    const ownFold = await q.$$eval('.lg-fold .lg-stat', rs => rs.map(r => r.textContent).length);
+    ok('8a: the own money card lists deposit, stamp duty, legal, refurb, mortgage and total', /Deposit \(25% of £125,000\) £31,250\|Stamp duty £6,250\|Legal costs £3,000\|Refurb costs £45,000\|Mortgage covers £93,750\|Total money in/.test(ownCard), ownCard);
+    ok('8a: ... with the same summary as the fold', (await q.textContent('.own-card-head small')) === '£85,500 · total in £179,250' && ownFold > 0);
+    // a change on Figures shows straight away in Results and the panel
+    const before = await q.textContent('.lg-results .lg-tile >> nth=4');
+    await q.click('.lg-switch button:text-is("Figures")'); await q.fill('#lg-purchasePrice', '115000'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
+    await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(80);
+    ok('8a: a figure changed under Figures shows at once in Results and in the own money card', (await q.textContent('.lg-results .lg-tile >> nth=4')) !== before && (await q.textContent('.own-card-head small')).includes('total in £16'), await q.textContent('.own-card-head small'));
+    // the exit tiles stay above the switch: changing strategy keeps Results
+    await q.click('.exit-tile:has(.nm:text-is("Flip"))'); await q.waitForTimeout(100);
+    ok('8a: changing exit keeps Results, now for the flip (3 tiles)', (await pressed()) === 'Figures:false,Results:true' && (await q.locator('.lg-results .lg-tile').count()) === 3 && (await q.textContent('.lg-results .lg-h')) === 'How Flip does');
+    // remembered for the session, not per deal
+    await q.reload(); await q.waitForTimeout(300);
+    ok('8a: the choice is remembered for the session (after a reload)', (await pressed()) === 'Figures:false,Results:true');
+    await q.click('.lg-back'); await q.waitForTimeout(100);
+    ok('8a: "← Change the figures" goes back to Figures', (await pressed()) === 'Figures:true,Results:false' && (await q.isVisible('#lg-endValue')));
+    const sw2 = await q.evaluate(() => ({ sw: document.querySelector('.lg-switch').getBoundingClientRect().top, pin: document.querySelector('.pin').getBoundingClientRect().bottom }));
+    ok('8a: ... with the switch just under the pinned panel', sw2.sw >= sw2.pin && sw2.sw - sw2.pin <= 16, JSON.stringify(sw2));
+    await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(60);
+    const c3 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await c3.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    const r = await c3.newPage(); await r.goto(BASE + '/index.html#c/brr'); await r.waitForTimeout(300);
+    ok('8a: a new session starts on Figures', (await r.$$eval('.lg-switch button', bs => bs.map(x => x.getAttribute('aria-pressed')).join())) === 'true,false');
+    ok('8a: no sideways scroll in either view', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+    await c3.close(); await c2.close();
+  }
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

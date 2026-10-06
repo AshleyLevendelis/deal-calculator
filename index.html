@@ -199,6 +199,17 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .pin-caps span:last-child{overflow:hidden;text-overflow:ellipsis}
 .pin-tag{font:600 11.5px var(--font-ui);color:var(--amber);margin-top:4px}
 .lg-exits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
+/* design 8a: Figures | Results under the exit tiles */
+.lg-switch{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;margin:0 0 4px;border:1px solid var(--line);border-radius:999px}
+.lg-switch button{min-height:44px;border:0;border-radius:999px;background:transparent;color:var(--mute);font:600 13.5px var(--font-ui)}
+.lg-switch button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.lg-view[hidden]{display:none}
+.lg-results .lg-tile{padding:14px}.lg-results .lg-tile b{font-size:22px;line-height:1.15}
+.lg-results .lg-tiles{margin:0 0 10px}
+.own-card{padding:14px 16px 14px}.own-card-head b{display:block;font:700 15px var(--font-ui);color:var(--ink)}
+.own-card-head small{display:block;font-size:12px;color:var(--faint);margin:2px 0 8px}
+.own-card>.own-cap{max-width:none;text-align:left;padding-top:6px}
+.lg-back{display:block;width:100%;min-height:48px;margin:4px 0 0;border:1.5px solid var(--line);border-radius:999px;background:transparent;color:var(--ink);font:700 14px var(--font-ui)}
 .exit-tile{min-width:0;min-height:56px;padding:9px 4px;border-radius:18px;background:var(--card);border:2px solid transparent;color:var(--ink);text-align:center}
 .exit-tile.on{border-color:var(--ink)}
 .exit-tile .nm{display:block;font:700 14px var(--font-ui)}
