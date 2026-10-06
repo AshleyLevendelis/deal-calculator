@@ -297,8 +297,6 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex,.bridge-in input.ex{color:v
 .vstrip.none .vs-txt{color:var(--mute)}
 .vs-detail{font-weight:500;color:var(--mute)}
 .vs-lab{flex:none;font:600 12px var(--font-ui);color:var(--mint);white-space:nowrap}
-.vs-edit{position:relative;flex:none;min-height:30px;padding:0 10px;border-radius:999px;border:1.5px solid var(--mint);background:none;color:var(--mint);font:700 11.5px var(--font-ui);white-space:nowrap}
-.vs-edit::after{content:"";position:absolute;inset:-7px -2px}
 .vs-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 10px 4px}
 .vs-sum{font-size:11px;color:var(--faint);min-width:0;line-height:1.35}
 .vs-link{flex:none;border:0;background:none;color:var(--mint);font:600 12px var(--font-ui);padding:0;min-height:44px}
@@ -308,6 +306,11 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex,.bridge-in input.ex{color:v
 .vs-mark.good{background:var(--good)}.vs-mark.bad{background:var(--red)}
 body.ledger #v-home .vs-mark{color:var(--bg)}
 .tax-block{margin:10px 0 0;border-radius:18px;background:var(--bg);overflow:hidden}
+.tax-card{padding:4px 2px}
+.tax-card .tax-block{margin:0;background:none}
+.tax-card .tax-head{padding:12px 14px}
+.tax-card .tax-l b{font-size:13px;color:var(--mute)}
+.tax-card .tax-r b{font-size:26px}
 .tax-head{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;min-height:44px;border:0;border-radius:0;background:none;color:var(--ink);text-align:left}
 .tax-l{min-width:0}.tax-l b{display:block;font:600 13px var(--font-ui)}.tax-l small{display:block;font-size:11px;line-height:1.35;color:var(--faint);margin-top:1px}
 .tax-r{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none}

@@ -162,12 +162,13 @@
   // Calc.ledger; this file only draws it. The DOM is built once and refreshLedger() updates figures in place, so a slider
   // being dragged or a number being typed is never rebuilt under the finger.
   var BRIDGE_KEY = 'deal-analyser:brrBridge', bridgeOn = !!load(BRIDGE_KEY, false), ledgerStart = null, holdT = null, holdI = null;
-  var DEAL_ORDER = ['endValue', 'purchasePrice', 'refurb', 'legal'];
+  var DEAL_ORDER = ['endValue', 'refurb', 'legal', 'otherUpfront', 'purchasePrice'];   // design 7a
   var DEAL_ROWS = {
     endValue: { range: [80000, 400000], levels: [1000, 200, 50], nudge: 1000, grow: 10000 },
     purchasePrice: { range: [50000, 300000], levels: [1000, 200, 50], nudge: 500, grow: 10000 },
     refurb: { range: [0, 120000], levels: [500, 100, 25], nudge: 250, grow: 10000 },
-    legal: { range: [0, 10000], levels: [100, 20, 5], nudge: 50, grow: 1000 }
+    legal: { range: [0, 10000], levels: [100, 20, 5], nudge: 50, grow: 1000 },
+    otherUpfront: { range: [0, 20000], levels: [50, 20, 5], nudge: 100, grow: 1000 }
   };
   var RENT_RANGE = { monthlyRent: [300, 3000, 25], mortgageRate: [2, 10, 0.05], mgmtPct: [0, 20, 0.5], voidsPct: [0, 20, 0.5], rooms: [1, 10, 1], roomRate: [200, 1200, 5],
     furnishing: [0, 20000, 250], maintPct: [0, 20, 0.5], council: [0, 400, 1], utilities: [0, 800, 5], other: [0, 800, 5], nightlyRate: [40, 400, 5], occupancyPct: [30, 100, 1],
@@ -369,8 +370,7 @@
     var strip = h('div', 'vstrip'), sbtn = h('button', 'vs-row'), score = h('span', 'vs-score'), vtxt = h('span', 'vs-txt'), vtitle = h('span'), vdet = h('span', 'vs-detail'), vlab = h('span', 'vs-lab');
     var chipsBox = h('div', 'vs-chips');
     sbtn.type = 'button'; vtxt.appendChild(vtitle); vtxt.appendChild(vdet); sbtn.appendChild(score); sbtn.appendChild(vtxt); sbtn.appendChild(vlab);
-    var shead = h('div', 'vs-head'), edit = h('button', 'vs-edit', 'Edit targets'); edit.type = 'button'; edit.onclick = openTargets;
-    shead.appendChild(sbtn); shead.appendChild(edit);
+    var shead = h('div', 'vs-head'); shead.appendChild(sbtn);
     var tfoot = h('div', 'vs-foot'), tsum = h('span', 'vs-sum'), tlink = h('button', 'vs-link', 'Edit targets →'); tlink.type = 'button'; tlink.onclick = openTargets;
     tfoot.appendChild(tsum); tfoot.appendChild(tlink);
     strip.appendChild(shead); strip.appendChild(chipsBox); strip.appendChild(tfoot); pin.appendChild(strip);
@@ -408,10 +408,14 @@
     // ---- 3. the deal: one card per figure ----
     var dh = h('div', 'lg-hrow'), clr = h('button', 'clear-pill'); clr.type = 'button';
     clr.appendChild(h('span', 'x', '×')); clr.appendChild(document.createTextNode('Clear figures'));
-    // Empties end value, price and refurb (legal and every other figure stay), ready for a new deal. Reset brings them back.
-    clr.onclick = function () { ['endValue', 'purchasePrice', 'refurb'].forEach(function (id) { deal[id] = 0; }); store(DEAL, deal); refreshLedger(); };
+    // Empties end value, price, refurb and any other costs (legal and the rest stay), ready for a new deal. Reset brings them back.
+    clr.onclick = function () { ['endValue', 'purchasePrice', 'refurb', 'otherUpfront'].forEach(function (id) { deal[id] = 0; }); store(DEAL, deal); refreshLedger(); };
     dh.appendChild(h('p', 'lg-h', 'The deal')); dh.appendChild(clr); box.appendChild(dh);
     DEAL_ORDER.forEach(function (id) {
+      if (id === 'purchasePrice') {                                   // stamp duty sits in its own card, just above the price
+        var tc = h('section', 'lg-card tax-card'), tv = h('b', 'fig'); tc.appendChild(taxBlock(tv)); box.appendChild(tc);
+        R.push(function (L, X) { tv.textContent = money(X.own.sdlt); });
+      }
       var cfg = DEAL_ROWS[id], f = fieldDef(FLIP_CALC, id), card = h('section', 'lg-card deal-card'), isPrice = id === 'purchasePrice', recP = null, hint = null, snapTo = null;
       var win = valueWindow(cfg, ledgerStart[id], function () { return cur(id); }), lo = win.lo, hi = win.hi;
       var lab = h('label', 'lg-label', f.label); lab.setAttribute('for', 'lg-' + id); card.appendChild(lab);
@@ -442,18 +446,14 @@
         sub.textContent = hint != null ? ['Slide your finger down for finer steps', 'Finer: ' + money(cfg.levels[1]) + ' steps', 'Finest: ' + money(cfg.levels[2]) + ' steps'][hint]
           : snapped ? (isPrice && snapTo === recP ? '✓ Snapped to the recycle price' : '✓ Snapped to the starting figure') : subBase;
       };
-      var sdVal = null;
-      if (isPrice) {
-        sdVal = h('b', 'fig'); card.appendChild(taxBlock(sdVal));
-      }
       box.appendChild(card);
       R.push(function (L, X) {
         var c = cur(id), d = c - ledgerStart[id];
         win.settle(); box1._sync(); sl._sync();
-        subBase = id === 'endValue' ? 'Lender pays ' + L.ltv + '% = ' + money(num(X.v.newMortgage)) : ''; drawSub();
+        subBase = id === 'endValue' ? 'Lender pays ' + L.ltv + '% = ' + money(num(X.v.newMortgage)) : id === 'otherUpfront' ? 'Survey, valuation, broker: anything else up front' : ''; drawSub();
         reset.hidden = d === 0; reset.textContent = signedMoney(d) + ' from ' + money(ledgerStart[id]) + ' ↺';
         if (isPrice) {
-          recP = Calc.dealEntered(L.ps) ? X.recyclePrice : null; sdVal.textContent = money(X.own.sdlt);
+          recP = Calc.dealEntered(L.ps) ? X.recyclePrice : null;
           var p = recP == null ? -1 : (recP - lo()) / ((hi() - lo()) || 1), show = p >= 0 && p <= 1;
           mark.hidden = !show; recBtn.hidden = recP == null;
           if (show) mark.style.left = sl._at(recP);
@@ -528,7 +528,7 @@
       var w = X.own, P0 = num(L.ps.purchasePrice);
       of.sum.textContent = money(w.total) + ' · total in ' + money(w.totalIn);
       ownCap.textContent = w.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
-      var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal], ['Refurb costs', w.refurb]];
+      var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal]].concat(w.other > 0 ? [['Other costs', w.other]] : []).concat([['Refurb costs', w.refurb]]);
       if (w.furnishing) rows.push(['Furnishing', w.furnishing]); if (w.bridge) rows.push(['Bridging cost', w.bridge]);
       ownRows.innerHTML = '';
       rows.forEach(function (r) { var s = statRow(r[0]); s.val.textContent = money(r[1]); ownRows.appendChild(s.row); });
@@ -915,7 +915,7 @@
   var PDF_LABELS = { depositPct: 'Deposit %', endValue: 'End value', ltv: 'Refinance LTV %', mortgageRate: 'Mortgage rate %',
     monthlyRent: 'Monthly rent received', rentPaid: 'Rent you pay (monthly)', upfront: 'Deposit / up-front rent', roomRate: 'Room rate (per month)', nightlyRate: 'Room rate (per night)',
     occupancyPct: 'Occupancy %', mgmtPct: 'Management %', voidsPct: 'Maintenance / voids % of rent', maintPct: 'Maintenance % of income', maintOnMortgagePct: 'Maintenance % of mortgage',
-    maintOnRentPct: 'Maintenance % of rent paid', commPct: 'Commission %', other: 'Other costs (monthly)', otherUpfront: 'Other costs (up front)', council: 'Council tax (monthly)',
+    maintOnRentPct: 'Maintenance % of rent paid', commPct: 'Commission %', other: 'Other costs (monthly)', otherUpfront: 'Other costs', council: 'Council tax (monthly)',
     utilities: 'Utility bills (monthly)', channel: 'Channel manager (monthly)', insurance: 'Insurance (monthly)' };
   function fieldFor(id) {
     for (var i = 0; i < Calc.calcs.length; i++) for (var s = 0; s < Calc.calcs[i].layout.length; s++) {
@@ -926,7 +926,10 @@
   }
   function detailLines() {
     var out = [];
-    Object.keys(deal).forEach(function (id) {
+    // Other costs sit straight after legal costs, and only when there are any.
+    var ids = Object.keys(deal).filter(function (id) { return id !== 'otherUpfront' || num(deal[id]) > 0; }), oi = ids.indexOf('otherUpfront'), li = ids.indexOf('legal');
+    if (oi >= 0 && li >= 0) { ids.splice(oi, 1); ids.splice(ids.indexOf('legal') + 1, 0, 'otherUpfront'); }
+    ids.forEach(function (id) {
       var f = fieldFor(id), v = deal[id]; if (!f || v === '' || v == null) return;
       out.push([PDF_LABELS[id] || f.label, f.unit === '£' ? money2(Number(v) || 0).replace(/\.00$/, '') : f.unit === '%' ? v + '%' : String(v)]);
     });

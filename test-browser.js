@@ -20,7 +20,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const val = id => p.$eval('#lg-' + id, e => e.value);
   // Reopen to set the start figures to the typed deal (as opening a saved deal does): Reset and "from" use them.
   // Drag the price slider: the bubble shows while the finger is down, and the value moves relatively.
-  const price = p.locator('.deal-card >> nth=1'), sl = price.locator('.scrub'); await sl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100); let bb = await sl.boundingBox();
+  const price = p.locator('.deal-card:has(#lg-purchasePrice)'), sl = price.locator('.scrub'); await sl.evaluate(e => e.scrollIntoView({ block: 'center' })); await p.waitForTimeout(100); let bb = await sl.boundingBox();
   const y = bb.y + bb.height / 2, x0 = bb.x + bb.width * 0.5;
   await p.mouse.move(x0, y); await p.mouse.down(); await p.mouse.move(x0 + 30, y, { steps: 5 }); await p.waitForTimeout(50);
   ok('the value bubble shows while dragging, with the price', await price.locator('.scrub-bubble').isVisible() && /^£\d{2,3},\d{3}$/.test(await price.locator('.scrub-bubble').textContent()), await price.locator('.scrub-bubble').textContent());
@@ -139,8 +139,10 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // ---- your targets ----
   await p.evaluate(() => { location.hash = '#c/brr'; }); await p.waitForTimeout(200);
   await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(80);
-  await p.click('.vs-edit'); await p.waitForTimeout(80);
-  ok('Edit targets opens the targets sheet with four rows', await p.isVisible('.big-sheet') && (await p.locator('.tg-row').count()) === 4 && !(await p.isVisible('.tg-back')));
+  ok('there is no Edit targets pill on the strip any more (design 7a)', !(await p.locator('.vs-edit').count()));
+  if (!(await p.isVisible('.vs-chips'))) await p.click('.vs-row');
+  await p.click('.vs-link'); await p.waitForTimeout(80);
+  ok('"Edit targets →" under the chips opens the targets sheet with four rows', await p.isVisible('.big-sheet') && (await p.locator('.tg-row').count()) === 4 && !(await p.isVisible('.tg-back')));
   await p.locator('.tg-row >> nth=1 >> .nudge >> nth=0').click(); await p.locator('.tg-row >> nth=1 >> .nudge >> nth=0').click(); await p.waitForTimeout(60);
   ok('two taps on − take the monthly target from £500 to £400, saved on the phone', (await p.$eval('#tg-monthly', e => e.value)) === '400' && JSON.parse(await p.evaluate(() => localStorage.getItem('deal-analyser:targets'))).monthly === 400);
   ok('the screen follows at once: "Monthly profit (target £400)" and the summary', (await p.locator('.lg-tile span:text-matches("^Monthly profit")').textContent()) === 'Monthly profit (target £400)' && (await p.locator('.vs-sum').textContent()) === '25% flip · £400/mo · 50% ROI · 6 mo back');
@@ -182,5 +184,22 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.click('.bs-done');
   await p.goto(BASE + '/privacy.html'); await p.waitForTimeout(150);
   ok('the standalone privacy page opens with the same six headings', (await p.locator('h2').count()) === 6 && (await p.locator('h1').textContent()) === 'Privacy policy');
+  // ---- design 7a: the order of the deal and "Any other costs" ----
+  await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
+  const order = await p.evaluate(() => [...document.querySelectorAll('#v-home > .lg-card')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
+  ok('The deal reads: End value, Refurb, Legal, Any other costs, Stamp duty (its own card), Purchase price', order.join(' | ') === 'End value (GDV) | Refurb costs | Legal costs | Any other costs | stamp duty | Purchase price', order.join(' | '));
+  ok('the purchase price card no longer holds the stamp duty', !(await p.locator('.deal-card:has(#lg-purchasePrice) .tax-block').count()) && (await p.locator('.deal-card:has(#lg-purchasePrice) .rec-btn').count()) === 1);
+  const oc = p.locator('.deal-card:has(#lg-otherUpfront)');
+  ok('Any other costs starts at £0 with its own explanation', (await p.$eval('#lg-otherUpfront', e => e.value)) === '' && (await oc.locator('.lg-sub').textContent()) === 'Survey, valuation, broker: anything else up front');
+  await oc.locator('.nudge >> nth=1').click(); await p.waitForTimeout(40);
+  ok('+ adds £100', (await p.$eval('#lg-otherUpfront', e => e.value)) === '100');
+  await p.fill('#lg-otherUpfront', '1000'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
+  if (!(await p.isVisible('.exit-tile.on:has(.nm:text-is("Flip"))'))) { await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80); }
+  await fold('Your own money in').locator('.fold-head').click(); await p.waitForTimeout(40);
+  ok('"Your own money in" lists Other costs £1,000, after Legal costs', (await fold('Your own money in').locator('.lg-stat span').allTextContents()).join('|').includes('Legal costs|Other costs|Refurb costs') && (await fold('Your own money in').locator('.lg-stat:has(span:text-is("Other costs")) b').textContent()) === '£1,000');
+  await p.click('.clear-pill'); await p.waitForTimeout(60);
+  ok('Clear figures empties any other costs too', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
+  await p.click('.pin-reset'); await p.waitForTimeout(60);
+  ok('Reset puts it back to its starting £0', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

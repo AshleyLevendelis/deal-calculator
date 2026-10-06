@@ -65,7 +65,8 @@
   function breakeven(cash, monthly) { return monthly > 0 ? cash / monthly : 'Not at this profit'; }
   // A refinance deal is still fine if the cash left in comes back out of the rent within this many months.
   var PAYBACK_MONTHS = 24;
-  function legalRefurb(s) { return n(s.legal) + n(s.refurb); }
+  // Legal, refurb and any other up-front costs (survey, valuation, broker): the fixed costs besides the price and its tax.
+  function legalRefurb(s) { return n(s.legal) + n(s.refurb) + n(s.otherUpfront); }
   function paybackOk(cashLeft, monthly) { return cashLeft > 0 && monthly > 0 && cashLeft / monthly <= PAYBACK_MONTHS; }
   // The highest purchase price at which the rent still returns the cash left in within PAYBACK_MONTHS.
   // Monthly profit does not depend on the price (the new mortgage is a share of the end value), so this is the
@@ -113,9 +114,10 @@
   function analyse(i) {
     var gdv = n(i.endValue);
     var p = purchase(i);
-    var legal = n(i.legal), refurb = n(i.refurb);
-    // Sheet: Total Money In = deposit + mortgage + SDLT + legal + refurb (i.e. total cost of the deal).
-    var totalIn = p.deposit + p.mortgage + p.sdlt + legal + refurb;
+    var legal = n(i.legal), refurb = n(i.refurb), other = n(i.otherUpfront);
+    // Sheet: Total Money In = deposit + mortgage + SDLT + legal + refurb (i.e. total cost of the deal), plus any other
+    // up-front costs (not in the sheet; added 6 Oct 2026, 0 unless typed).
+    var totalIn = p.deposit + p.mortgage + p.sdlt + legal + refurb + other;
     var profit = gdv - totalIn;                                           // sheet: profit = end value - total money in
     var flip = { totalIn: totalIn, profit: profit,
       margin: gdv ? profit / gdv : null,                                   // sheet "Flip Net Profit" = profit / GDV
@@ -131,7 +133,7 @@
   CALCS.push({
     id: 'flip', name: 'Flip / BRR to BTL', group: 'Buy, refurb & refinance', blurb: 'Profit if you sell, or cash left in if you refinance and rent',
     layout: [
-      { title: 'Money invested', items: purchaseItems(125000).concat([F('legal', 'Legal costs', '£', 3000), F('refurb', 'Refurb costs', '£', 45000), C('totalIn', 'Total money in', 'gbp', { bold: true }),
+      { title: 'Money invested', items: purchaseItems(125000).concat([F('legal', 'Legal costs', '£', 3000), F('refurb', 'Refurb costs', '£', 45000), F('otherUpfront', 'Any other costs', '£', 0, 'Survey, valuation, broker: anything else up front'), C('totalIn', 'Total money in', 'gbp', { bold: true }),
         C('ownMoney', 'Your own money', 'gbp', { bold: true, note: 'Total money in minus the mortgage — the bank’s share is not your cash' })]) },
       { title: 'Sale', items: [F('endValue', 'End value (GDV)', '£', 230000)] },
       { title: 'If you flip', items: [C('totalIn2', 'Total money in', 'gbp'),
@@ -163,7 +165,7 @@
   CALCS.push({
     id: 'btl', name: 'BTL', group: 'Buy to let', blurb: 'A standard mortgaged rental',
     layout: [
-      { title: 'Money invested', items: purchaseItems(555000).concat([F('legal', 'Legal fees', '£', 3000), F('refurb', 'Refurbishment', '£', 2000), C('totalIn', 'Total cash required', 'gbp', { bold: true })]) },
+      { title: 'Money invested', items: purchaseItems(555000).concat([F('legal', 'Legal fees', '£', 3000), F('refurb', 'Refurbishment', '£', 2000), F('otherUpfront', 'Any other costs', '£', 0, 'Survey, valuation, broker: anything else up front'), C('totalIn', 'Total cash required', 'gbp', { bold: true })]) },
       { title: 'Income', items: [F('monthlyRent', 'Monthly rent', '£', 1000), C('annualRent', 'Annual rent', 'gbp')] },
       { title: 'Expenses', items: [F('mortgageRate', 'Mortgage rate', '%', 5, 'Interest-only'), F('mgmtPct', 'Management', '%', 10, '% of rent'),
         F('voidsPct', 'Maintenance / voids', '%', 10, '% of rent'), F('insurance', 'Insurance', '£', 35, 'per month'), F('other', 'Any other costs', '£', 0, 'per month'),
@@ -171,7 +173,7 @@
       cashflowResults({ noIncomeRow: true })],
     summary: SUMMARY,
     compute: function (s) {
-      var p = purchase(s), rent = n(s.monthlyRent), totalIn = p.deposit + p.sdlt + n(s.legal) + n(s.refurb);
+      var p = purchase(s), rent = n(s.monthlyRent), totalIn = p.deposit + p.sdlt + n(s.legal) + n(s.refurb) + n(s.otherUpfront);
       var interest = interestOnly(p.mortgage, s.mortgageRate);
       var exp = interest + rent * n(s.mgmtPct) / 100 + rent * n(s.voidsPct) / 100 + n(s.insurance) + n(s.other);
       var out = finish({ deposit: p.deposit, mortgage: p.mortgage, sdlt: p.sdlt, totalIn: totalIn, ownMoney: totalIn, annualRent: rent * 12, interest: interest }, rent, exp, totalIn);
@@ -204,7 +206,7 @@
     id: 'sabtl', name: 'SA BTL', group: 'Buy to let', blurb: 'A mortgaged serviced accommodation (nightly lets)',
     layout: [
       { title: 'Money invested', items: purchaseItems(315000).concat([F('legal', 'Legal fees', '£', 3000), F('refurb', 'Refurbishment costs', '£', 2000),
-        F('furnishing', 'Staging and furnishing', '£', 3000), C('totalIn', 'Total money in', 'gbp', { bold: true })]) },
+        F('furnishing', 'Staging and furnishing', '£', 3000), F('otherUpfront', 'Any other costs', '£', 0, 'Survey, valuation, broker: anything else up front'), C('totalIn', 'Total money in', 'gbp', { bold: true })]) },
       { title: 'Income', items: [F('nightlyRate', 'Room rate', '£', 250, 'per night'), F('rooms', 'Number of rooms', '', 1), F('occupancyPct', 'Occupancy rate', '%', 71),
         C('income', 'Total per month', 'gbp2'), C('annualIncome', 'Total per annum', 'gbp')] },
       { title: 'Expenses', items: [F('mortgageRate', 'Mortgage payments', '%', 6, 'Interest-only'), F('commPct', 'Commissions', '%', 15, '% of income'),
@@ -213,7 +215,7 @@
       cashflowResults({ noIncomeRow: true })],
     summary: SUMMARY,
     compute: function (s) {
-      var p = purchase(s), inc = saIncome(s), totalIn = p.deposit + n(s.refurb) + n(s.furnishing) + p.sdlt + n(s.legal);
+      var p = purchase(s), inc = saIncome(s), totalIn = p.deposit + n(s.refurb) + n(s.furnishing) + p.sdlt + n(s.legal) + n(s.otherUpfront);
       var interest = interestOnly(p.mortgage, s.mortgageRate);
       var exp = interest + inc * n(s.commPct) / 100 + interest * n(s.maintOnMortgagePct) / 100 + n(s.council) + n(s.utilities) + n(s.channel);
       var out = finish({ deposit: p.deposit, mortgage: p.mortgage, sdlt: p.sdlt, totalIn: totalIn, ownMoney: totalIn, annualIncome: inc * 12, interest: interest }, inc, exp, totalIn);
@@ -226,7 +228,7 @@
     id: 'hmobrr', name: 'BRR to HMO', group: 'Buy, refurb & refinance', blurb: 'Refurb an HMO, refinance, and see the cash left in',
     layout: [
       { title: 'Money invested', items: purchaseItems(120000).concat([F('legal', 'Legal fees', '£', 3000), F('refurb', 'Refurbishment costs', '£', 30000),
-        F('furnishing', 'Furnishing costs', '£', 0), C('totalIn', 'Total money in', 'gbp', { bold: true }),
+        F('furnishing', 'Furnishing costs', '£', 0), F('otherUpfront', 'Any other costs', '£', 0, 'Survey, valuation, broker: anything else up front'), C('totalIn', 'Total money in', 'gbp', { bold: true }),
         C('ownMoney', 'Your own money', 'gbp', { bold: true, note: 'Total money in minus the mortgage — the bank’s share is not your cash' })]) },
       { title: 'Refinance', items: [F('endValue', 'End value', '£', 220000), F('ltv', 'Mortgage LTV', '%', 75), C('newMortgage', 'New mortgage', 'gbp'),
         C('cashLeft', 'Money left in', 'gbp', { bold: true }),
@@ -240,7 +242,7 @@
     summary: [['Money in', 'totalIn', 'gbp'], ['Money left in', 'cashLeft', 'gbp'], ['ROI', 'roi', 'pct']],
     compute: function (s) {
       var p = purchase(s), inc = roomsIncome(s);
-      var totalIn = p.deposit + p.mortgage + p.sdlt + n(s.legal) + n(s.refurb) + n(s.furnishing); // sheet counts the whole purchase
+      var totalIn = p.deposit + p.mortgage + p.sdlt + n(s.legal) + n(s.refurb) + n(s.furnishing) + n(s.otherUpfront); // sheet counts the whole purchase
       var newMortgage = n(s.endValue) * n(s.ltv) / 100, cashLeft = totalIn - newMortgage;
       var exp = interestOnly(newMortgage, s.mortgageRate) + inc * n(s.mgmtPct) / 100 + inc * n(s.maintPct) / 100 + n(s.council) + n(s.utilities) + n(s.other);
       var out = finish({ deposit: p.deposit, mortgage: p.mortgage, sdlt: p.sdlt, totalIn: totalIn, ownMoney: totalIn - p.mortgage, newMortgage: newMortgage, cashLeft: cashLeft, moneyOut: cashLeft < 0, annualIncome: inc * 12 }, inc, exp, cashLeft);
@@ -253,7 +255,7 @@
     id: 'sabrr', name: 'BRR to SA', group: 'Buy, refurb & refinance', blurb: 'Refurb, refinance and run it as serviced accommodation',
     layout: [
       { title: 'Money invested', items: purchaseItems(117000).concat([F('legal', 'Legal costs', '£', 3000), F('refurb', 'Refurb costs', '£', 45000),
-        F('furnishing', 'Furniture and staging', '£', 4500), C('totalIn', 'Total money in', 'gbp', { bold: true }),
+        F('furnishing', 'Furniture and staging', '£', 4500), F('otherUpfront', 'Any other costs', '£', 0, 'Survey, valuation, broker: anything else up front'), C('totalIn', 'Total money in', 'gbp', { bold: true }),
         C('ownMoney', 'Your own money', 'gbp', { bold: true, note: 'Total money in minus the mortgage — the bank’s share is not your cash' })]) },
       { title: 'Refinance', items: [F('endValue', 'End value (GDV)', '£', 200000), F('ltv', 'Re-mortgage LTV', '%', 75), C('newMortgage', 'New mortgage', 'gbp'),
         C('cashLeft', 'Cash remaining in deal', 'gbp', { bold: true }),
@@ -268,7 +270,7 @@
     summary: [['Money in', 'totalIn', 'gbp'], ['Monthly profit', 'monthly', 'gbp2'], ['ROI', 'roi', 'pct']],
     compute: function (s) {
       var p = purchase(s), inc = saIncome(s);
-      var totalIn = p.deposit + p.mortgage + p.sdlt + n(s.legal) + n(s.refurb) + n(s.furnishing);
+      var totalIn = p.deposit + p.mortgage + p.sdlt + n(s.legal) + n(s.refurb) + n(s.furnishing) + n(s.otherUpfront);
       var newMortgage = n(s.endValue) * n(s.ltv) / 100, cashLeft = totalIn - newMortgage, interest = interestOnly(newMortgage, s.mortgageRate);
       var exp = interest + inc * n(s.commPct) / 100 + interest * n(s.maintOnMortgagePct) / 100 + n(s.council) + n(s.utilities) + n(s.channel);
       var out = finish({ deposit: p.deposit, mortgage: p.mortgage, sdlt: p.sdlt, totalIn: totalIn, ownMoney: totalIn - p.mortgage, newMortgage: newMortgage, cashLeft: cashLeft, moneyOut: cashLeft < 0, annualIncome: inc * 12, interest: interest }, inc, exp, cashLeft);
@@ -550,7 +552,7 @@
   var BRR_LETTING = { none: 'flip', btl: 'flip', hmo: 'hmobrr', sa: 'sabrr' };
   // The five figures the primary screen asks for, in the order it asks. They are read by the flip calculator, which gives both
   // the flip profit and the refinance, so one small form answers both questions.
-  var BASIC = ['purchasePrice', 'refurb', 'legal', 'endValue'];
+  var BASIC = ['purchasePrice', 'refurb', 'legal', 'otherUpfront', 'endValue'];
   var OPTIONAL = ['ltv', 'depositPct'];
   var RENTAL = {
     none: [],
@@ -573,10 +575,10 @@
     return /guide price|starting bid/i.test(String((p && p.priceQualifier) || '')) ? 'Guide price \u00b7 may be an auction' : 'Sale type not checked';
   }
   // "Buy at this price to recycle all your money", on the primary screen's own figures: end value, refurb, legal and the
-  // refinance LTV, with stamp duty worked out at the price found. It is the Max price calculation with no other up-front
-  // costs, so at this price the primary screen's own "cash left in" comes to nothing. null when no price works.
+  // refinance LTV and any other up-front costs, with stamp duty worked out at the price found. It is the Max price
+  // calculation, so at this price the primary screen's own "cash left in" comes to nothing. null when no price works.
   function recyclePrice(s) {
-    var rc = find('recycle'), v = rc.compute(Object.assign({}, stateFor(rc, s), { otherUpfront: 0 })).v;
+    var rc = find('recycle'), v = rc.compute(stateFor(rc, s)).v;
     return v.impossible ? null : v.maxPrice;
   }
   // ---- The Live ledger: the Calculator's primary screen (design 3a) ---------------------------------------
@@ -610,14 +612,14 @@
   }
   // deal: the figures as typed, already layered with the usual figures. bridgeOn: is a bridging loan paying for it.
   // Returns { ps, ltv, bridgeCost, bridge, exits: { none, btl, hmo, sa } }; each exit is
-  //   { exit, calcId, state, v, furnishing, recyclePrice, own: { deposit, sdlt, legal, refurb, furnishing, bridge, total, mortgage, totalIn } }.
+  //   { exit, calcId, state, v, furnishing, recyclePrice, own: { deposit, sdlt, legal, refurb, other, furnishing, bridge, total, mortgage, totalIn } }.
   function ledger(deal, bridgeOn) {
     var fc = find('flip'), ps = stateFor(fc, deal), pv = fc.compute(ps).v;
     var bridge = null, cost = 0;
     if (bridgeOn) { var bc = find('bridging'); bridge = bc.compute(stateFor(bc, deal)).v; cost = n(bridge.totalCost); }
-    var E = n(ps.endValue), ltv = n(ps.ltv), legal = n(ps.legal), refurb = n(ps.refurb), P0 = n(ps.purchasePrice);
+    var E = n(ps.endValue), ltv = n(ps.ltv), legal = n(ps.legal), refurb = n(ps.refurb), other = n(ps.otherUpfront), P0 = n(ps.purchasePrice);
     // The four deal figures and the two lender figures are one set, shown once; every exit is worked out on them.
-    var shared = { purchasePrice: ps.purchasePrice, refurb: ps.refurb, legal: ps.legal, endValue: ps.endValue, ltv: ps.ltv, depositPct: ps.depositPct };
+    var shared = { purchasePrice: ps.purchasePrice, refurb: ps.refurb, legal: ps.legal, otherUpfront: ps.otherUpfront, endValue: ps.endValue, ltv: ps.ltv, depositPct: ps.depositPct };
     function withBridge(v, furn) {
       if (!bridgeOn) return v;
       var out = {}; for (var k in v) out[k] = v[k];
@@ -628,7 +630,7 @@
         out.breakeven = cl > 0 ? breakeven(cl, v.monthly) : 0;
         out.paybackOk = paybackOk(cl, v.monthly);
       }
-      if (v.monthly > 0) out.paybackPrice = priceForBudget(v.newMortgage + v.monthly * PAYBACK_MONTHS - legal - refurb - furn - cost);
+      if (v.monthly > 0) out.paybackPrice = priceForBudget(v.newMortgage + v.monthly * PAYBACK_MONTHS - legal - refurb - other - furn - cost);
       return out;
     }
     function exitOf(key) {
@@ -638,10 +640,10 @@
       if (bridgeOn && isFlipCalc) {                                  // selling: the loan's cost comes straight off the profit
         v.profit = raw.profit - cost; v.margin = E ? v.profit / E : null; v.flipRoi = v.totalIn ? v.profit / v.totalIn : null;
       }
-      var dep = P0 * n(ps.depositPct) / 100, sdlt = stampDuty(P0), total = dep + sdlt + legal + refurb + furn + cost;
+      var dep = P0 * n(ps.depositPct) / 100, sdlt = stampDuty(P0), total = dep + sdlt + legal + refurb + other + furn + cost;
       return { exit: key, calcId: calcId, state: s, v: v, furnishing: furn,
-        recyclePrice: furn || cost ? priceForBudget(E * ltv / 100 - refurb - legal - furn - cost) : recyclePrice(ps),
-        own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, furnishing: furn, bridge: cost, total: total, mortgage: P0 - dep, totalIn: total + (P0 - dep) } };
+        recyclePrice: furn || cost ? priceForBudget(E * ltv / 100 - refurb - legal - other - furn - cost) : recyclePrice(ps),
+        own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, other: other, furnishing: furn, bridge: cost, total: total, mortgage: P0 - dep, totalIn: total + (P0 - dep) } };
     }
     return { ps: ps, ltv: ltv, bridgeCost: cost, bridge: bridge, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
   }

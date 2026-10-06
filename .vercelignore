@@ -7,5 +7,6 @@ test-sw.js
 test-app.js
 test-verdict.js
 test-tax-targets.js
+test-other-costs.js
 test-browser.js
 .vercel/

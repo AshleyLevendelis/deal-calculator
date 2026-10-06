@@ -60,7 +60,8 @@ const shared = {}; Object.keys(users).filter(id => users[id].length > 1).sort().
 const wantShared = {
   purchasePrice: 'flip,btl,hmo,sabtl,hmobrr,sabrr', depositPct: 'flip,btl,hmo,sabtl,hmobrr,sabrr',
   legal: 'flip,btl,hmo,sabtl,hmobrr,sabrr', refurb: 'flip,btl,hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa',
-  furnishing: 'sabtl,hmobrr,sabrr,r2rhmo,r2rsa', otherUpfront: 'hmo,r2rhmo,r2rsa', endValue: 'flip,hmobrr,sabrr', ltv: 'flip,hmobrr,sabrr',
+  furnishing: 'sabtl,hmobrr,sabrr,r2rhmo,r2rsa', otherUpfront: 'flip,btl,hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa',   // every buy calculator since 6 Oct 2026 (design 7a)
+  endValue: 'flip,hmobrr,sabrr', ltv: 'flip,hmobrr,sabrr',
   mortgageRate: 'flip,btl,hmo,sabtl,hmobrr,sabrr', mgmtPct: 'flip,btl,hmo,hmobrr,r2rhmo', monthlyRent: 'flip,btl',
   roomRate: 'hmo,hmobrr,r2rhmo', rooms: 'hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa', nightlyRate: 'sabtl,sabrr,r2rsa', occupancyPct: 'sabtl,sabrr,r2rsa',
   council: 'hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa', utilities: 'hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa', other: 'btl,hmo,hmobrr',
@@ -291,7 +292,7 @@ eq('no money-in strategy carries the cash-left-in rule', Calc.calcs.filter(c => 
 const fieldIdsOf = id => Calc.find(id).layout.flatMap(sec => sec.items).filter(i => i.field).map(i => i.field.id);
 const letTypes = ['none', 'btl', 'hmo', 'sa'];
 const planOf = l => Calc.simplePlan('brr', l), allOf = p => p.basic.concat(p.optional, p.rental);
-eq('the primary form asks for four figures; stamp duty is worked out, not asked for', planOf('none').basic.join(), 'purchasePrice,refurb,legal,endValue');
+eq('the primary form asks for five figures (any other costs since 6 Oct 2026); stamp duty is worked out, not asked for', planOf('none').basic.join(), 'purchasePrice,refurb,legal,otherUpfront,endValue');
 eq('the basics and the optional extras are all figures of the flip calculator, which computes them', letTypes.every(l => planOf(l).basic.concat(planOf(l).optional).every(f => fieldIdsOf('flip').includes(f))) && planOf('hmo').primaryCalcId === 'flip', true);
 eq('each strategy module asks only for figures its own calculator uses', letTypes.every(l => planOf(l).rental.every(f => fieldIdsOf(planOf(l).calcId).includes(f))), true);
 eq('no figure is asked for twice on one screen', letTypes.every(l => new Set(allOf(planOf(l))).size === allOf(planOf(l)).length), true);
@@ -345,7 +346,9 @@ const YELLOW = {
 };
 // Editable fields that are NOT yellow cells. Each is listed by name so adding another one fails this test.
 // None left: on 2 Oct 2026 Ashley chose to have stamp duty worked out only (as the sheets do) and to drop the flip's selling / holding extras.
-const NOT_YELLOW = { flip: [], btl: [], hmo: [], sabtl: [], hmobrr: [], sabrr: [], r2rhmo: [], r2rsa: [] };
+// 6 Oct 2026: Ashley allowed ONE exception, "Any other costs" (otherUpfront, a yellow cell in her HMO and R2R sheets), in every
+// buy calculator (design 7a). Nothing else.
+const NOT_YELLOW = { flip: ['otherUpfront'], btl: ['otherUpfront'], hmo: [], sabtl: ['otherUpfront'], hmobrr: ['otherUpfront'], sabrr: ['otherUpfront'], r2rhmo: [], r2rsa: [] };
 const editableOf = c => c.layout.flatMap(sec => sec.items).filter(i => i.field || i.choice).map(i => (i.field || i.choice).id);
 eq('every spreadsheet calculator has its yellow-cell list', Calc.calcs.every(c => Array.isArray(YELLOW[c.id]) && Array.isArray(NOT_YELLOW[c.id])), true);
 Calc.calcs.forEach(c => {
@@ -353,7 +356,7 @@ Calc.calcs.forEach(c => {
   eq(c.id + ': every yellow cell in the spreadsheet is an editable field', y.filter(f => !app.includes(f)).join(), '');
   eq(c.id + ': no editable field beyond the yellow cells, except the named ones', extra.sort().join(), (NOT_YELLOW[c.id] || []).slice().sort().join());
 });
-eq('the primary form and its optional figures are all yellow cells of the FLIP sheet', planOf('none').basic.concat(planOf('none').optional).every(f => YELLOW.flip.includes(f)), true);
+eq('the primary form and its optional figures are all yellow cells of the FLIP sheet, apart from the one named exception', planOf('none').basic.concat(planOf('none').optional).filter(f => !YELLOW.flip.includes(f)).join(), NOT_YELLOW.flip.join());
 eq('Max price asks for no stamp duty figure', Calc.find('recycle').layout.flatMap(sec => sec.items).filter(i => i.field).map(i => i.field.id).join(), 'endValue,refurb,legal,otherUpfront,ltv');
 eq('the strategy modules ask for nothing that is not a yellow cell', letTypes.every(l => planOf(l).rental.every(f => YELLOW[planOf(l).calcId].includes(f))), true);
 
@@ -366,7 +369,8 @@ eq('the recycle price on those figures is 137,850', rpx, 137850);
 eq('buying at that price leaves nothing in on the primary screen (to the pound)', Calc.cashKind(flipAt(Object.assign({}, basicsFig, { purchasePrice: rpx })).cashLeft), 'even');
 eq('one pound more leaves cash in', flipAt(Object.assign({}, basicsFig, { purchasePrice: rpx + 1 })).cashLeft > 0, true);
 eq('the recycle price does not depend on the price typed', Calc.recyclePrice(Calc.stateFor(Calc.find('flip'), Object.assign({}, basicsFig, { purchasePrice: 90000 }))), rpx);
-eq('other up-front costs set elsewhere do not leak into it', Calc.recyclePrice(Calc.stateFor(Calc.find('flip'), Object.assign({}, basicsFig, { otherUpfront: 14600 }))), rpx);
+// Since 6 Oct 2026 (design 7a) any other up-front costs are part of the deal on the primary screen, so they come off the recycle price.
+eq('other up-front costs come off it, so buying at it still leaves nothing in', (r => r < rpx && Calc.cashKind(flipAt(Object.assign({}, basicsFig, { otherUpfront: 14600, purchasePrice: r })).cashLeft) === 'even')(Calc.recyclePrice(Calc.stateFor(Calc.find('flip'), Object.assign({}, basicsFig, { otherUpfront: 14600 })))), true);
 eq('a lower refinance LTV lowers it', Calc.recyclePrice(Calc.stateFor(Calc.find('flip'), Object.assign({}, basicsFig, { ltv: 70 }))) < rpx, true);
 eq('when the refurb alone is more than the refinance pays, no price works (not a price of 0)', String(Calc.recyclePrice(Calc.stateFor(Calc.find('flip'), Object.assign({}, basicsFig, { refurb: 400000 })))), 'null');
 

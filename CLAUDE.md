@@ -15,7 +15,9 @@ here: never change or push to it. What was copied, and how:
   purpose. Since the copy, calc.js has had: (4 Oct 2026, design 6c) dealVerdict, dealEntered and LET_TARGETS added; and
   (5 Oct 2026, Ashley) the FLIP BANDS changed flipVerdict and its tests in test-calcs.js (see the rules below); and
   (5 Oct 2026, her third 6c hand-off) OWN TARGETS (setTargets) and STAMP DUTY BY PLACE AND BUYER (propertyTax), which
-  replaced the sheet's stampDuty formula. At the default setting every figure up to a £1.5m price is unchanged. Every
+  replaced the sheet's stampDuty formula. At the default setting every figure up to a £1.5m price is unchanged. And (6 Oct
+  2026, design 7a) "Any other costs" (otherUpfront) added to the flip, BTL, SA BTL, BRR to HMO and BRR to SA totals, the
+  recycle price and the ledger; at £0 nothing changes. Every
   money figure is still identical to the Deal Analyser's (checked: 364 figures on the main screen, every exit, bridging
   off and on); only the colour and wording of a flip between 20% and 25% now differ. Ashley chose to put 6c and the flip
   bands into THIS app only. (Another session has since put 6c into the Deal Analyser as well, with the old flip rule;
@@ -46,7 +48,8 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-browser.js` — all must pass. test-tax-targets.js
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-browser.js` — all must
+  pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
   check a test fails, put it back). test-app.js checks the app shell: every element the code looks up exists, two tabs,
@@ -66,7 +69,8 @@ Two tabs: Calculator and Saved. Compare is a screen reached from the Calculator 
 and "Redo the setup questions" (onboarding: how you will use it, then price, end value and letting type).
 Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, sabtl, r2rhmo, r2rsa, bridging; old
 #c/flip, #c/hmobrr, #c/sabrr land on the ledger with the right exit), #compare, #report, #saved, #saved-compare, #usual.
-- Calculator primary screen = design 6c "Verdict docked" (4 Oct 2026, from Ashley's hand-off bundle "Design Requirements
+- Calculator primary screen = design 7a (6c "Verdict docked" with the 7a deal order, 6 Oct 2026; see "Design 7a" below) =
+  design 6c "Verdict docked" (4 Oct 2026, from Ashley's hand-off bundle "Design Requirements
   Inquiry.zip" / design_handoff_calculator_6c; only phone 6c was approved; built, then rebuilt the same day from her
   REVISED bundle, which moved the verdict into the panel and dropped the fixed action bar). A restyle and rearrangement of the 3a Live
   ledger: every field, formula, slider behaviour, target and colour rule from 3a is unchanged. Top to bottom:
@@ -152,8 +156,26 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   unlike the design's draft). BEFORE LAUNCH Ashley must add a contact email (placeholder "[CONTACT EMAIL TO BE ADDED
   BEFORE LAUNCH]") and have the text reviewed.
 
+## Design 7a (6 Oct 2026, fourth hand-off; supersedes 6c's input order)
+- The deal, all full cards, in this order: End value (with "Lender pays X% = £…"), Refurb, Legal, ANY OTHER COSTS (new:
+  otherUpfront, £0-£20,000 window at 0, slider steps £50, −/+ £100, sub line "Survey, valuation, broker: anything else
+  up front", default 0), STAMP DUTY as its own card (tax-card: basis summary, amount, Change / Done, the region and buyer
+  choices), then Purchase price last (slider, recycle marker and the Recycle price card). DEAL_ORDER in app.js.
+- The "Edit targets" pill is gone from the verdict strip; "Edit targets →" under the chips, the footer link and Settings
+  remain.
+- otherUpfront is in every buy calculator's totalIn (flip, btl, sabtl, hmobrr, sabrr; hmo, r2rhmo, r2rsa already had it),
+  so it reaches the flip profit and margin, cash left in, ROI, payback, payback price (legalRefurb), the recycle price
+  (recyclePrice no longer zeroes it), cash left at a price, Max price, and the ledger's own money (own.other). It is NOT
+  the monthly "other" running cost. "Your own money in" shows an "Other costs" row when above £0; Clear figures sets it
+  to 0; Reset restores the start (0); saved deals keep it; the client report lists "Other costs" after Legal costs when
+  above £0. "My usual figures" already had it (Other costs up front), so a usual figure there now counts everywhere.
+- YELLOW-CELL EXCEPTION (Ashley, 6 Oct 2026): otherUpfront is a yellow cell only in her HMO and R2R sheets; she allowed
+  it in every buy calculator. test-calcs.js names it in NOT_YELLOW for flip, btl, sabtl, hmobrr, sabrr. No other
+  exception: any further non-yellow box still fails the test.
+
 ## Ashley's rules (all kept from the Deal Analyser)
-- Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell.
+- Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
+  named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).
   test-calcs.js holds the yellow-cell list per calculator (YELLOW) and fails on any extra field. Max price and Bridging
   have no spreadsheet; their fields are her own design.
 - STAMP DUTY IS CALCULATED ONLY: no box anywhere, Max price included; a stored stampDutyOverride is ignored. The flip has
