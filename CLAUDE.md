@@ -161,8 +161,10 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   otherUpfront, £0-£20,000 window at 0, slider steps £50, −/+ £100, sub line "Survey, valuation, broker: anything else
   up front", default 0), STAMP DUTY as its own card (tax-card: basis summary, amount, Change / Done, the region and buyer
   choices), then Purchase price last (slider, recycle marker and the Recycle price card). DEAL_ORDER in app.js.
-- The "Edit targets" pill is gone from the verdict strip; "Edit targets →" under the chips, the footer link and Settings
-  remain.
+- The "Edit targets" pill is gone from the verdict strip (confirmed again by Ashley on 6 Oct 2026, and the 6px gap it
+  left was closed); the collapsed row is one tap target (score, verdict, ▾; 40px + 2px hit area each side = 44px) filling
+  the strip. "Edit targets →" under the chips, the footer "Your targets" link and the Settings row remain
+  (test-browser.js checks all three open the sheet).
 - otherUpfront is in every buy calculator's totalIn (flip, btl, sabtl, hmobrr, sabrr; hmo, r2rhmo, r2rsa already had it),
   so it reaches the flip profit and margin, cash left in, ROI, payback, payback price (legalRefurb), the recycle price
   (recyclePrice no longer zeroes it), cash left at a price, Max price, and the ledger's own money (own.other). It is NOT

@@ -184,6 +184,23 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.click('.bs-done');
   await p.goto(BASE + '/privacy.html'); await p.waitForTimeout(150);
   ok('the standalone privacy page opens with the same six headings', (await p.locator('h2').count()) === 6 && (await p.locator('h1').textContent()) === 'Privacy policy');
+  // ---- the verdict strip without the Edit targets pill: one tap target, and three ways to the targets sheet ----
+  await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
+  await p.evaluate(() => { sessionStorage.removeItem('deal-analyser:targetsOpen'); }); await p.reload(); await p.waitForTimeout(300);
+  ok('the collapsed row holds only the score, the verdict and the ▾ toggle', (await p.locator('.vs-head').evaluate(h => [...h.querySelectorAll('button')].length)) === 1 && (await p.locator('.vs-head .vs-score, .vs-head .vs-txt, .vs-head .vs-lab').count()) === 3 && !(await p.locator('.vs-edit').count()));
+  const rowBox = await p.locator('.vs-row').boundingBox(), headBox = await p.locator('.vs-head').boundingBox();
+  ok('the row fills the whole strip width (no gap left by the pill)', Math.abs(rowBox.width - headBox.width) < 1, rowBox.width + ' vs ' + headBox.width);
+  ok('the row is one tap target at least 44px tall', (await p.locator('.vs-row').evaluate(r => r.getBoundingClientRect().height - 2 * parseFloat(getComputedStyle(r, '::after').top))) >= 44);
+  await p.click('.vs-score'); await p.waitForTimeout(40);
+  const openedFromScore = await p.isVisible('.vs-chips');
+  await p.click('.vs-txt'); await p.waitForTimeout(40);
+  ok('tapping anywhere on the row opens the strip, and again closes it', openedFromScore && !(await p.isVisible('.vs-chips')));
+  const opens = {};
+  await p.click('.vs-lab'); await p.click('.vs-link'); await p.waitForTimeout(60); opens.strip = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
+  await p.evaluate(() => scrollTo(0, 1e6)); await p.click('.legal-links button:has-text("Your targets")'); await p.waitForTimeout(60); opens.footer = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
+  await p.evaluate(() => scrollTo(0, 0)); await p.click('#gear'); await p.click('#settings-sheet .pick:has-text("Your targets")'); await p.waitForTimeout(60); opens.settings = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
+  ok('the targets sheet opens from "Edit targets →", the footer and Settings', opens.strip && opens.footer && opens.settings, JSON.stringify(opens));
+
   // ---- design 7a: the order of the deal and "Any other costs" ----
   await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
   const order = await p.evaluate(() => [...document.querySelectorAll('#v-home > .lg-card')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
