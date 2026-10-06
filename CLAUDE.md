@@ -103,8 +103,8 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
     each judged as its figure is coloured: £500 a month (monthlyProfitVerdict), 50% ROI or nothing left in, money back
     in 6 months (paybackVerdict; nothing left in = 0, never = never), all cash recycled (shown cash left ≤ £0). 4 Strong,
     3 Good, 2 Borderline (amber), 0-1 Weak (bad); 3-4 good colour. Misses listed in that order. Flip: Good flip (25%+,
-    green, 1/1), OK flip (20% to under 25%, amber, 0/1), Weak flip (below 20% with a profit, red), Loss-making flip (no
-    profit, red). Never "Thin flip". Lets use the bridged figures when bridging is on.
+    green, 1/1), OK flip (20% to under 25%, amber, 0/1, chip ~ amber), Thin flip (below 20% with a profit, red), Loss-making
+    flip (no profit, red). "Weak flip" is no longer used (6 Oct 2026). Lets use the bridged figures when bridging is on.
   - Custom slider (scrubber in app.js): 3a's pointer handling kept exactly (relative drag, slide down for finer steps,
     magnets at level 0, tap jumps); drawn as a 20px track, accent fill, 34px thumb (centre at 20px + (100% − 40px) × p),
     recycle marker, value bubble while the finger is down. A visually hidden range input keeps keyboard / screen reader
@@ -184,8 +184,9 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   no selling / holding extras.
 - Flip target 25% of end value to start (Calc.FLIP_TARGET; now the person's own, see Own targets). FLIP BANDS (Ashley, 5 Oct 2026), everywhere a flip margin is coloured
   (hero, % chip, exit tile, Compare, the other calculators' working, the PDF): 25%+ green ✓; 20% up to 25% amber, "an
-  OK flip", no tick or cross (Calc.FLIP_OK); below 20% red ✗, "Weak flip". Judged on the figure shown (one decimal), so
-  19.96% shows 20.0% and is amber. calc.js flipVerdict returns 'good' / 'amber' / 'bad'.
+  OK flip", ~ (Calc.FLIP_OK); below 20% red ✗, "Thin flip". Judged on the figure shown (one decimal), so
+  19.96% shows 20.0% and is amber.
+  FLIP VERDICT (Ashley, 6 Oct 2026; replaces the 5 Oct bands): Calc.flipVerdict(margin, target) returns 'good' at the target or more (green ✓), 'ok' from target - 5 points (Calc.flipOkFrom, never below 0%; amber ~), 'bad' below (red ✗), null for a non-number; target defaults to the saved deal-analyser:targets.flip (25 to start). Judged on the figure shown (one decimal): 24.96% shows 25.0% and is good. Titles: Good flip, OK flip (amber), Thin flip (red, with a profit), Loss-making flip (profit £0 or less, red, whatever the target). The verdict chip reads "25% margin (amber from 20%)" when ok; ok counts as a miss (0/1) but its chip is amber (dealVerdict targets carry a tone). The targets sheet's flip hint reads "Profit as a share of end value · amber from Y%" and follows the target live. app.js flipCls turns 'ok' into the amber colour class. A deal saved on the Flip exit shows its margin (✓ ~ ✗) on its saved card. Done in both apps the same day (Ashley chose both).
 - ROI on cash left in: red below 50%, green at 50%+.
 - Every let (BTL, HMO, SA) needs £500 a month profit (Calc.MONTHLY_PROFIT_TARGET, monthlyProfitVerdict; annual uses the
   same verdict).

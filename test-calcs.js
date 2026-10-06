@@ -135,22 +135,22 @@ eq('compareAll still returns the flip block', Calc.compareAll({}).flip.profit, 5
 // ---- Flip target: 25% net profit (of end value) is acceptable; at or above is good, below is bad ----
 eq('flip target is 25%', Calc.FLIP_TARGET, 0.25);
 eq('exactly 25% is acceptable', Calc.flipVerdict(0.25), 'good');
-eq('24.9% is an OK flip (amber)', Calc.flipVerdict(0.249), 'amber');
-eq('exactly 20% is an OK flip (amber), not a pass', Calc.flipVerdict(0.2), 'amber');
+eq('24.9% is an OK flip (amber)', Calc.flipVerdict(0.249), 'ok');
+eq('exactly 20% is an OK flip (amber), not a pass', Calc.flipVerdict(0.2), 'ok');
 eq('19.9% is weak (red)', Calc.flipVerdict(0.199), 'bad');
-eq('19.96% shows as 20.0%, so it is amber', Calc.flipVerdict(0.1996), 'amber');
+eq('19.96% shows as 20.0%, so it is amber', Calc.flipVerdict(0.1996), 'ok');
 eq('19.94% shows as 19.9%, so it is red', Calc.flipVerdict(0.1994), 'bad');
 eq('the OK band starts at 20%', Calc.FLIP_OK, 0.2);
 eq('25.1% is acceptable', Calc.flipVerdict(0.251), 'good');
 eq('a shown 25.0% is never coloured as a miss (24.96% rounds to 25.0%)', Calc.flipVerdict(0.2496), 'good');
-eq('24.94% shows as 24.9%: below the target, so amber', Calc.flipVerdict(0.2494), 'amber');
+eq('24.94% shows as 24.9%: below the target, so amber', Calc.flipVerdict(0.2494), 'ok');
 eq('a loss is bad', Calc.flipVerdict(-0.05), 'bad');
 eq('zero profit is bad', Calc.flipVerdict(0), 'bad');
 eq('no figure gives no verdict', String(Calc.flipVerdict(null)) + String(Calc.flipVerdict('—')) + String(Calc.flipVerdict(NaN)), 'nullnullnull');
 // through the real calculator: the sheet's example flip is 22.1% (good); a lower end value makes it bad
 const flipCalc = Calc.find('flip');
 const marginAt = endValue => flipCalc.compute(Calc.stateFor(flipCalc, { endValue })).v.margin;
-eq('sheet example flip (22.1%) is below the 25% target but an OK flip (amber)', Calc.flipVerdict(marginAt(230000)), 'amber');
+eq('sheet example flip (22.1%) is below the 25% target but an OK flip (amber)', Calc.flipVerdict(marginAt(230000)), 'ok');
 eq('the same deal at 250,000 end value (28.4%) is good', Calc.flipVerdict(marginAt(250000)), 'good');
 eq('same deal at 200,000 end value (10.4%) is bad', Calc.flipVerdict(marginAt(200000)), 'bad');
 eq('the flip margin row is the one marked for the target', JSON.stringify(flipCalc.layout.flatMap(s => s.items).filter(i => i.calc && i.calc.verdict === 'flip').map(i => i.calc.id)), '["margin"]');
@@ -508,4 +508,29 @@ console.log(ran + ' checks ran');
   const at = pr => { const w = c.compute(Calc.stateFor(c, { purchasePrice: pr })).v; return w.cashLeft <= 24 * w.monthly; };
   eq(id + ': 2yr max price works', at(top), true); eq(id + ': 2yr max price is the top', at(top + 2), false);
 });
+// ---- The flip verdict against any target (6 Oct 2026): good at the target, ok (amber) from 5 points under, bad below ----
+{
+  const edges = { 25: [[0.25, 'good'], [0.249, 'ok'], [0.20, 'ok'], [0.199, 'bad']], 30: [[0.30, 'good'], [0.299, 'ok'], [0.25, 'ok'], [0.249, 'bad']], 15: [[0.15, 'good'], [0.149, 'ok'], [0.10, 'ok'], [0.099, 'bad']] };
+  Object.keys(edges).forEach(t => edges[t].forEach(([m, want]) => eq('target ' + t + '%: ' + (m * 100).toFixed(1) + '% is ' + want + ' (passed in)', Calc.flipVerdict(m, Number(t)), want)));
+  Object.keys(edges).forEach(t => { Calc.setTargets({ flip: Number(t) }); edges[t].forEach(([m, want]) => eq('target ' + t + '%: ' + (m * 100).toFixed(1) + '% is ' + want + ' (saved target)', Calc.flipVerdict(m), want)); });
+  Calc.setTargets(Calc.defaultTargets());
+  eq('rounding: 24.96% shows as 25.0% and is good; 24.94% is ok', [Calc.flipVerdict(0.2496, 25), Calc.flipVerdict(0.2494, 25)].join(), 'good,ok');
+  eq('rounding at the amber line: 19.96% shows as 20.0% and is ok; 19.94% is bad', [Calc.flipVerdict(0.1996, 25), Calc.flipVerdict(0.1994, 25)].join(), 'ok,bad');
+  eq('no number, no verdict', [Calc.flipVerdict(null, 25), Calc.flipVerdict(undefined), Calc.flipVerdict('25%'), Calc.flipVerdict(NaN), Calc.flipVerdict(Infinity)].map(String).join(), 'null,null,null,null,null');
+  eq('amber never starts below 0%', [Calc.flipOkFrom(25), Calc.flipOkFrom(15), Calc.flipOkFrom(3), Calc.flipOkFrom(5)].join(), '20,10,0,0');
+  eq('a 3% target: a loss is bad, not ok', [Calc.flipVerdict(-0.01, 3), Calc.flipVerdict(0.01, 3), Calc.flipVerdict(0.03, 3)].join(), 'bad,ok,good');
+  eq('the start figures follow the default target', [Calc.FLIP_TARGET, Calc.FLIP_OK].join(), '0.25,0.2');
+  // the overall verdict: ok is a miss with an amber chip; a thin flip is red; no profit is loss-making whatever the target
+  const chip = (m, p) => { const r = Calc.dealVerdict('none', { margin: m, profit: p }); return [r.score, r.title, r.tone, r.hits[0], r.tones[0], r.targets[0]].join(' | '); };
+  eq('chip: good is a hit, green', chip(0.26, 50000), '1 | Good flip | good | true | good | 25% margin');
+  eq('chip: ok is a miss, amber, and says where amber starts', chip(0.22, 40000), '0 | OK flip | amber | false | amber | 25% margin (amber from 20%)');
+  eq('chip: bad with a profit is a thin flip, red', chip(0.1, 20000), '0 | Thin flip | bad | false | bad | 25% margin');
+  eq('chip: no profit is loss-making, red', [chip(0, 0), chip(-0.05, -9000)].join(' / '), '0 | Loss-making flip | bad | false | bad | 25% margin / 0 | Loss-making flip | bad | false | bad | 25% margin');
+  Calc.setTargets({ flip: 3 });
+  eq('chip: no profit is loss-making even when the target is tiny', chip(0, 0), '0 | Loss-making flip | bad | false | bad | 3% margin');
+  Calc.setTargets({ flip: 30 });
+  eq('chip: the amber note follows the target', chip(0.27, 50000), '0 | OK flip | amber | false | amber | 30% margin (amber from 25%)');
+  Calc.setTargets(Calc.defaultTargets());
+  eq('let chips carry a tone too (hit green, miss red)', Calc.dealVerdict('btl', { monthly: 600, roi: 0.1, breakeven: 3, cashLeft: 5000 }).tones.join(), 'good,bad,good,bad');
+}
 process.exit(fail ? 1 : 0);

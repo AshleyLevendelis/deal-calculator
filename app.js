@@ -27,13 +27,14 @@
   var TARGETS_STORE = 'deal-analyser:targets', TAX_STORE = 'deal-analyser:tax';
   Calc.setTargets(load(TARGETS_STORE, null) || {}); Calc.setTax(load(TAX_STORE, null) || {});
   function flipPct() { return Calc.targets().flip + '%'; }
-  // Flip net profit: green at the target (25%) or more, amber from 20%, red below. A tick or cross goes with green and red
-  // so it does not rely on colour alone; an OK flip (amber) has neither.
-  function flipOkPct() { return Math.max(0, Calc.targets().flip - 5) + '%'; }
+  // Flip net profit: green at the flip target or more, amber ('ok') from 5 points under it, red below. A mark goes with
+  // each colour (✓ ~ ✗) so it does not rely on colour alone. flipCls turns the verdict into the colour class.
+  function flipOkPct() { return Calc.flipOkFrom() + '%'; }
+  function flipCls(m) { var v = Calc.flipVerdict(m); return v === 'ok' ? 'amber' : v || ''; }
   function roiPct() { return Calc.targets().roi + '%'; }
-  function flipMarginText(m) { var t = fmt('pct', m), v = Calc.flipVerdict(m); return v === 'good' ? t + ' ✓' : v === 'bad' ? t + ' ✗' : t; }
-  function setVerdict(el, m) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.flipVerdict(m); if (v) el.classList.add(v); }
-  function flipNote(v) { return v === 'good' ? ' (meets the ' + flipPct() + ' target)' : v === 'amber' ? ' (OK: between ' + flipOkPct() + ' and the ' + flipPct() + ' target)' : v === 'bad' ? ' (below ' + flipOkPct() + ')' : ''; }
+  function flipMarginText(m) { var t = fmt('pct', m), v = Calc.flipVerdict(m); return v === 'good' ? t + ' ✓' : v === 'bad' ? t + ' ✗' : v === 'ok' ? t + ' ~' : t; }
+  function setVerdict(el, m) { el.classList.remove('good', 'bad', 'amber'); var c = flipCls(m); if (c) el.classList.add(c); }
+  function flipNote(v) { return v === 'good' ? ' (meets the ' + flipPct() + ' target)' : v === 'ok' ? ' (OK: between ' + flipOkPct() + ' and the ' + flipPct() + ' target)' : v === 'bad' ? ' (thin, below ' + flipOkPct() + ')' : ''; }
   // ROI on cash left in: green at the target (50% to start) or more, red below. A tick or cross goes with the colour so it does not rely on colour alone.
   function cashRoiText(r) { var t = fmt('pct', r), v = Calc.cashRoiVerdict(r); return typeof r === 'number' ? (v === 'good' ? t + ' \u2713' : v === 'bad' ? t + ' \u2717' : t) : t; }
   function setCashRoi(el, r) { el.classList.remove('good', 'bad', 'amber'); var v = Calc.cashRoiVerdict(r); if (v) el.classList.add(v); }
@@ -134,7 +135,7 @@
         cap: ck === 'in' ? 'Cash left in after the refinance' : ck === 'out' ? 'Cash pulled out by the refinance (minus = pulled out)' : ck === 'even' ? 'All your money back in the refinance' : '' };
     }
     if (def.kind === 'cost') return { text: fmt('gbp', val), cls: '', cap: def.cap };
-    if (def.kind === 'flip') { var fv = Calc.flipVerdict(val); return { text: fmt('pct', val), cls: typeof val !== 'number' ? '' : val < 0 ? 'bad' : fv || '', cap: def.cap + (fv ? ' \u2014' + flipNote(fv).replace(/[()]/g, '') : '') }; }
+    if (def.kind === 'flip') { var fv = Calc.flipVerdict(val); return { text: fmt('pct', val), cls: typeof val !== 'number' ? '' : val < 0 ? 'bad' : flipCls(val), cap: def.cap + (fv ? ' \u2014' + flipNote(fv).replace(/[()]/g, '') : '') }; }
     if (typeof val === 'string' && val.charAt(0) === '\u221e') return { text: '\u221e', cls: 'good', cap: 'No cash left in' };
     if (def.kind === 'cashroi') {
       var cv = Calc.cashRoiVerdict(val);
@@ -356,7 +357,7 @@
         sideCap.textContent = out ? 'You pull out more than you put in' : 'ROI on cash left in';
         capR.textContent = X.recyclePrice == null ? 'No price gets all your money back' : 'Buy at ' + money(X.recyclePrice) + ' or less';
       } else {
-        var fv = Calc.flipVerdict(v.margin);
+        var fv = flipCls(v.margin);
         eye.textContent = 'Flip profit'; hero.textContent = minusMoney(Math.round(v.profit)); hero.className = 'pin-fig fig ' + (v.profit < 0 ? 'bad' : fv || '');
         sideFig.textContent = pctText(v.margin); sideFig.className = 'pin-side-fig fig ' + (fv || ''); sideCap.textContent = 'of end value · ' + flipPct() + ' target';
         capR.textContent = 'In ' + money(tin);
@@ -382,8 +383,9 @@
       sbtn.setAttribute('aria-expanded', open); sbtn.disabled = !any;
       chipsBox.hidden = !open; tfoot.hidden = !open; tsum.textContent = Calc.targetsSummary(); chipsBox.innerHTML = '';
       vd.targets.forEach(function (t, i) {
-        var c = h('span', 'vs-chip'), m = h('span', 'vs-mark ' + (vd.hits[i] ? 'good' : 'bad'), vd.hits[i] ? '✓' : '✗');
-        m.setAttribute('aria-label', vd.hits[i] ? 'Met:' : 'Missed:'); c.appendChild(m); c.appendChild(h('span', '', t)); chipsBox.appendChild(c);
+        // ✓ green when met, ~ amber for an OK flip (still a miss), ✗ red otherwise
+        var tn = (vd.tones && vd.tones[i]) || (vd.hits[i] ? 'good' : 'bad'), c = h('span', 'vs-chip'), m = h('span', 'vs-mark ' + tn, tn === 'good' ? '✓' : tn === 'amber' ? '~' : '✗');
+        m.setAttribute('aria-label', vd.hits[i] ? 'Met:' : tn === 'amber' ? 'Nearly:' : 'Missed:'); c.appendChild(m); c.appendChild(h('span', '', t)); chipsBox.appendChild(c);
       });
     };
     var lastVerdict = null;
@@ -397,7 +399,7 @@
       b.type = 'button'; b.setAttribute('aria-pressed', on); b.appendChild(h('span', 'nm', ec[1])); b.appendChild(big);
       b.onclick = function () { if (on) return; setLet(key); renderCalculator(); };
       R.push(function (L) {
-        var v = L.exits[key].v, vd = key === 'none' ? Calc.flipVerdict(v.margin) : Calc.cashRoiVerdict(v.roi), none = !Calc.dealEntered(L.ps);
+        var v = L.exits[key].v, vd = key === 'none' ? flipCls(v.margin) : Calc.cashRoiVerdict(v.roi), none = !Calc.dealEntered(L.ps);
         big.textContent = none ? '—' : pctText(key === 'none' ? v.margin : v.roi); big.className = 'big fig ' + (none ? 'faint' : vd || '');
         b.setAttribute('aria-label', ec[1] + ', ' + (key === 'none' ? 'margin ' : 'ROI ') + big.textContent);
       });
@@ -873,6 +875,8 @@
       var figs = h('div', 'figs'), roi = h('span', 'roi fig', fmt(c.summary[2][2], v[c.summary[2][1]]));
       // A cost figure (e.g. Bridging Loan's total cost) is never "good", so it is never coloured green — only an actual ROI is.
       if (!c.costOnly && !c.solver) { if (v.cashLeft != null) setCashRoi(roi, v[c.summary[2][1]]); else tone(roi, typeof v[c.summary[2][1]] === 'number' ? v[c.summary[2][1]] : null); }
+      // A deal saved on the Flip exit shows its flip margin, coloured by the flip verdict, in place of the BTL ROI.
+      if (c.id === 'flip' && (d.letting === 'none' || (!d.letting && d.view === 'flip'))) { roi.textContent = flipMarginText(v.margin); roi.className = 'roi fig ' + flipCls(v.margin); }
       figs.appendChild(roi); figs.appendChild(h('span', 'money fig', money(v.totalIn)));
       // Your own cash, only shown when a mortgage rolled into "money in" makes it a different number.
       if (typeof v.ownMoney === 'number' && Math.abs(v.ownMoney - v.totalIn) > 0.5) figs.appendChild(h('span', 'own fig', 'Own: ' + money(v.ownMoney)));
@@ -948,7 +952,7 @@
     return {
       title: 'Deal comparison', sortLabel: sortLabel(), details: detailLines(), date: today(),
       rows: sortRows(data.rows).map(function (r) { return pdfRow(r); }),
-      flip: { profit: money(f.profit), roi: fmt('pct', f.roi), moneyIn: money(f.moneyIn), marginVerdict: Calc.flipVerdict(f.margin),
+      flip: { profit: money(f.profit), roi: fmt('pct', f.roi), moneyIn: money(f.moneyIn), marginVerdict: flipCls(f.margin) || null,
         margin: fmt('pct', f.margin) + flipNote(Calc.flipVerdict(f.margin)) }
     };
   }
@@ -1058,7 +1062,7 @@
     var fr = h('div'), fb = h('div', 'big fig', money(f.profit)); tone(fb, f.profit); fr.appendChild(fb); fr.appendChild(h('div', 'cap', 'profit, not per year'));
     ft.appendChild(fn); ft.appendChild(fr); fc.appendChild(ft);
     var fs = h('div', 'st');
-    fs.appendChild(stat('Net profit (of GDV)', flipMarginText(f.margin), Calc.flipVerdict(f.margin) || '')); fs.appendChild(stat('Return on money in', fmt('pct', f.roi)));
+    fs.appendChild(stat('Net profit (of GDV)', flipMarginText(f.margin), flipCls(f.margin))); fs.appendChild(stat('Return on money in', fmt('pct', f.roi)));
     fs.appendChild(stat('Money in', money(f.moneyIn))); fs.appendChild(stat('Your own money', money(f.ownMoney)));
     fc.appendChild(fs); fc.onclick = function () { location.hash = '#c/flip'; }; box.appendChild(fc);
   }
@@ -1289,16 +1293,18 @@
       sheetHead(sheet, 'Your targets', 'Done');
       sheet.appendChild(h('p', 'bs-intro', 'The verdict, the colours and every ✓ / ✗ use these. They start from the app’s figures; change them to suit how you invest.'));
       var list = h('div', 'tg-list'), foot = h('div', 'tg-foot'), back = h('button', 'tg-back'); back.type = 'button';
-      var D = Calc.defaultTargets(), inputs = {};
+      var D = Calc.defaultTargets(), inputs = {}, hints = [];
       function save(t) { t = Calc.setTargets(t); store(TARGETS_STORE, t); sync(t); redraw(); }
       function sync(t) {
         Object.keys(inputs).forEach(function (k) { if (document.activeElement !== inputs[k]) inputs[k].value = String(t[k]); });
         var changed = Object.keys(D).some(function (k) { return t[k] !== D[k]; });
+        hints.forEach(function (f) { f(); });   // e.g. the flip row: amber from (target - 5)%
         back.hidden = !changed; back.textContent = 'Back to ' + D.flip + '% · £' + D.monthly + ' · ' + D.roi + '% · ' + D.payback + ' mo';
       }
       TARGET_ROWS.forEach(function (r) {
         var k = r[0], row = h('div', 'tg-row'), txt = h('span', 'tg-txt'), ctl = h('span', 'tg-ctl'), val = h('span', 'tg-val');
-        var lab = h('label', '', r[1]); lab.setAttribute('for', 'tg-' + k); txt.appendChild(lab); txt.appendChild(h('small', '', r[4]));
+        var lab = h('label', '', r[1]), hint = h('small', '', r[4]); lab.setAttribute('for', 'tg-' + k); txt.appendChild(lab); txt.appendChild(hint);
+        if (k === 'flip') hints.push(function () { hint.textContent = r[4] + ' · amber from ' + flipOkPct(); });
         var inp = h('input'); inp.id = 'tg-' + k; inp.setAttribute('inputmode', 'decimal'); inp.setAttribute('autocomplete', 'off'); inputs[k] = inp;
         inp.addEventListener('focus', function () { setTimeout(function () { try { inp.select(); } catch (e) {} }, 0); });
         inp.addEventListener('input', function () { var raw = inp.value.replace(/[^0-9.]/g, ''); if (raw !== inp.value) inp.value = raw; if (raw !== '' && raw !== '.') { var t = Calc.targets(); t[k] = Number(raw); save(t); } });
