@@ -265,6 +265,11 @@ first restyle)
   sessionStorage deal-analyser:fundOpen) and the caption.
 - Calc.ownParts(own) in calc.js gives the parts in that order with their shares (they add to 1, the values to own.total);
   no figure changes. Tested in test-other-costs.js and test-browser.js.
+- MORTGAGE PAYMENTS (second 11a hand-off, 7 Oct 2026): between the bridge figures and Your own money in. "Interest-only at
+  [rate]%" (#lg-mortRate11, writes the shared mortgageRate, so the letting figures' rate and the profit follow); tiles
+  "Until the refinance" = (price - deposit) x rate / 1200 ("Bridge instead" when bridging is on) and "After the
+  refinance" (amber) = refinance x rate / 1200 (= calc.js interestOnly(newMortgage, rate), already in the let's costs),
+  then the yearly line. Rate and refinance come from the chosen let, or BTL on the Flip exit. No calc.js change.
 - The "Your own money in" and "Paying for it" fold-outs and the standalone Lender pays / Deposit row are gone; "More
   detail" now holds only the letting figures (lets only; the flip has no More detail). The Results view's own money card
   is unchanged.
@@ -291,6 +296,10 @@ first restyle)
   and terms, branding, fixed Preview), preview 12b (#pack-preview: the pages, PDF / Copy link / Share), templates sheet.
 - PDF = the browser's print: #pack-print holds full-size pages, @page A4 margin 0, each page zoomed 1.3229 to fill A4
   (checked: 6 pages with every section, 2 with two, in all four looks).
+- SETUP PREVIEW (third 14c hand-off): "Preview pack" beside "Step n of 4" on every step and "Preview the full pack · N pages"
+  on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
+  live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the
+  spreadsheet example (Calc.ledger({})); the sub line says which.
 - Entry: Save (sourcer) -> "Saved. What next?" sheet (Make a deal pack PRO / Client report); a Deal pack button on each
   saved deal; Settings -> Deal pack (templates sheet, or setup when there is none). Privacy policy has a Deal packs section.
 

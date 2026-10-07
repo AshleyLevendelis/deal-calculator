@@ -489,6 +489,19 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
     ok('not sure: today’s start (where you were)', (await q.textContent('.pin-exit')) === 'Flip');
     await c.close();
+    // ---- 11a Mortgage payments in the How you'll pay card (second 11a hand-off) ----
+    ({ c, q } = await fresh({ onboarded: true, brrlet: 'btl', deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    const mort = () => q.$$eval('.fund11-mtile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ').trim()).join('|'));
+    ok('11a mortgage payments: between the bridge figures and your own money in, at the letting rate (5%)', (await q.evaluate(() => { const m = document.querySelector('.fund11-mort'); return m.previousElementSibling.classList.contains('fund11-bridge') && m.nextElementSibling.classList.contains('fund11-own'); })) && (await q.inputValue('#lg-mortRate11')) === '5' && (await q.textContent('.fund11-mort .fund11-l')) === 'Mortgage payments');
+    ok('11a: until the refinance £391 a month on £93,750; after it £719 on £172,500 (amber); £8,625 a year', (await mort()) === 'Until the refinance £391 /mo On £93,750 borrowed at purchase|After the refinance £719 /mo On £172,500 after the refinance' && (await q.textContent('.fund11-my')) === '£8,625 a year after the refinance. Already taken off your monthly profit.' && (await q.$eval('.fund11-mtile b.amber', e => !!e)), await mort());
+    const tiles0 = await q.$$eval('.lg-results .lg-tile, .lg-results .tile', ts => ts.map(t => t.textContent).join('|')), profit0 = tiles0;
+    await q.fill('#lg-mortRate11', '6'); await q.waitForTimeout(100);
+    ok('11a: typing 6% changes both payments and the profit, and the letting figures’ own rate', (await mort()).includes('After the refinance £863 /mo') && (await mort()).includes('Until the refinance £469 /mo') && (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:deal')).mortgageRate)) == 6 && (await q.$eval('#lg-mortgageRate', e => e.value)) === '6' && (await q.$$eval('.lg-results .lg-tile, .lg-results .tile', ts => ts.map(t => t.textContent).join('|'))) !== tiles0, (await mort()) + ' ' + profit0);
+    await q.click('.lg-seg button:has-text("Bridging loan")'); await q.waitForTimeout(150);
+    ok('11a: with bridging, the first tile says Bridge instead', (await mort()).startsWith('Until the refinance Bridge instead Bridge interest is in its cost above|After the refinance £863'));
+    ok('11a: the rate box is 44px tall', (await q.$eval('#lg-mortRate11', e => e.getBoundingClientRect().height)) >= 44);
+    await c.close();
     // ---- Deal pack (design 12a / 12b / 12d / 14c, 7 Oct 2026; sourcers only) ----
     ({ c, q } = await fresh({ onboarded: true, persona: 'source', deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } }));
     let copied = ''; q.on('dialog', d => { if (d.message() === 'Copy this link') { copied = d.defaultValue(); d.dismiss(); } else if (d.type() === 'prompt') d.accept('12 Albert Road'); else d.accept(); });
@@ -497,6 +510,14 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('#settings-sheet .st9-link:has-text("Make a deal pack")'); await q.waitForTimeout(250);
     ok('pack: Make a deal pack with no template yet opens setup step 1 of 4, without the tab bar', (await q.url()).endsWith('#pack-setup') && (await q.textContent('.pk14-h')) === 'Pick a look' && (await q.textContent('.pk14-step')) === 'Step 1 of 4' && (await q.locator('.pk14-bars i.on').count()) === 1 && !(await q.isVisible('#tabs')));
     ok('pack 14c: four looks with real cover thumbnails, Classic chosen', (await q.$$eval('.pk14-lrow b', bs => bs.map(b => b.textContent).join())) === 'Classic,Editorial,Bold,Memo' && (await q.locator('.pk14-look .dp-page').count()) === 4 && (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Classic');
+    ok('pack 14c: a Preview pack pill beside Step 1 of 4', (await q.textContent('.pk14-pvb')) === 'Preview pack' && (await q.$eval('.pk14-pvb', e => e.getBoundingClientRect().height)) >= 36);
+    await q.click('.pk14-pvb'); await q.waitForTimeout(150);
+    ok('pack 14c preview: the real pages over the flow, with the look, page count and this deal’s figures', await q.isVisible('.pk14-pv') && (await q.locator('.pk14-pv .dp-page').count()) === 6 && (await q.textContent('.pk14-pvh small')) === 'Classic look · 6 pages · this deal’s figures' && (await q.$$eval('.pk14-pv .dp-page', ps => ps[0].innerText)).includes('£125,000'));
+    await q.click('.pk14-pvs button:text-is("Memo")'); await q.waitForTimeout(100);
+    ok('pack 14c preview: the look switch changes the pages live', (await q.getAttribute('.pk14-pv .dp-page >> nth=0', 'data-look')) === 'memo' && (await q.textContent('.pk14-pvh small')).startsWith('Memo look') && (await q.getAttribute('.pk14-pvs button:text-is("Memo")', 'aria-pressed')) === 'true');
+    ok('pack 14c preview: no sideways scrolling', (await q.evaluate(() => document.documentElement.scrollWidth)) <= 390 && (await q.$eval('.pk14-pv .pk-page', e => e.getBoundingClientRect().right)) <= 390);
+    await q.click('.pk14-done'); await q.waitForTimeout(100);
+    ok('pack 14c preview: Done returns to the same step, with the look picked there', !(await q.isVisible('.pk14-pv')) && (await q.textContent('.pk14-h')) === 'Pick a look' && (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Memo');
     await q.click('.pk14-look:has(b:text-is("Bold"))'); await q.waitForTimeout(60);
     ok('pack 14c: tapping a look chooses it; the footer names it', (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Bold' && (await q.textContent('.pk14-fl')) === 'Bold');
     await q.click('.pk14-next'); await q.waitForTimeout(60);
@@ -508,6 +529,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('.pk-sw >> nth=1'); await q.waitForTimeout(60);
     ok('pack 14c step 3: branding saved on the phone as typed, with the colour', JSON.stringify(await q.evaluate(() => { const b = JSON.parse(localStorage.getItem('deal-analyser:packBrand')); return [b.company, b.name, b.phone, b.email, b.color]; })) === JSON.stringify(['Palmer Property Sourcing', 'Ashley Palmer', '07700 900123', 'ash@example.com', '#1e3a5f']));
     await q.click('.pk14-next'); await q.waitForTimeout(60);
+    ok('pack 14c step 4: a Preview the full pack button', (await q.textContent('.pk14-pvfull')) === 'Preview the full pack · 5 pages');
     ok('pack 14c step 4: the mini cover with 8 sections; Save waits for a name', (await q.locator('.pk14-chips span').count()) === 8 && (await q.textContent('.pk14-mt span')) === '5 pages · Bold' && await q.isDisabled('.pk14-foot .pk14-next'));
     await q.fill('.pk14-name', 'Standard pack'); await q.click('.pk14-foot .pk14-next'); await q.waitForTimeout(100);
     ok('pack 14c step 4: saving shows “✓ Saved. Used on every new deal pack.”', (await q.isVisible('.pk14-flash')) && (await q.textContent('.pk14-flash')) === '✓ Saved. Used on every new deal pack.');
@@ -565,6 +587,10 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack: Change › lists the templates, the default marked, with New template and Branding', (await q.textContent('.pk-trow b')) === 'Standard pack · in use' && (await q.textContent('.pk-def')) === 'Default' && (await q.locator('.pk-wide:has-text("New template")').count()) === 1 && (await q.locator('.pk-wide:has-text("Branding")').count()) === 1);
     await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(60); await q.click('#gear'); await q.waitForTimeout(80);
     ok('pack: Settings has a Deal pack row (PRO) for a sourcer', (await q.locator('.st9-link:has(b:text-matches("^Deal pack"))').count()) === 1);
+    await q.click('.st9-link:has(b:text-matches("^Deal pack"))'); await q.waitForTimeout(100); await q.click('.pk-wide:has-text("New template")'); await q.waitForTimeout(200);
+    await q.click('.pk14-pvb'); await q.waitForTimeout(150);
+    ok('pack: setup from Settings starts at step 1 and previews with example figures', (await q.textContent('.pk14-step')) === 'Step 1 of 4' && (await q.textContent('.pk14-pvh small')).endsWith('· example figures'));
+    await q.click('.pk14-done'); await q.waitForTimeout(60);
     // a second deal gets its own pack; the first deal's pack comes back from Saved
     await q.click('#settings-sheet .bs-done').catch(() => {}); await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250);
     q.removeAllListeners('dialog'); q.on('dialog', d => d.type() === 'prompt' ? d.accept('7 Kent Street') : d.accept());

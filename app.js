@@ -539,7 +539,29 @@
       w.appendChild(inp); w.appendChild(h('span', '', '%')); chip.appendChild(lab); chip.appendChild(w); chip.appendChild(amt); chips.appendChild(chip);
       R.push(function (L, X) { inp._sync(); amt.textContent = id === 'ltv' ? '= ' + money(num(L.ps.endValue) * L.ltv / 100) + ' refinance' : '= ' + money(X.own.deposit) + ' of the price'; });
     });
-    fund.appendChild(swSlot); fund.appendChild(chips); fund.appendChild(bridgeSlot); fund.appendChild(ownSlot);
+    // Mortgage payments (11a, second hand-off): interest-only at the shared mortgageRate (the letting figures' own rate, so
+    // a change here changes the profit too). Until the refinance: on the price less the deposit (or the bridge instead);
+    // after it: on the refinance, the same figure the lets already take off the monthly profit. Shows only, no new maths.
+    var mortSlot = h('div', 'fund11-mort'), letOf = function (L) { return brrLet !== 'none' && L.exits[brrLet] ? L.exits[brrLet] : L.exits.btl; };
+    var mh = h('div', 'fund11-mh'), mr = h('span', 'fund11-rate'), rLab = h('label', '', 'Interest-only at'); rLab.setAttribute('for', 'lg-mortRate11');
+    var rateBox = numBox({ id: 'lg-mortRate11', decimal: true, label: 'Mortgage rate percent', get: function () { return letOf(Calc.ledger(eff(deal), bridgeOn)).state.mortgageRate; }, show: function (v) { return String(v); },
+      set: function (v) { setFig('mortgageRate', v); }, example: function () { return !isTyped('mortgageRate'); } });
+    mr.appendChild(rLab); mr.appendChild(rateBox); mr.appendChild(h('span', '', '%'));
+    mh.appendChild(h('span', 'fund11-l', 'Mortgage payments')); mh.appendChild(mr); mortSlot.appendChild(mh);
+    var mTiles = h('div', 'fund11-mt'), mTile = function (lab, cls) { var t = h('div', 'fund11-mtile'), v = h('b', 'fig' + (cls ? ' ' + cls : '')), s = h('small'); t.appendChild(h('span', '', lab)); t.appendChild(v); t.appendChild(s); mTiles.appendChild(t); return { v: v, s: s }; };
+    var mNow = mTile('Until the refinance'), mAfter = mTile('After the refinance', 'amber'), mYear = h('p', 'fund11-my');
+    mortSlot.appendChild(mTiles); mortSlot.appendChild(mYear);
+    var ioMonth = function (m, r) { return m * r / 1200; };            // calc.js interestOnly, worked the same way (no calc.js change)
+    var perMonth = function (el, x) { el.textContent = money(x); el.appendChild(h('span', 'mo', ' /mo')); };
+    R.push(function (L, X) {
+      var E = letOf(L), rate = num(E.state.mortgageRate), loan0 = X.own.mortgage, refi = num(E.v.newMortgage);
+      rateBox._sync();
+      if (bridgeOn) { mNow.v.textContent = 'Bridge instead'; mNow.s.textContent = 'Bridge interest is in its cost above'; }
+      else { perMonth(mNow.v, ioMonth(loan0, rate)); mNow.s.textContent = 'On ' + money(loan0) + ' borrowed at purchase'; }
+      perMonth(mAfter.v, ioMonth(refi, rate)); mAfter.s.textContent = 'On ' + money(refi) + ' after the refinance';
+      mYear.textContent = money(ioMonth(refi, rate) * 12) + ' a year after the refinance. Already taken off your monthly profit.';
+    });
+    fund.appendChild(swSlot); fund.appendChild(chips); fund.appendChild(bridgeSlot); fund.appendChild(mortSlot); fund.appendChild(ownSlot);
     // Your own money in: the total, a stacked bar (one colour per kind of cost, zero costs left out), a Breakdown that
     // lists the same rows (open or shut kept for the session) and the caption.
     var oh = h('div', 'fund11-oh'), ol = h('div'), oTot = h('b', 'fund11-total fig'), oBtn = h('button', 'fund11-btn'), oBar = h('div', 'fund11-bar'), oRows = h('div', 'fund11-rows'), oCap = h('div', 'fund11-cap');
@@ -1682,7 +1704,7 @@
     };
     if (clientReportsOn()) {                                                              // sourcers: straight under About you
       var src = card(); link(src, 'Report branding', 'Your name on every client report', openBranding);
-      link(src, 'Deal pack', Pack.hasTemplates() ? 'Templates and branding' : 'Set up your branded pack', function () { if (Pack.hasTemplates()) Pack.openTemplates(false); else { closeSettings(); location.hash = '#pack-setup'; } });
+      link(src, 'Deal pack', Pack.hasTemplates() ? 'Templates and branding' : 'Set up your branded pack', function () { if (Pack.hasTemplates()) Pack.openTemplates(false); else { closeSettings(); Pack.openSetup(false); } });
       src.lastChild.querySelector('b').appendChild(Pack.pro('in'));
     }
     label('Appearance');

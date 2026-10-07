@@ -7,6 +7,8 @@
     var DP = root.DealPack;
     var BRAND = 'deal-analyser:packBrand', TPLS = 'deal-analyser:packTemplates', PACK = 'deal-analyser:pack', PHOTOS = 'deal-analyser:packPhotos:';
     var S = null;                                   // the setup screen's choices while it is open
+    var fromDeal = false;                           // setup opened from a deal (its figures) or from Settings (example figures)
+    function openSetup(deal) { S = null; fromDeal = !!deal; location.hash = '#pack-setup'; }
 
     function brand() { return Object.assign({ company: '', name: '', phone: '', email: '', web: '', color: DP.SWATCHES[0], logo: '' }, load(BRAND, {})); }
     function tpls() { var t = load(TPLS, null); return t && t.list ? t : { list: [], def: null }; }
@@ -42,7 +44,7 @@
       }
       if (sd) X.loadDeal(sd);
       savePack(p);
-      location.hash = tpls().list.length ? '#pack' : '#pack-setup';
+      if (tpls().list.length) location.hash = '#pack'; else openSetup(true);
     }
 
     // ---- 14c setup: pick a look, what goes in, branding, save as a template ----
@@ -51,13 +53,15 @@
       if (!S || S.brandOnly !== brandOnly) { S = setupFrom(); S.brandOnly = brandOnly; if (brandOnly) S.step = 2; }
       box.innerHTML = ''; box.className = 'pk14';
       var B = brand(), sample = sampleData(B), top = h('div', 'pk14-top');
+      var pvBtn = btn('pk14-pvb', 'Preview pack', function () { S.pv = true; renderSetup(box, brandOnly); });
       if (!brandOnly) {
         var bars = h('div', 'pk14-bars'); for (var i = 0; i < 4; i++) bars.appendChild(h('i', i <= S.step ? 'on' : ''));
-        top.appendChild(bars); top.appendChild(h('span', 'pk14-step', 'Step ' + (S.step + 1) + ' of 4'));
-      } else top.appendChild(h('span', 'pk14-step', 'Deal pack'));
+        top.appendChild(bars); var sr = h('div', 'pk14-sr'); sr.appendChild(h('span', 'pk14-step', 'Step ' + (S.step + 1) + ' of 4')); sr.appendChild(pvBtn); top.appendChild(sr);
+      } else { var sr2 = h('div', 'pk14-sr'); sr2.appendChild(h('span', 'pk14-step', 'Deal pack')); sr2.appendChild(pvBtn); top.appendChild(sr2); }
       box.appendChild(top);
       var body = h('div', 'pk14-body'), foot = h('div', 'pk14-foot'); box.appendChild(body); box.appendChild(foot);
       var head = function (t, sub) { body.appendChild(h('h1', 'pk14-h', t)); if (sub) body.appendChild(h('p', 'pk14-sub', sub)); };
+      if (S.pv) setupPreview(box, B, sample, brandOnly);
       var go = function (n) { S.step = n; renderSetup(box, brandOnly); window.scrollTo(0, 0); };
       var back = btn('pk14-back', 'Back', function () { if (brandOnly || !S.step) { S = null; X.goBack(); } else go(S.step - 1); });
       var next = btn('pk14-next', 'Next', function () { go(S.step + 1); });
@@ -91,6 +95,7 @@
         mh.appendChild(chipEl(B, 36)); var mt = h('span', 'pk14-mt'); mt.appendChild(h('b', '', B.company || 'Your business name')); mt.appendChild(h('span', '', pagesOf(S).length + ' pages · ' + DP.LOOK_LIST.filter(function (l) { return l[0] === S.look; })[0][1])); mh.appendChild(mt);
         mini.appendChild(mh); var rule = h('div', 'pk14-rule'); rule.style.background = DP.colourOk(B.color); mini.appendChild(rule);
         var chips = h('div', 'pk14-chips'); on.forEach(function (k) { chips.appendChild(h('span', '', DP.SECS[k][0])); }); mini.appendChild(chips); body.appendChild(mini);
+        body.appendChild(btn('pk14-pvfull', 'Preview the full pack · ' + pagesOf(S).length + ' pages', function () { S.pv = true; renderSetup(box, brandOnly); }));
         var name = h('input', 'pk14-name'); name.placeholder = 'e.g. Standard pack'; name.value = S.name; name.setAttribute('aria-label', 'Template name'); body.appendChild(name);
         var flash = h('div', 'pk14-flash', '✓ Saved. Used on every new deal pack.'); flash.hidden = !S.saved; body.appendChild(flash);
         var save = btn('pk14-next', 'Save template', function () {
@@ -134,13 +139,25 @@
       if (B.logo) { var im = h('img'); im.src = B.logo; im.alt = ''; c.appendChild(im); c.classList.add('img'); } else { c.textContent = DP.initials(B); c.style.background = DP.colourOk(B.color); }
       return c;
     }
+    // Setup's preview (third 14c hand-off): the real pages over the flow, Done, and a look switch that changes the look live.
+    function setupPreview(box, B, sample, brandOnly) {
+      var ov = h('div', 'pk14-pv'), hd = h('div', 'pk14-pvh'), tt = h('span', 'pk-ltxt'), pages = pagesOf(S), lk = DP.LOOK_LIST.filter(function (l) { return l[0] === S.look; })[0];
+      ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', 'Preview');
+      tt.appendChild(h('b', '', 'Preview')); tt.appendChild(h('small', '', lk[1] + ' look · ' + pages.length + ' pages · ' + (fromDeal ? 'this deal’s figures' : 'example figures'))); hd.appendChild(tt);
+      hd.appendChild(btn('pk14-done', 'Done', function () { S.pv = false; renderSetup(box, brandOnly); })); ov.appendChild(hd);
+      var list = h('div', 'pk14-pvl'), scale = Math.min(0.56, (Math.min(window.innerWidth, 480) - 40) / 600);
+      pages.forEach(function (pg) { list.appendChild(thumb(DP.pageHTML(pg, S.look, B, sample, {}), scale, 'pk-page')); }); ov.appendChild(list);
+      var sw = h('div', 'pk14-pvs'); sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', 'Look');
+      DP.LOOK_LIST.forEach(function (l) { var b = btn('', l[1], function () { S.look = l[0]; renderSetup(box, brandOnly); }); b.setAttribute('aria-pressed', S.look === l[0]); sw.appendChild(b); });
+      ov.appendChild(sw); box.appendChild(ov);
+    }
     function sampleData(B) {
-      var p = pack(), prop = p && p.prop && (p.prop.town || p.prop.beds) ? p.prop : { town: 'Margate', postcode: 'CT9 2AB', beds: 3, type: 'terraced house' };
-      return DP.data({ figs: figs(), prop: prop, brand: B, client: (p && p.client) || 'your client', hide: true, fee: DP.DEFAULT_FEE, link: true });
+      var p = fromDeal ? pack() : null, prop = p && p.prop && (p.prop.town || p.prop.beds) ? p.prop : { town: 'Margate', postcode: 'CT9 2AB', beds: 3, type: 'terraced house' };
+      return DP.data({ figs: fromDeal ? figs() : DP.figsFromLedger(Calc.ledger({}, false)), prop: prop, brand: B, client: (p && p.client) || 'your client', hide: true, fee: DP.DEFAULT_FEE, link: true });
     }
     // A page drawn small: the real page in a box scaled down (the preview and the look thumbnails)
     function thumb(html, scale, cls) {
-      var w = h('div', 'pk-thumb ' + (cls || '')), inner = h('div', 'pk-thumb-in'); w.style.height = Math.round(848 * scale) + 'px';
+      var w = h('div', 'pk-thumb ' + (cls || '')), inner = h('div', 'pk-thumb-in'); w.style.height = Math.round(848 * scale) + 'px'; w.style.width = Math.round(600 * scale) + 'px';
       inner.style.transform = 'scale(' + scale + ')'; inner.innerHTML = html; w.appendChild(inner); return w;
     }
 
@@ -338,13 +355,13 @@
           }));
         };
         var list = h('div', 'st9-card pk-tlist'); sheet.appendChild(list); draw();
-        sheet.appendChild(btn('pk-wide main', '+ New template', function () { X.closeSettings(); S = null; location.hash = '#pack-setup'; }));
+        sheet.appendChild(btn('pk-wide main', '+ New template', function () { X.closeSettings(); openSetup(inBuilder); }));
         sheet.appendChild(btn('pk-wide', 'Branding: logo, colour, contact details', function () { X.closeSettings(); S = null; location.hash = '#pack-brand'; }));
       });
     }
 
     return {
-      start: start, openTemplates: openTemplates, hasTemplates: function () { return tpls().list.length > 0; }, pro: pro,
+      start: start, openSetup: openSetup, openTemplates: openTemplates, hasTemplates: function () { return tpls().list.length > 0; }, pro: pro,
       render: function (view, box) { if (view === 'packsetup') renderSetup(box, false); else if (view === 'packbrand') renderSetup(box, true); else if (view === 'packprev') renderPreview(box); else renderBuilder(box); }
     };
   };
