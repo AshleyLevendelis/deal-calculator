@@ -1386,33 +1386,65 @@
     ['Buying costs', [['legal', 'Legal costs', '£', 'Your solicitor, per purchase'], ['otherUpfront', 'Other costs up front', '£', 'Survey, broker, finance fees']]],
     ['Finance', [['ltv', 'Re-mortgage LTV', '%', 'How much of the end value the lender pays out'], ['depositPct', 'Deposit', '%', 'Of the purchase price, on a mortgaged purchase'], ['mortgageRate', 'Mortgage rate', '%', 'Interest rate on your mortgage']]],
     ['Letting', [['mgmtPct', 'Management', '%', 'Letting agent fee, % of rent']]]];
+  // ---- My usual figures (design 9b, 7 Oct 2026): a pinned header card like the Calculator's answer panel, then the
+  // same three groups as cards, each figure with its typed value and the Calculator's − / slider / + . An unset figure
+  // shows the spreadsheet example in faint ink with a muted slider ("Example from the spreadsheet"); touching it makes it
+  // yours ("Yours", and "Example £X ↺" puts the example back). Saved to USUAL_KEY on every change, as before.
+  var USUAL_RANGE = { legal: [0, 5000, 50, [50, 10, 5]], otherUpfront: [0, 10000, 50, [50, 10, 5]], ltv: [50, 85, 1, [1, 1, 1]], depositPct: [5, 40, 1, [1, 1, 1]],
+    mortgageRate: [0, 10, 0.05, [0.05, 0.01, 0.01]], mgmtPct: [0, 20, 0.5, [0.5, 0.1, 0.1]] };
+  var USUAL_IDS = []; USUAL_FIELDS.forEach(function (g) { g[1].forEach(function (f) { USUAL_IDS.push(f[0]); }); });
+  function usualSet(id) { return Object.prototype.hasOwnProperty.call(usual, id) && String(usual[id]).trim() !== ''; }
+  function usualCount() { return USUAL_IDS.filter(usualSet).length; }
+  function usualExample(id) {
+    var example = Calc.defaults(Calc.find('flip'))[id];
+    if (example === undefined) example = Calc.defaults(Calc.find(id === 'otherUpfront' ? 'recycle' : 'btl'))[id];
+    return num(example);
+  }
   function renderUsual() {
-    // Drawn in the Calculator's look (design 6c): Geist, section headings, rounded cards, rows like the targets sheet.
-    var box = $('v-usual'); box.innerHTML = ''; box.className = 'u6';
-    box.appendChild(h('p', 'u6-intro', 'Set these once and every deal starts with them. A figure you type on a deal still wins for that deal. Leave a box empty to use the spreadsheet example.'));
+    var box = $('v-usual'); box.innerHTML = ''; box.className = 'u9';
+    var R = [], refresh = function () { R.forEach(function (f) { f(); }); };
+    var save = function (id, v) { if (v === '' || v == null) delete usual[id]; else usual[id] = String(v); store(USUAL_KEY, usual); refresh(); };
+    // the pinned header card
+    var pin = h('div', 'pin u9-pin'), head = h('div', 'pin-head'), back = h('button', 'pin-back'), clear = h('button', 'u9-clear', 'Clear all');
+    back.type = 'button'; clear.type = 'button'; back.setAttribute('aria-label', 'Back');
+    back.appendChild(h('span', 'chev', '‹')); back.appendChild(h('span', 'pin-title', 'My usual figures')); back.onclick = goBack;
+    clear.onclick = function () { usual = {}; store(USUAL_KEY, usual); refresh(); };
+    head.appendChild(back); head.appendChild(clear); pin.appendChild(head);
+    pin.appendChild(h('div', 'u9-lede', 'Set these once and every new deal starts with them. A figure you type on a deal still wins for that deal.'));
+    var count = h('span', 'u9-count'); pin.appendChild(count); box.appendChild(pin);
+    R.push(function () { var n = usualCount(); clear.hidden = !n; count.textContent = n ? n + ' of ' + USUAL_IDS.length + ' figures are yours' : 'All figures are spreadsheet examples'; count.classList.toggle('on', !!n); });
     USUAL_FIELDS.forEach(function (g) {
       box.appendChild(h('p', 'lg-h', g[0]));
-      var card = h('section', 'u6-card');
+      var card = h('section', 'u9-card');
       g[1].forEach(function (f) {
-        var row = h('div', 'u6-row'), txt = h('span', 'u6-txt'), lab = h('label', '', f[1]); lab.setAttribute('for', 'u-' + f[0]); txt.appendChild(lab); txt.appendChild(h('small', '', f[3]));
-        var wrap = h('span', 'u6-val'), input = h('input'); input.id = 'u-' + f[0]; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
-        var any = Calc.find('flip'), example = Calc.defaults(any)[f[0]];
-        if (example === undefined) example = Calc.defaults(Calc.find(f[0] === 'otherUpfront' ? 'recycle' : 'btl'))[f[0]];
-        input.placeholder = example === undefined || example === '' ? '' : String(example);
-        input.value = Object.prototype.hasOwnProperty.call(usual, f[0]) ? usual[f[0]] : '';
-        input.addEventListener('input', function () {
-          if (input.value.trim() === '') delete usual[f[0]]; else usual[f[0]] = input.value;
-          store(USUAL_KEY, usual);
+        var id = f[0], rr = USUAL_RANGE[id], unit = f[2], ex = usualExample(id), field = h('div', 'u9-field');
+        var cur = function () { return usualSet(id) ? num(usual[id]) : ex; };
+        var show = function (v) { return unit === '£' ? Math.round(v).toLocaleString('en-GB') : String(Number(Number(v).toFixed(2))); };
+        var top = h('div', 'u9-top'), txt = h('span', 'u9-txt'), lab = h('label', '', f[1]); lab.setAttribute('for', 'u-' + id); txt.appendChild(lab); txt.appendChild(h('small', '', f[3]));
+        var val = h('span', 'u9-val'), input = h('input'); input.id = 'u-' + id; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
+        input.addEventListener('focus', function () { setTimeout(function () { try { input.select(); } catch (e) {} }, 0); });
+        input.addEventListener('input', function () { var raw = input.value.replace(/[^0-9.]/g, ''); save(id, raw === '' ? '' : raw); });   // an empty box goes back to the example
+        input.addEventListener('blur', function () { input.value = show(cur()); });
+        if (unit === '£') val.appendChild(h('span', 'u', '£')); val.appendChild(input); if (unit === '%') val.appendChild(h('span', 'u', '%'));
+        top.appendChild(txt); top.appendChild(val); field.appendChild(top);
+        var o = { label: f[1], get: cur, set: function (v) { save(id, Number(Number(v).toFixed(2))); }, min: rr[0], max: function () { return Math.max(rr[1], cur()); }, step: rr[2], levels: rr[3],
+          snaps: function () { return [ex]; }, bubble: function (v) { return (unit === '£' ? '£' : '') + show(v) + (unit === '%' ? '%' : ''); } };
+        var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'u9n')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'u9n')); field.appendChild(l2);
+        var foot = h('div', 'u9-foot'), tag = h('span', 'u9-tag'), reset = h('button', 'u9-reset'); reset.type = 'button';
+        reset.onclick = function () { save(id, ''); };
+        foot.appendChild(tag); foot.appendChild(reset); field.appendChild(foot); card.appendChild(field);
+        R.push(function () {
+          var on = usualSet(id);
+          if (document.activeElement !== input) input.value = show(cur());
+          input.classList.toggle('ex', !on); sl.classList.toggle('ex', !on); sl._sync();
+          tag.textContent = on ? 'Yours' : 'Example from the spreadsheet'; tag.classList.toggle('on', on);
+          reset.hidden = !on; reset.textContent = 'Example ' + (unit === '£' ? money(ex) : show(ex) + '%') + ' ↺';
         });
-        input.addEventListener('focus', function () { input.select(); });
-        if (f[2] === '£') wrap.appendChild(h('span', 'u', '£')); wrap.appendChild(input); if (f[2] === '%') wrap.appendChild(h('span', 'u', '%'));
-        row.appendChild(txt); row.appendChild(wrap); card.appendChild(row);
       });
       box.appendChild(card);
     });
-    var reset = h('button', 'lg-back u6-clear', 'Clear my usual figures'); reset.type = 'button'; reset.onclick = function () { usual = {}; store(USUAL_KEY, usual); renderUsual(); };
-    box.appendChild(reset);
-    box.appendChild(h('p', 'u6-note', 'Deals you have already saved keep the figures they were saved with.'));
+    box.appendChild(h('p', 'u9-note', 'Deals you have already saved keep the figures they were saved with.'));
+    refresh();
   }
 
   // ---- Redraw the screen in place (after targets or the tax setting change), keeping the scroll position ----
@@ -1530,38 +1562,42 @@
 
   // ---- Settings sheet: theme, explanations, replay onboarding --------------------------------------------
   function closeSettings() { $('settings-overlay').hidden = true; $('settings-sheet').hidden = true; }
-  // Drawn like the Your targets sheet (design 6c look): a bold heading with Done, then grouped rounded rows.
+  // ---- Settings (design 9a, 7 Oct 2026): the targets sheet's shell (grab, title, Done), then cards: Appearance (three
+  // themes), Explanations, Your figures (links), the setup questions and privacy, and a short footer. Same stores.
   function renderSettings() {
-    var sheet = $('settings-sheet'); sheet.innerHTML = ''; sheet.className = 'sheet big-sheet s6';
+    var sheet = $('settings-sheet'); sheet.innerHTML = ''; sheet.className = 'sheet big-sheet st9';
     sheet.appendChild(h('div', 'grab')); sheetHead(sheet, 'Settings', 'Done');
-    var group = function (title) { sheet.appendChild(h('p', 's6-h', title)); var g = h('div', 's6-group'); sheet.appendChild(g); return g; };
-    var look = group('Appearance');
-    var THEMES = [['dark', 'Dark', 'Deep green with light text.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']];
-    THEMES.forEach(function (t) {
-      var row = h('button', 's6-row theme-row'); row.type = 'button'; row.setAttribute('aria-pressed', theme() === t[0]);
-      row.appendChild(h('span', 'swatch sw-' + t[0]));
-      var tt = h('span', 's6-txt'); tt.appendChild(h('b', '', t[1])); tt.appendChild(h('small', '', t[2])); row.appendChild(tt);
-      var radio = h('span', 'radio2'); radio.appendChild(h('i')); row.appendChild(radio);
+    var body = h('div', 'st9-body'); sheet.appendChild(body);
+    var label = function (t) { body.appendChild(h('p', 'st9-label', t)); };
+    var card = function () { var c = h('div', 'st9-card'); body.appendChild(c); return c; };
+    label('Appearance');
+    var look = card();
+    [['dark', 'Dark', 'Deep green, light ink.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']].forEach(function (t) {
+      var row = h('button', 'st9-row st9-theme'); row.type = 'button'; row.setAttribute('aria-pressed', theme() === t[0]);
+      row.appendChild(h('span', 'st9-swatch sw-' + t[0]));
+      var tt = h('span', 'st9-txt'); tt.appendChild(h('b', '', t[1])); tt.appendChild(h('small', '', t[2])); row.appendChild(tt);
+      var radio = h('span', 'st9-radio'); radio.appendChild(h('i')); row.appendChild(radio);
       row.onclick = function () { store(THEME, t[0]); applyTheme(); renderSettings(); };
       look.appendChild(row);
     });
-    var exp = h('button', 's6-row'), et = h('span', 's6-txt'), sw = h('span', 'switch'); exp.type = 'button';
-    et.appendChild(h('b', '', 'Explanations')); et.appendChild(h('small', '', 'Plain-English sentences next to results.'));
-    exp.setAttribute('role', 'switch'); exp.setAttribute('aria-checked', explanationsOn()); sw.setAttribute('aria-pressed', explanationsOn());
-    exp.onclick = function () { store(EXPLAIN, !explanationsOn()); renderSettings(); if (current) update(); };
-    exp.appendChild(et); exp.appendChild(sw); look.appendChild(exp);
-    var link = function (g, title, sub, go) {
-      var b = h('button', 's6-row s6-link'), tt = h('span', 's6-txt'); b.type = 'button';
-      tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt); b.appendChild(h('span', 's6-chev', '›'));
-      b.onclick = go; g.appendChild(b);
+    var expCard = card(); expCard.classList.add('st9-exp');
+    var et = h('span', 'st9-txt'); et.appendChild(h('b', '', 'Explanations')); et.appendChild(h('small', '', 'Plain-English sentences next to results.')); expCard.appendChild(et);
+    var sw = h('button', 'st9-switch'); sw.type = 'button'; sw.setAttribute('role', 'switch'); sw.setAttribute('aria-checked', explanationsOn()); sw.setAttribute('aria-label', 'Explanations'); sw.appendChild(h('i'));
+    sw.onclick = function () { store(EXPLAIN, !explanationsOn()); renderSettings(); if (current) update(); };
+    expCard.appendChild(sw);
+    var link = function (c, title, sub, go, mark) {
+      var b = h('button', 'st9-row st9-link'), tt = h('span', 'st9-txt'); b.type = 'button';
+      tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt);
+      b.appendChild(h('span', mark ? 'st9-mark' : 'st9-chev', mark || '›')); b.onclick = go; c.appendChild(b);
     };
-    var yours = group('Your figures');
-    link(yours, 'My usual figures', 'The figures every deal starts with', function () { closeSettings(); location.hash = '#usual'; });
-    link(yours, 'Your targets', Calc.targetsSummary(), openTargets);
-    link(yours, 'Stamp duty', Calc.taxLabel().tax + ' · ' + Calc.taxLabel().short, function () { closeSettings(); taxOpen = true; location.hash = '#calculators'; redraw(); });
-    var about = group('About');
-    link(about, 'Privacy policy', 'What stays on your phone', openPrivacy);
-    link(about, 'Redo the setup questions', 'How you use the app, and your starting figures', startOnboarding);
+    label('Your figures');
+    var yours = card(), n = usualCount();
+    link(yours, 'Your targets', 'Monthly profit, ROI, money back, flip margin', openTargets);
+    link(yours, 'My usual figures', n ? n + ' of ' + USUAL_IDS.length + ' set, used on every new deal' : 'Using the spreadsheet examples', function () { closeSettings(); location.hash = '#usual'; });
+    var more = card();
+    link(more, 'Redo the setup questions', '', startOnboarding, '↺');
+    link(more, 'Privacy policy', '', openPrivacy, '›');
+    body.appendChild(h('p', 'st9-foot', 'Estimates only, not financial, tax or legal advice. Your figures, targets and saved deals stay on this phone.'));
   }
   function openSettings() { renderSettings(); $('settings-overlay').hidden = false; $('settings-sheet').hidden = false; }
   $('gear').onclick = openSettings;
@@ -1589,13 +1625,13 @@
     if (view === 'scompare') renderSavedCompare();
     if (view === 'report') renderReport();
     if (view === 'usual') renderUsual();
-    if (view !== 'home') document.body.classList.remove('ledger');
-    var overlayView = view === 'compare' || view === 'scompare' || view === 'report' || view === 'usual';
+    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual');            // usual figures: the Calculator's look
+    var overlayView = view === 'compare' || view === 'scompare' || view === 'report';
     $('tabs').hidden = overlayView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
     document.body.classList.toggle('has-tabs', !overlayView);
     document.body.classList.toggle('has-bar', view === 'home');
-    $('t-home').setAttribute('aria-selected', view === 'home'); $('t-saved').setAttribute('aria-selected', view === 'saved');
-    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'usual' ? 'My usual figures' : view === 'compare' ? 'Every strategy' : 'BRR Calculator';
+    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual'); $('t-saved').setAttribute('aria-selected', view === 'saved');
+    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'compare' ? 'Every strategy' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
     if (view === 'home') renderCalculator();

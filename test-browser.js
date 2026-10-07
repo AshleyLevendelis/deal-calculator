@@ -169,8 +169,8 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.reload(); await p.waitForTimeout(300);
   ok('the targets are still there after reopening the app', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":30,"monthly":400,"roi":50,"payback":6}');
   await p.click('#gear'); await p.waitForTimeout(60);
-  ok('Settings has Your targets (with the summary), Stamp duty and Privacy policy', (await p.locator('#settings-sheet .s6-link').allTextContents()).join('|').includes('Your targets30% flip · £400/mo · 50% ROI · 6 mo back'));
-  await p.click('#settings-sheet .s6-link:has-text("Your targets")'); await p.waitForTimeout(60);
+  ok('Settings has Your targets and Privacy policy (design 9a)', (await p.locator('#settings-sheet .st9-link b').allTextContents()).join('|') === 'Your targets|My usual figures|Redo the setup questions|Privacy policy');
+  await p.click('#settings-sheet .st9-link:has-text("Your targets")'); await p.waitForTimeout(60);
   await p.click('.tg-back'); await p.waitForTimeout(60);
   ok('Back to the starting targets', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":25,"monthly":500,"roi":50,"payback":6}' && !(await p.isVisible('.tg-back')));
   await p.click('#settings-overlay', { position: { x: 20, y: 20 } }); await p.waitForTimeout(60);
@@ -213,7 +213,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const opens = {};
   await p.click('.vs-lab'); await p.click('.vs-link'); await p.waitForTimeout(60); opens.strip = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
   await p.evaluate(() => scrollTo(0, 1e6)); await p.click('.legal-links button:has-text("Your targets")'); await p.waitForTimeout(60); opens.footer = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
-  await p.evaluate(() => scrollTo(0, 0)); await p.click('#gear'); await p.click('#settings-sheet .s6-link:has-text("Your targets")'); await p.waitForTimeout(60); opens.settings = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
+  await p.evaluate(() => scrollTo(0, 0)); await p.click('#gear'); await p.click('#settings-sheet .st9-link:has-text("Your targets")'); await p.waitForTimeout(60); opens.settings = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
   ok('the targets sheet opens from "Edit targets →", the footer and Settings', opens.strip && opens.footer && opens.settings, JSON.stringify(opens));
 
   // ---- design 7a: the order of the deal and "Any other costs" ----
@@ -339,39 +339,63 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('r2r: its disclaimer asks you to check the landlord’s consent', (await txt('.legal-foot')).includes('Check your landlord’s consent and the contract before you sign.'));
     await c4.close();
   }
-  // ---- My usual figures in the Calculator's look ----
+  // ---- My usual figures (design 9b) ----
   {
     const c5 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     await c5.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); localStorage.setItem('deal-analyser:onboarded', 'true'); });
     const q = await c5.newPage(); q.on('pageerror', e => errs.push(e.message));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(200);
     await q.goto(BASE + '/index.html#usual'); await q.waitForTimeout(250);
-    const look = await q.evaluate(() => ({ fonts: [...new Set([...document.querySelectorAll('#v-usual *')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))], heads: [...document.querySelectorAll('#v-usual .lg-h')].map(e => e.textContent).join('|'), cards: document.querySelectorAll('#v-usual .u6-card').length, rows: document.querySelectorAll('#v-usual .u6-row').length, oldBits: document.querySelectorAll('#v-usual .hero, #v-usual .eyebrow, #v-usual .fig-card, #v-usual .pick').length, small: [...document.querySelectorAll('#v-usual input, #v-usual button')].filter(e => e.getBoundingClientRect().height < 44).length }));
-    ok('usual figures: one font (Geist), section headings like the Calculator, rounded cards, no serif title', look.fonts.join() === 'Geist' && look.heads === 'Buying costs|Finance|Letting' && look.cards === 3 && look.rows === 6 && look.oldBits === 0, JSON.stringify(look));
-    ok('usual figures: every box and button 44px or more', look.small === 0);
-    await q.fill('#u-legal', '2500'); await q.waitForTimeout(40);
-    ok('usual figures: a typed figure is saved', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:usual')).legal)) === '2500');
-    await q.click('.u6-clear'); await q.waitForTimeout(60);
-    ok('usual figures: Clear empties them and shows the examples again', (await q.$eval('#u-legal', e => e.value)) === '' && (await q.$eval('#u-legal', e => e.placeholder)) !== '' && (await q.evaluate(() => localStorage.getItem('deal-analyser:usual'))) === '{}');
-    ok('usual figures: no sideways scroll', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+    const usual = () => q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:usual') || '{}'));
+    const look = await q.evaluate(() => ({ fonts: [...new Set([...document.querySelectorAll('#v-usual *')].filter(e => e.type !== 'range').map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join(), pinned: getComputedStyle(document.querySelector('#v-usual .pin')).position, heads: [...document.querySelectorAll('#v-usual .lg-h')].map(e => e.textContent).join('|'), cards: document.querySelectorAll('#v-usual .u9-card').length, fields: document.querySelectorAll('#v-usual .u9-field').length, sliders: document.querySelectorAll('#v-usual .scrub').length, nudges: document.querySelectorAll('#v-usual .nudge').length, tabs: !document.getElementById('tabs').hidden, calcTab: document.getElementById('t-home').getAttribute('aria-selected') }));
+    ok('usual 9b: pinned header card, three group cards, six figures each with − / slider / +, one font, tab bar with Calculator', look.fonts === 'Geist' && look.pinned === 'sticky' && look.heads === 'Buying costs|Finance|Letting' && look.cards === 3 && look.fields === 6 && look.sliders === 6 && look.nudges === 12 && look.tabs && look.calcTab === 'true', JSON.stringify(look));
+    ok('usual 9b: nothing set: every figure shows its example, "All figures are spreadsheet examples", no Clear all', (await q.textContent('.u9-count')) === 'All figures are spreadsheet examples' && !(await q.isVisible('.u9-clear')) && (await q.$eval('#u-legal', e => e.value)) === '3,000' && await q.$eval('#u-legal', e => e.classList.contains('ex')) && (await q.$$eval('.u9-tag', ts => ts.every(t => t.textContent === 'Example from the spreadsheet'))));
+    const legal = q.locator('.u9-field:has(#u-legal)');
+    await legal.locator('.nudge >> nth=0').click(); await q.waitForTimeout(40);
+    ok('usual 9b: − on legal makes it yours: £2,950, "Yours", "Example £3,000 ↺", saved at once', (await q.$eval('#u-legal', e => e.value)) === '2,950' && (await legal.locator('.u9-tag').textContent()) === 'Yours' && (await legal.locator('.u9-reset').textContent()) === 'Example £3,000 ↺' && (await usual()).legal === '2950' && (await q.textContent('.u9-count')) === '1 of 6 figures are yours' && await q.isVisible('.u9-clear'));
+    await legal.locator('.u9-reset').click(); await q.waitForTimeout(40);
+    ok('usual 9b: "Example £3,000 ↺" puts the example back (the key is deleted)', !('legal' in (await usual())) && (await q.$eval('#u-legal', e => e.value)) === '3,000' && (await legal.locator('.u9-tag').textContent()) === 'Example from the spreadsheet');
+    await q.fill('#u-mortgageRate', '6.25'); await q.waitForTimeout(40);
+    ok('usual 9b: typing a figure saves it as yours', (await usual()).mortgageRate === '6.25' && (await q.locator('.u9-field:has(#u-mortgageRate) .u9-tag').textContent()) === 'Yours');
+    await q.fill('#u-mortgageRate', ''); await q.waitForTimeout(40);
+    ok('usual 9b: clearing the typed box goes back to the example', !('mortgageRate' in (await usual())));
+    // the slider: a tap sets it
+    const sl = q.locator('.u9-field:has(#u-ltv) .scrub'); await sl.scrollIntoViewIfNeeded(); const bb = await sl.boundingBox();
+    await q.mouse.click(bb.x + bb.width - 1, bb.y + bb.height / 2); await q.waitForTimeout(60);
+    ok('usual 9b: tapping the end of the LTV slider sets 85%', (await usual()).ltv === '85' && (await q.$eval('#u-ltv', e => e.value)) === '85', JSON.stringify(await usual()) + ' ' + (await q.$eval('#u-ltv', e => e.value)));
+    await q.fill('#u-ltv', '90'); await q.waitForTimeout(40);
+    ok('usual 9b: a typed figure may go past the slider (90%)', (await usual()).ltv === '90');
+    await q.evaluate(() => scrollTo(0, 0)); await q.click('.u9-clear'); await q.waitForTimeout(60);
+    ok('usual 9b: Clear all empties them', JSON.stringify(await usual()) === '{}' && !(await q.isVisible('.u9-clear')));
+    ok('usual 9b: every box and button 44px or more (or a 44px hit area)', await q.evaluate(() => [...document.querySelectorAll('#v-usual button, #v-usual input')].filter(e => e.offsetParent).every(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return r.height >= 44 || (a.content !== 'none' && a.position === 'absolute' && r.height + 2 * Math.abs(parseFloat(a.top) || 0) >= 44); })));
+    ok('usual 9b: a usual figure reaches the Calculator', await (async () => { await q.fill('#u-legal', '2000'); await q.waitForTimeout(40); await q.click('.pin-back'); await q.waitForTimeout(250); return (await q.$eval('#lg-legal', e => e.value)) === '2,000'; })());
+    ok('usual 9b: no sideways scroll', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
     await c5.close();
   }
-  // ---- Settings in the Calculator's look ----
+  // ---- Settings (design 9a) ----
   {
     const c6 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
     await c6.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); localStorage.setItem('deal-analyser:onboarded', 'true'); });
     const q = await c6.newPage(); q.on('pageerror', e => errs.push(e.message));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(100);
-    const look = await q.evaluate(() => { const s = document.getElementById('settings-sheet'); return { big: s.classList.contains('big-sheet'), title: s.querySelector('.bs-head h2').textContent, done: !!s.querySelector('.bs-done'), heads: [...s.querySelectorAll('.s6-h')].map(e => e.textContent).join('|'), groups: s.querySelectorAll('.s6-group').length, links: [...s.querySelectorAll('.s6-link b')].map(e => e.textContent).join('|'), fonts: [...new Set([...s.querySelectorAll('*')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join(), small: [...s.querySelectorAll('button')].filter(e => e.offsetParent && e.getBoundingClientRect().height < 44).length }; });
-    ok('Settings: drawn like the targets sheet (heading and Done, three groups of rounded rows, one font)', look.big && look.title === 'Settings' && look.done && look.heads === 'Appearance|Your figures|About' && look.groups === 3 && look.links === 'My usual figures|Your targets|Stamp duty|Privacy policy|Redo the setup questions' && look.fonts === 'Geist' && look.small === 0, JSON.stringify(look));
-    const expRow = () => q.$eval('.s6-row:has(b:text-is("Explanations"))', e => e.getAttribute('aria-checked'));
-    const before = await expRow(); await q.click('.s6-row:has(b:text-is("Explanations"))'); await q.waitForTimeout(60);
-    ok('Settings: tapping the Explanations row switches it (and saves it)', (await expRow()) === String(before !== 'true') && String(await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:explanations')))) === (await expRow()), before + ' -> ' + (await expRow()));
-    await q.click('.theme-row:has(b:text-is("Light"))'); await q.waitForTimeout(80);
-    ok('Settings: choosing Light switches the theme and ticks it', (await q.evaluate(() => document.documentElement.getAttribute('data-theme'))) === 'light' && (await q.$eval('.theme-row:has(b:text-is("Light"))', e => e.getAttribute('aria-pressed'))) === 'true');
-    await q.click('.s6-link:has(b:text-is("My usual figures"))'); await q.waitForTimeout(150);
-    ok('Settings: My usual figures opens its screen and closes the sheet', (await q.url()).endsWith('#usual') && !(await q.isVisible('#settings-sheet')));
+    const look = await q.evaluate(() => { const s = document.getElementById('settings-sheet'); return { title: s.querySelector('.bs-head h2').textContent, done: !!s.querySelector('.bs-done'), close: !!s.querySelector('.sheet-close'), labels: [...s.querySelectorAll('.st9-label')].map(e => e.textContent).join('|'), cards: s.querySelectorAll('.st9-card').length, themes: [...s.querySelectorAll('.st9-theme small')].map(e => e.textContent).join('|'), links: [...s.querySelectorAll('.st9-link')].map(e => e.innerText.replace(/\s+/g, ' ')).join('|'), foot: s.querySelector('.st9-foot').textContent, fonts: [...new Set([...s.querySelectorAll('*')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join() }; });
+    ok('settings 9a: title and Done, no ×, Appearance / Your figures labels, four cards, one font', look.title === 'Settings' && look.done && !look.close && look.labels === 'Appearance|Your figures' && look.cards === 4 && look.fonts === 'Geist', JSON.stringify(look));
+    ok('settings 9a: the theme subtitles', look.themes === 'Deep green, light ink.|Cream paper, dark ink.|Follows your phone’s setting.', look.themes);
+    ok('settings 9a: the link rows and the footer', look.links === 'Your targets Monthly profit, ROI, money back, flip margin ›|My usual figures Using the spreadsheet examples ›|Redo the setup questions ↺|Privacy policy ›' && look.foot === 'Estimates only, not financial, tax or legal advice. Your figures, targets and saved deals stay on this phone.', look.links);
+    const exp = () => q.$eval('.st9-switch', e => e.getAttribute('aria-checked'));
+    const before = await exp(); await q.click('.st9-switch'); await q.waitForTimeout(60);
+    ok('settings 9a: the Explanations switch flips and is saved', (await exp()) === String(before !== 'true') && String(await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:explanations')))) === (await exp()));
+    await q.click('.st9-theme:has(b:text-is("Light"))'); await q.waitForTimeout(80);
+    ok('settings 9a: choosing Light switches the theme and ticks it', (await q.evaluate(() => document.documentElement.getAttribute('data-theme'))) === 'light' && (await q.$eval('.st9-theme:has(b:text-is("Light"))', e => e.getAttribute('aria-pressed'))) === 'true');
+    ok('settings 9a: rows are 56px or more; buttons 44px or more (or a 44px hit area)', await q.evaluate(() => [...document.querySelectorAll('#settings-sheet .st9-row')].every(e => e.getBoundingClientRect().height >= 56) && [...document.querySelectorAll('#settings-sheet button')].every(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return r.height >= 44 || (a.content !== 'none' && a.position === 'absolute'); })));
+    await q.evaluate(() => localStorage.setItem('deal-analyser:usual', JSON.stringify({ legal: '1500', ltv: '75' }))); await q.reload(); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80);
+    ok('settings 9a: My usual figures says how many are set', (await q.textContent('.st9-link:has(b:text-is("My usual figures")) small')) === '2 of 6 set, used on every new deal');
+    await q.click('.st9-link:has(b:text-is("My usual figures"))'); await q.waitForTimeout(200);
+    ok('settings 9a: My usual figures opens its screen and closes the sheet', (await q.url()).endsWith('#usual') && !(await q.isVisible('#settings-sheet')));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80); await q.click('.bs-done'); await q.waitForTimeout(60);
-    ok('Settings: Done closes it', !(await q.isVisible('#settings-sheet')));
+    ok('settings 9a: Done closes it', !(await q.isVisible('#settings-sheet')));
+    await q.click('#gear'); await q.waitForTimeout(80); await q.click('#settings-overlay', { position: { x: 20, y: 20 } }); await q.waitForTimeout(60);
+    ok('settings 9a: tapping the dimmed page closes it', !(await q.isVisible('#settings-sheet')));
     await c6.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));

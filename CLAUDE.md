@@ -207,19 +207,29 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
 - test-browser.js checks the switch (default, contents, 44px, Results contents, own money rows, live updates, exit
   change, session memory, a new session, Change the figures, scroll position).
 
-## My usual figures in the Calculator's look (7 Oct 2026, Ashley: "should have the same look and feel")
-- renderUsual draws #v-usual with class u6: Geist only, a short intro (no eyebrow, no serif title; the header already
-  says "My usual figures"), .lg-h section headings (Buying costs, Finance, Letting), rounded cards (u6-card, like the
-  Calculator's cards) with rows like the targets sheet (label, small hint, a bold typed figure on a dashed line with
-  £ / %, the example as a faint italic placeholder), "Clear my usual figures" as the outlined pill (lg-back) and the note.
-  Same fields, same saving (deal-analyser:usual). test-browser.js checks the look, 44px boxes, saving and Clear.
-
-## Settings in the Calculator's look (7 Oct 2026, Ashley)
-- renderSettings draws the settings sheet as a big-sheet like Your targets (class s6): grab, "Settings" with a Done pill
-  (sheetHead), then three groups of rounded rows (s6-group on the page colour, dashed dividers): Appearance (Dark /
-  Light / Match my phone with swatch and radio; Explanations as a whole-row switch, role=switch), Your figures (My usual
-  figures, Your targets with the summary, Stamp duty with the basis), About (Privacy policy, Redo the setup questions).
-  Link rows end in a mint ›. Geist only, every row 44px+. test-browser.js checks the look and each row works.
+## Settings (9a) and My usual figures (9b) (7 Oct 2026, Ashley's hand-off design_handoff_settings; replaces the same day's
+first restyle)
+- 9a renderSettings: the settings sheet as a big-sheet with class st9 (page colour, top radius 30): grab, "Settings" with
+  the Done pill (sheetHead, 44px), no ×. APPEARANCE label, a card of three theme rows (36px swatch, name, subtitle "Deep
+  green, light ink." / "Cream paper, dark ink." / "Follows your phone's setting.", 24px radio); an Explanations card with
+  a 52x32 switch (role=switch); YOUR FIGURES label, a card with Your targets ("Monthly profit, ROI, money back, flip
+  margin") and My usual figures ("N of 6 set, used on every new deal" / "Using the spreadsheet examples") with mint › in
+  32px circles; a card with Redo the setup questions (↺) and Privacy policy (›); the footer "Estimates only... stay on
+  this phone." The body scrolls under the fixed top row.
+  LEFT OUT: the design's "Report branding" (PRO) row: it opens a branding screen from a separate "Pro Reports" design
+  that is not in this app (asked Ashley). The old Stamp duty row is gone, as in the design (stamp duty is changed on its
+  Calculator card).
+- 9b renderUsual: #usual now shows the tab bar (Calculator selected) and body.ledger (app header scrolls away). A pinned
+  header card (.pin u9-pin): "‹ My usual figures" (goBack), Clear all (only when any is set), the lede and a status pill
+  ("N of 6 figures are yours" in mint / "All figures are spreadsheet examples"). The three USUAL_FIELDS groups as cards;
+  each figure: label and help, a typed value (20px, dashed line, £ / %), the Calculator's nudge (38px, class u9n, hold to
+  repeat) and scrubber (USUAL_RANGE: legal 0-5,000 £50; otherUpfront 0-10,000 £50; ltv 50-85 1%; depositPct 5-40 1%;
+  mortgageRate 0-10 0.05%; mgmtPct 0-20 0.5%; a typed figure may go past the top), then a tag "Yours" (mint) or "Example
+  from the spreadsheet" and "Example £X ↺" which deletes the key. Unset: the example in faint ink and a muted slider.
+  Every change saves to deal-analyser:usual at once; an emptied box deletes the key. Example lookup as before.
+- The old .sheet h2 / .sheet-head / .sheet-close / .theme-row / .swatch / .radio2 / .setting-row / .switch rules and the
+  first restyle's .u6 / .s6 rules were removed (nothing used them). .sheet stays (the sheet container); .fig-card and
+  .pick stay (other screens use them). test-browser.js covers both screens.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

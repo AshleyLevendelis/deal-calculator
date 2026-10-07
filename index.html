@@ -199,33 +199,59 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .pin-caps span:last-child{overflow:hidden;text-overflow:ellipsis}
 .pin-tag{font:600 11.5px var(--font-ui);color:var(--amber);margin-top:4px}
 .lg-exits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
-/* My usual figures in the Calculator’s look (7 Oct 2026) */
-.u6{font-family:var(--font-ui)}
-.u6 .lg-h{font:700 16px var(--font-ui);color:var(--ink);margin:22px 4px 10px}
-.u6-intro{font-size:13.5px;line-height:1.45;color:var(--mute);margin:14px 4px 0}
-.u6-card{background:var(--card);border-radius:24px;padding:4px 16px;margin:0 0 10px}
-.u6-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:10px 0;border-top:1px dashed var(--dash)}
-.u6-row:first-child{border-top:0}
-.u6-txt{min-width:0}.u6-txt label{display:block;font:600 14.5px var(--font-ui);color:var(--ink)}.u6-txt small{display:block;font-size:12px;line-height:1.35;color:var(--faint);margin-top:2px}
-.u6-val{flex:none;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;min-width:96px}
-.u6-val .u{font:700 14px var(--font-ui);color:var(--faint)}
-.u6-val input{width:78px;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;padding:0;text-align:right;color:var(--ink);font:700 20px var(--font-ui)}
-.u6-val input::placeholder{color:var(--faint);font-weight:600;font-style:italic;opacity:1}
-.u6-val input:focus{outline:none;border-bottom-color:var(--mint)}
-.u6-clear{margin-top:16px}
-.u6-note{font-size:12px;line-height:1.4;color:var(--faint);margin:10px 4px 0}
-/* Settings in the Calculator look (7 Oct 2026): like the Your targets sheet */
-.s6{font-family:var(--font-ui)}
-.s6-h{font:700 14px var(--font-ui);color:var(--ink);margin:18px 2px 8px}
-.s6-group{background:var(--bg);border-radius:18px;padding:0 14px}
-.s6-row{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:10px 0;border:0;border-top:1px dashed var(--dash);border-radius:0;background:none;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
-.s6-row:first-child{border-top:0}
-.s6-txt{flex:1;min-width:0}.s6-txt b{display:block;font:600 14.5px var(--font-ui);color:var(--ink)}.s6-txt small{display:block;font-size:12px;line-height:1.35;color:var(--faint);margin-top:2px}
-.s6-chev{flex:none;font:500 22px/1 var(--font-ui);color:var(--mint)}
-.s6 .swatch{width:32px;height:32px;border-radius:10px}
-.s6 .switch{display:block;flex:none}
-.s6 .theme-row{padding:10px 0}
-.s6 .s6-row[aria-checked=true] .switch{background:var(--mint)}
+/* Settings (design 9a, 7 Oct 2026): the targets sheet shell, cards on the page colour */
+.sheet.big-sheet.st9{display:flex;flex-direction:column;padding:8px 0 0;max-height:88vh;overflow:hidden;background:var(--bg);border-radius:30px 30px 0 0;font-family:var(--font-ui)}
+.st9>.grab{margin:0 auto 8px}
+.st9 .bs-head{padding:0 20px 10px}.st9 .bs-head h2{font:700 22px var(--font-ui);letter-spacing:-.02em}
+.st9 .bs-done{position:relative}.st9 .bs-done::after{content:"";position:absolute;inset:-4px -2px}
+.st9-body{flex:1;overflow-y:auto;padding:0 16px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+.st9-label{font:600 11px var(--font-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:6px 4px 0}
+.st9-label+.st9-card{margin-top:-2px}
+.st9-card{background:var(--card);border-radius:24px;padding:4px 6px}
+.st9-row{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 10px;border:0;border-top:1px dashed var(--dash);border-radius:0;background:none;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.st9-row:first-child{border-top:0}
+.st9-txt{flex:1;min-width:0}.st9-txt b{display:block;font:700 15px var(--font-ui);color:var(--ink)}.st9-txt small{display:block;font-size:12px;line-height:1.35;color:var(--faint);margin-top:1px}
+.st9-swatch{flex:none;width:36px;height:36px;border-radius:12px;border:1.5px solid var(--dash)}
+.st9-swatch.sw-dark{background:#0d1714}.st9-swatch.sw-light{background:#f5f1e8}.st9-swatch.sw-system{background:linear-gradient(135deg,#0d1714 50%,#f5f1e8 50%)}
+.st9-radio{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--dash);display:flex;align-items:center;justify-content:center}
+.st9-radio i{width:12px;height:12px;border-radius:50%;background:transparent}
+.st9-theme[aria-pressed=true] .st9-radio{border-color:var(--mint)}.st9-theme[aria-pressed=true] .st9-radio i{background:var(--mint)}
+.st9-exp{display:flex;align-items:center;gap:12px;min-height:64px;padding:12px 16px}
+.st9-switch{position:relative;flex:none;width:52px;height:32px;min-height:0;padding:3px;border:0;border-radius:999px;background:var(--dash);display:flex;justify-content:flex-start;cursor:pointer}
+.st9-switch::after{content:"";position:absolute;inset:-6px -2px}
+.st9-switch i{display:block;width:26px;height:26px;border-radius:50%;background:var(--ink)}
+.st9-switch[aria-checked=true]{background:var(--mint);justify-content:flex-end}.st9-switch[aria-checked=true] i{background:var(--mintInk)}
+.st9-chev{flex:none;width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--mint);font:600 17px/1 var(--font-ui);display:flex;align-items:center;justify-content:center}
+.st9-mark{flex:none;font:600 17px var(--font-ui);color:var(--mint)}
+.st9-row:has(.st9-mark){min-height:56px}
+.st9-foot{padding:8px 4px 0;margin:0;font-size:11.5px;line-height:1.45;color:var(--faint)}
+/* My usual figures (design 9b, 7 Oct 2026): a pinned header card, groups as cards, the Calculator's slider and -/+ */
+.u9{font-family:var(--font-ui)}
+.u9-pin{padding:14px 20px 16px}
+.u9-clear{position:relative;border:0;background:none;color:var(--mute);font:600 12px var(--font-ui);padding:4px;min-height:0}
+.u9-clear::after{content:"";position:absolute;inset:-12px -8px}
+.u9-lede{font-size:13px;line-height:1.45;color:var(--mute);margin-top:8px}
+.u9-count{display:inline-block;margin-top:10px;font:700 13px var(--font-ui);padding:4px 10px;border-radius:999px;background:var(--bg);color:var(--faint)}
+.u9-count.on{color:var(--mint)}
+.u9 .lg-h{margin:18px 4px 8px}
+.u9-card{background:var(--card);border-radius:24px;padding:4px 16px 10px;margin:0 0 10px}
+.u9-field{padding:12px 0 4px;border-top:1px dashed var(--dash)}.u9-field:first-child{border-top:0}
+.u9-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.u9-txt{min-width:0}.u9-txt label{display:block;font:600 14px var(--font-ui);color:var(--ink)}.u9-txt small{display:block;font-size:11.5px;line-height:1.3;color:var(--faint);margin-top:1px}
+.u9-val{flex:none;display:flex;align-items:baseline;gap:1px}
+.u9-val .u{font:700 14px var(--font-ui);color:var(--faint)}
+.u9-val input{width:76px;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;padding:0;text-align:right;font:700 20px var(--font-ui);font-variant-numeric:tabular-nums;color:var(--ink)}
+.u9-val input.ex{color:var(--faint)}
+.u9-val input:focus{outline:none;border-bottom-color:var(--mint)}
+.u9 .lg-l2{display:flex;align-items:center;gap:10px;margin-top:4px}
+.nudge.u9n{width:38px;height:38px;font-size:19px}
+.u9 .scrub.ex .scrub-fill{background:color-mix(in srgb,var(--mint) 35%,var(--bg))}
+.u9 .scrub.ex .scrub-thumb{border-color:color-mix(in srgb,var(--mint) 35%,var(--bg))}
+.u9-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px;margin-top:2px}
+.u9-tag{font:600 11px var(--font-ui);color:var(--faint)}.u9-tag.on{color:var(--mint)}
+.u9-reset{position:relative;border:0;background:none;padding:0;min-height:0;font:500 12px var(--font-ui);color:var(--mute)}
+.u9-reset::after{content:"";position:absolute;inset:-12px -6px}
+.u9-note{padding:8px 4px 0;margin:0;font-size:12px;line-height:1.45;color:var(--faint)}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}
@@ -490,29 +516,6 @@ select{min-height:44px;max-width:170px;border:1px solid var(--line);background:v
 /* ---- Settings sheet ---- */
 .overlay{position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:40}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:8px 20px calc(20px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
-.sheet h2{margin:12px 0 14px;font:400 24px var(--font-serif);text-transform:none;letter-spacing:0;color:var(--ink)}
-.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
-.sheet-head .grab{width:36px;height:4px;border-radius:4px;background:var(--line);margin:0 auto}
-.sheet-close{position:absolute;right:14px;top:10px;border:0;background:none;color:var(--mute);font-size:20px;min-width:44px;min-height:44px}
-.theme-row{display:flex;align-items:center;gap:14px;padding:14px 0;border:0;border-top:1px dashed var(--dash);border-radius:0;width:100%;text-align:left;background:none;cursor:pointer}
-.theme-row:first-of-type{border-top:0}
-.swatch{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--line)}
-.swatch.sw-dark{background:#0d1714}
-.swatch.sw-light{background:#f5f1e8}
-.swatch.sw-system{background:linear-gradient(90deg,#0d1714 50%,#f5f1e8 50%)}
-.theme-row .tt{flex:1}
-.theme-row .tt b{display:block;font-size:15px;font-weight:600}
-.theme-row .tt small{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
-.radio2{flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--dash);display:flex;align-items:center;justify-content:center}
-.theme-row[aria-pressed=true] .radio2{border-color:var(--mint)}
-.radio2 i{width:10px;height:10px;border-radius:50%;background:var(--mint);opacity:0}
-.theme-row[aria-pressed=true] .radio2 i{opacity:1}
-.setting-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px dashed var(--dash)}
-.setting-row:first-of-type{border-top:0}
-.switch{position:relative;width:46px;height:26px;border-radius:999px;background:var(--line);border:0;flex-shrink:0}
-.switch::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:999px;background:var(--card)}
-.switch[aria-pressed=true]{background:var(--mint)}
-.switch[aria-pressed=true]::after{left:23px;background:var(--mintInk)}
 
 /* ---- Client report ---- */
 .report-field{margin:0 0 12px}
