@@ -99,9 +99,8 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
     says "Enter the deal figures · add end value and purchase price" with score "–" and no targets, recycle card and
     marker hidden. Never scored (a blank deal would otherwise show a let at 640% ROI). No NaN anywhere (test-browser.js).
   - Lender pays / Deposit cards. "How {exit} does": result tiles in 3a's order (7 for a let, 3 for the flip).
-  - More detail: three fold cards, ONLY ONE OPEN AT A TIME (openFold in app.js), each with a one-line summary when closed:
-    "{exit} figures" (the letting fields, 36px −/+ with a 44px hit area, custom sliders; lets only), "Your own money in",
-    "Paying for it" (own cash / bridging toggle and the whole bridging block).
+  - More detail: since design 11a only the "{exit} figures" fold (lets only; the letting fields, 36px −/+ with a 44px hit
+    area, custom sliders). Your own money and paying for it moved into the How you'll pay card (see Design 11a).
   - The verdict (in the strip): Calc.dealVerdict(exit, v, ps) in calc.js; ps gives the empty state. Lets score 4 targets,
     each judged as its figure is coloured: £500 a month (monthlyProfitVerdict), 50% ROI or nothing left in, money back
     in 6 months (paybackVerdict; nothing left in = 0, never = never), all cash recycled (shown cash left ≤ £0). 4 Strong,
@@ -254,6 +253,21 @@ first restyle)
 - SETTINGS: a first ABOUT YOU card with two segmented controls (I use it as: New / Investor / Sourcer; I usually let:
   BTL / HMO / SA / Unsure), each with its note; saved at once and the screen behind redrawn (redraw()), never re-routed.
 - Old onboarding styles (.dots, .opt, .radio, .onb-nav, .link-btn) removed. test-browser.js walks the whole setup.
+
+## How you'll pay (design 11a, 7 Oct 2026; same hand-off as design 10)
+- In the Calculator's Figures view, straight after the Purchase price card: a "How you'll pay" heading and ONE card
+  (.fund11) holding, in order: the Own cash / mortgage | Bridging loan switch (bridgeOn, as before); the Lender pays /
+  Deposit tiles (now on the page colour inside the card); when bridging is on, the bridge figures (Cost of the bridge in
+  amber with "Use price + refurb", the field tiles, Rolled up / Paid monthly with its note, and the bridge rows);
+  then YOUR OWN MONEY IN as the card's answer: the total (30px), an always-visible stacked bar (one part per cost above
+  £0, fixed colours: deposit #7FD3B0, stamp duty #f2c66d, legal #9db8f2, refurb #e8a1c4, furnishing #c9b48a, other
+  #ff9f7a, bridging #b3bdb7), a Breakdown / Hide button showing the rows (shut to start, kept for the session in
+  sessionStorage deal-analyser:fundOpen) and the caption.
+- Calc.ownParts(own) in calc.js gives the parts in that order with their shares (they add to 1, the values to own.total);
+  no figure changes. Tested in test-other-costs.js and test-browser.js.
+- The "Your own money in" and "Paying for it" fold-outs and the standalone Lender pays / Deposit row are gone; "More
+  detail" now holds only the letting figures (lets only; the flip has no More detail). The Results view's own money card
+  is unchanged.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

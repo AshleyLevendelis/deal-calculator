@@ -724,6 +724,16 @@
       tone: k === 3 ? 'good' : k === 2 ? 'amber' : 'bad', title: k === 3 ? 'Strong deal' : k === 2 ? 'Good deal' : k === 1 ? 'Borderline' : 'Weak deal',
       detail: k === 3 ? 'hits all 3 targets' : 'hits ' + k + ' of 3 targets', misses: misses, line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
+  // Your own money in, as the How you'll pay card's bar and breakdown (design 11a): one part per kind of cost above zero,
+  // in a fixed order, each with its share of the total (the shares add up to 1). own: Calc.ledger(...).exits[x].own.
+  var OWN_PARTS = [['deposit', 'Deposit'], ['sdlt', 'Stamp duty'], ['legal', 'Legal costs'], ['refurb', 'Refurb costs'], ['furnishing', 'Furnishing'], ['other', 'Other costs'], ['bridge', 'Bridging cost']];
+  function ownParts(own) {
+    own = own || {};
+    var parts = OWN_PARTS.map(function (p) { return { key: p[0], label: p[1], value: n(own[p[0]]) }; }).filter(function (p) { return p.value > 0; });
+    var sum = parts.reduce(function (t, p) { return t + p.value; }, 0);
+    parts.forEach(function (p) { p.share = sum > 0 ? p.value / sum : 0; });
+    return parts;
+  }
   function dealEntered(ps) { return Number(ps && ps.endValue) > 0 && Number(ps && ps.purchasePrice) > 0; }
   function dealVerdict(exit, v, ps) {
     v = v || {};
@@ -748,7 +758,7 @@
       line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
 
-  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, r2rVerdict: r2rVerdict, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, r2rVerdict: r2rVerdict, ownParts: ownParts, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
   setTargets(DEFAULT_TARGETS);
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(this);

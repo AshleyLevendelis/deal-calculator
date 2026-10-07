@@ -317,6 +317,40 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .note-row:has(.rep10){display:flex;align-items:center;gap:10px}
 .note-row:has(.rep10) .note-btn{flex:1;min-width:0}
 .note-row .note-btn.rep10{flex:none;width:auto;min-height:44px;padding:0 14px;border:1.5px solid var(--line);border-radius:999px;color:var(--mint);font:700 12.5px var(--font-ui);display:inline-flex;align-items:center}
+/* How you'll pay (design 11a, 7 Oct 2026): one card, tiles and bridge figures on the page colour */
+.fund11{padding:12px;display:flex;flex-direction:column;gap:10px}
+.fund11 .lg-seg{margin:0}
+.fund11 .lg-chips{margin:0}
+.fund11 .lg-chip{background:var(--bg);border-radius:18px}
+.fund11-bridge:empty{display:none}
+.fund11-bridge{display:flex;flex-direction:column;gap:8px}
+.fund11-bridge .bridge-grid{margin:0}
+.fund11-bridge .bridge-cell{border-radius:16px}
+.fund11-bridge .bridge-cell label{font-size:11.5px}
+.fund11-bridge .bridge-in input{font-size:18px}
+.fund11-bridge .bridge-q{margin:2px 2px 0}
+.fund11-bridge .pills{margin:0}.fund11-bridge .pills button{min-height:44px}
+.fund11-bridge .note{font-size:11.5px;color:var(--faint);margin:0 2px}
+.fund11-cost{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:var(--bg);border-radius:18px;padding:12px 14px}
+.fund11-cost small{display:block;font-size:11.5px;line-height:1.35;color:var(--faint);margin-top:2px}
+.fund11-cost-v{display:block;font:700 26px/1.1 var(--font-ui);color:var(--amber);margin-top:2px}
+.fund11-cost .lg-link{flex:none;max-width:45%;text-align:right;font:600 12px var(--font-ui);min-height:44px}
+.fund11-own{border-top:1px solid var(--line);padding:12px 2px 2px}
+.fund11-oh{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.fund11-l{display:block;font:600 12.5px var(--font-ui);color:var(--mute)}
+.fund11-total{display:block;font:700 30px/1.1 var(--font-ui);letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:2px}
+.fund11-btn{position:relative;flex:none;min-height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg);color:var(--mint);font:700 12.5px var(--font-ui)}
+.fund11-btn::after{content:"";position:absolute;inset:-4px -2px}
+.fund11-bar{display:flex;gap:2px;height:12px;padding:2px;margin-top:10px;border-radius:999px;background:var(--bg);overflow:hidden}
+.fund11-seg{display:block;height:100%;border-radius:999px;min-width:3px}
+.k-deposit{background:#7FD3B0}.k-sdlt{background:#f2c66d}.k-legal{background:#9db8f2}.k-refurb{background:#e8a1c4}.k-furnishing{background:#c9b48a}.k-other{background:#ff9f7a}.k-bridge{background:#b3bdb7}
+.fund11-rows{margin-top:6px}.fund11-rows[hidden]{display:none}
+.fund11-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--dash);font-size:13px;color:var(--mute)}
+.fund11-row:first-child{border-top:0}
+.fund11-row span{flex:1;min-width:0}
+.fund11-row b{font:700 14px var(--font-ui);color:var(--ink)}
+.fund11-sq{flex:none;width:10px;height:10px;border-radius:3px}
+.fund11-cap{font-size:11.5px;line-height:1.4;color:var(--faint);margin-top:8px}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}
@@ -399,8 +433,6 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex,.bridge-in input.ex{color:v
 .fold-txt small{display:block;font-size:12px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fold-sign{flex:none;width:34px;height:34px;border-radius:50%;background:var(--bg);color:var(--mint);font:600 19px/1 var(--font-ui);display:flex;align-items:center;justify-content:center}
 .fold-body{padding:0 16px 14px;border-top:1px solid var(--line)}
-.own-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin:14px 0 0}
-.own-total{font:700 30px/1 var(--font-ui);letter-spacing:-.03em;margin-top:4px}
 .own-cap{font-size:11.5px;color:var(--faint);max-width:150px;line-height:1.35;text-align:right}
 .fold-body>.own-cap{max-width:none;text-align:left;padding-top:6px}
 .lg-stat{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-top:1px dashed var(--dash);font-size:13px;color:var(--mute)}
@@ -408,7 +440,6 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex,.bridge-in input.ex{color:v
 .lg-stat b{font:700 14px var(--font-ui);color:var(--ink);white-space:nowrap}
 .lg-stat b.faint{color:var(--faint)}
 .lg-link{border:0;background:none;padding:0;min-height:44px;color:var(--mint);font:600 12.5px var(--font-ui)}
-.lg-link.block{display:block;text-align:left;margin:2px 0 2px}
 .lg-seg{margin:12px 0 0}
 .lg-seg button{min-height:44px}
 .bridge-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin:6px 0 10px}

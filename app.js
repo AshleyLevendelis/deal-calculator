@@ -332,6 +332,9 @@
   }
   // A fold card under "More detail": a header that opens it (only one open at a time) with a one-line summary when closed.
   var openFold = null, folds = [];
+  // The How you'll pay card's Breakdown: shut to start with, then as last left for the rest of the session.
+  var FUND_KEY = 'deal-analyser:fundOpen', fundOpen = false;
+  try { fundOpen = !!sessionStorage.getItem(FUND_KEY); } catch (e) {}
   function fold(key, title) {
     var card = h('section', 'lg-fold'), head = h('button', 'fold-head'), txt = h('span', 'fold-txt'), tt = h('b', '', title), sum = h('small'), sign = h('span', 'fold-sign');
     head.type = 'button'; txt.appendChild(tt); txt.appendChild(sum); head.appendChild(txt); head.appendChild(sign); card.appendChild(head);
@@ -396,7 +399,7 @@
     if (!ledgerStart) { ledgerStart = {}; DEAL_ORDER.forEach(function (id) { ledgerStart[id] = num(L0.ps[id]); }); }
     var cur = function (id) { return num(Calc.stateFor(FLIP_CALC, eff(deal))[id]); };
     var exitName = EXIT_CARDS.filter(function (e) { return e[0] === exit; })[0][1];
-    if (openFold === 'let' && !isLet) openFold = null;
+    if (openFold !== 'let' || !isLet) openFold = null;                // only the letting figures fold is left on this screen
 
     // ---- 1. the pinned answer ----
     var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset'), savePin = h('button', 'pin-save', 'Save');
@@ -522,7 +525,11 @@
       });
     });
 
-    // ---- 4. lender pays / deposit ----
+    // ---- 4. how you'll pay (design 11a, 7 Oct 2026): one card with the Mortgage | Bridging switch, the Lender pays /
+    // Deposit tiles, the bridge figures when bridging is on, and your own money in as its answer ----
+    box.appendChild(h('p', 'lg-h', 'How you’ll pay'));
+    var fund = h('section', 'lg-card fund11'), swSlot = h('div', 'fund11-sw'), bridgeSlot = h('div', 'fund11-bridge'), ownSlot = h('div', 'fund11-own');
+    box.appendChild(fund);
     var chips = h('div', 'lg-chips');
     [['ltv', 'Lender pays'], ['depositPct', 'Deposit']].forEach(function (c) {
       var id = c[0], chip = h('div', 'lg-chip'), amt = h('div', 'amt'), w = h('div', 'pct');
@@ -532,7 +539,26 @@
       w.appendChild(inp); w.appendChild(h('span', '', '%')); chip.appendChild(lab); chip.appendChild(w); chip.appendChild(amt); chips.appendChild(chip);
       R.push(function (L, X) { inp._sync(); amt.textContent = id === 'ltv' ? '= ' + money(num(L.ps.endValue) * L.ltv / 100) + ' refinance' : '= ' + money(X.own.deposit) + ' of the price'; });
     });
-    box.appendChild(chips);
+    fund.appendChild(swSlot); fund.appendChild(chips); fund.appendChild(bridgeSlot); fund.appendChild(ownSlot);
+    // Your own money in: the total, a stacked bar (one colour per kind of cost, zero costs left out), a Breakdown that
+    // lists the same rows (open or shut kept for the session) and the caption.
+    var oh = h('div', 'fund11-oh'), ol = h('div'), oTot = h('b', 'fund11-total fig'), oBtn = h('button', 'fund11-btn'), oBar = h('div', 'fund11-bar'), oRows = h('div', 'fund11-rows'), oCap = h('div', 'fund11-cap');
+    oBtn.type = 'button'; ol.appendChild(h('span', 'fund11-l', 'Your own money in')); ol.appendChild(oTot); oh.appendChild(ol); oh.appendChild(oBtn);
+    ownSlot.appendChild(oh); ownSlot.appendChild(oBar); ownSlot.appendChild(oRows); ownSlot.appendChild(oCap);
+    var drawOpen = function () { oRows.hidden = !fundOpen; oBtn.textContent = fundOpen ? 'Hide' : 'Breakdown'; oBtn.setAttribute('aria-expanded', fundOpen); };
+    oBtn.onclick = function () { fundOpen = !fundOpen; try { sessionStorage.setItem(FUND_KEY, fundOpen ? '1' : ''); } catch (e) {} drawOpen(); };
+    drawOpen();
+    R.push(function (L, X) {
+      var parts = Calc.ownParts(X.own);
+      oTot.textContent = money(X.own.total);
+      oCap.textContent = X.own.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
+      oBar.innerHTML = ''; oRows.innerHTML = '';
+      parts.forEach(function (pt) {
+        var seg = h('i', 'fund11-seg k-' + pt.key); seg.style.width = (pt.share * 100).toFixed(2) + '%'; seg.title = pt.label + ' ' + money(pt.value); oBar.appendChild(seg);
+        var row = h('div', 'fund11-row'); row.appendChild(h('i', 'fund11-sq k-' + pt.key)); row.appendChild(h('span', '', pt.label)); row.appendChild(h('b', 'fig', money(pt.value))); oRows.appendChild(row);
+      });
+      oBar.setAttribute('role', 'img'); oBar.setAttribute('aria-label', 'Your own money in: ' + parts.map(function (pt) { return pt.label + ' ' + money(pt.value); }).join(', '));
+    });
 
     // ---- 5. how the chosen exit does ----
     resView.appendChild(h('p', 'lg-h', 'How ' + exitName + ' does'));
@@ -557,8 +583,8 @@
       R.push(function (L) { if (!Calc.dealEntered(L.ps)) { blankTiles(F); return; } var v = L.exits.none.v; F.tin.val.textContent = money(v.totalIn); F.sell.val.textContent = money(num(L.ps.endValue)); F.ret.val.textContent = pctText(v.flipRoi); });
     }
 
-    // ---- 6. more detail: three fold cards, one open at a time ----
-    box.appendChild(h('p', 'lg-h', 'More detail'));
+    // ---- 6. more detail: only the letting figures now (design 11a) ----
+    if (isLet) box.appendChild(h('p', 'lg-h', 'More detail'));
     if (isLet) {
       var lf = fold('let', exitName + ' figures'), EC = Calc.find(Calc.BRR_LETTING[exit]), shown = [];
       var val = function (id) { return Calc.ledger(eff(deal), bridgeOn).exits[exit].state[id]; };
@@ -583,26 +609,24 @@
         lf.sum.textContent = shown.slice(0, 2).map(function (f) { var v = st[f.id]; return f.label + ' ' + (f.unit === '£' ? money2(num(v)).replace(/\.00$/, '') : v + (f.unit === '%' ? '%' : '')); }).join(' · ');
       });
     }
-    var of = fold('own', 'Your own money in'), ownRows = h('div'), ownCap = h('div', 'own-cap'); of.body.appendChild(ownRows); of.body.appendChild(ownCap);
-    ownMoney(R, ownRows, of.sum, ownCap);
     var oc = h('section', 'lg-card own-card'), ocHead = h('div', 'own-card-head'), ocSum = h('small'), ocRows = h('div'), ocCap = h('div', 'own-cap');
     ocHead.appendChild(h('b', '', 'Your own money in')); ocHead.appendChild(ocSum); oc.appendChild(ocHead); oc.appendChild(ocRows); oc.appendChild(ocCap); resView.appendChild(oc);
     ownMoney(R, ocRows, ocSum, ocCap);
     var back = h('button', 'lg-back', '← Change the figures'); back.type = 'button'; back.onclick = function () { setView('figures', true); }; resView.appendChild(back);
-    var pf = fold('pay', 'Paying for it');
+    var pf = { body: bridgeSlot };                                    // the bridge figures sit in the How you'll pay card
     var seg = h('div', 'segmented lg-seg');
     [[false, 'Own cash / mortgage'], [true, 'Bridging loan']].forEach(function (m) {
       var b = h('button', '', m[1]); b.type = 'button'; b.setAttribute('aria-pressed', bridgeOn === m[0]);
       b.onclick = function () { if (bridgeOn === m[0]) return; bridgeOn = m[0]; store(BRIDGE_KEY, bridgeOn); renderCalculator(); };
       seg.appendChild(b);
     });
-    pf.body.appendChild(seg);
-    R.push(function (L) { pf.sum.textContent = bridgeOn ? 'Bridging loan · ' + money(num(L.bridgeCost)) + ' cost' : 'Own cash / mortgage'; });
+    swSlot.appendChild(seg);
     if (bridgeOn) {
       var BC = Calc.find('bridging'), bst = function () { return Calc.stateFor(BC, eff(deal)); };
-      var bh = h('div', 'own-head'), bl = h('div'), bTotal = h('div', 'own-total fig amber');
-      bl.appendChild(h('div', 'lg-label', 'Total cost of borrowing')); bl.appendChild(bTotal); bh.appendChild(bl); bh.appendChild(h('div', 'own-cap', 'Added to the cash left in, and taken off the flip profit')); pf.body.appendChild(bh);
-      var match = h('button', 'lg-link block'); match.type = 'button'; pf.body.appendChild(match);
+      // the cost of the bridge, in amber, with the "use price + refurb" link beside it
+      var bh = h('div', 'fund11-cost'), bl = h('div'), bTotal = h('b', 'fund11-cost-v fig');
+      bl.appendChild(h('span', 'fund11-l', 'Cost of the bridge')); bl.appendChild(bTotal); bl.appendChild(h('small', '', 'Added to the cash left in, and taken off the flip profit')); bh.appendChild(bl);
+      var match = h('button', 'lg-link'); match.type = 'button'; bh.appendChild(match); pf.body.appendChild(bh);
       match.onclick = function () { var ps = Calc.stateFor(FLIP_CALC, eff(deal)); setFig('grossLoan', num(ps.purchasePrice) + num(ps.refurb)); };
       var grid = h('div', 'bridge-grid'), syncs = [];
       BRIDGE_FIELDS.forEach(function (id) {

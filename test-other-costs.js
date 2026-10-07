@@ -37,5 +37,18 @@ ok('cash left at a price includes it', near(Calc.cashLeftAtPrice(Calc.stateFor(C
 });
 ok('it is one figure shared by every calculator (asked once)', Calc.calcs.filter(c => c.layout.some(s => s.items.some(i => i.field && i.field.id === 'otherUpfront'))).map(c => c.id).join() === 'flip,btl,hmo,sabtl,hmobrr,sabrr,r2rhmo,r2rsa');
 ok('it is the up-front "Any other costs", not the monthly running cost ("other")', run('btl', Object.assign({}, deal, { otherUpfront: 1000 })).monthly === run('btl', deal).monthly);
+// The How you'll pay card's bar and breakdown (Calc.ownParts, design 11a): parts in a fixed order, £0 ones left out,
+// shares adding up to 1, and the parts adding up to the total.
+{
+  const own = br => Calc.ledger(Object.assign({}, deal, { otherUpfront: 1000 }), br).exits.btl.own;
+  const P0 = Calc.ownParts(own(false)), P1 = Calc.ownParts(own(true));
+  ok('own money parts: deposit, stamp duty, legal, refurb, other (no furnishing or bridging at £0)', P0.map(p => p.key).join() === 'deposit,sdlt,legal,refurb,other', P0.map(p => p.key).join());
+  ok('... the shares add up to 100%', Math.abs(P0.reduce((t, p) => t + p.share, 0) - 1) < 1e-9);
+  ok('... and the parts add up to the total', near(P0.reduce((t, p) => t + p.value, 0), own(false).total));
+  ok('bridging on adds a Bridging cost part, last, and the total goes up by it', P1.map(p => p.key).join() === 'deposit,sdlt,legal,refurb,other,bridge' && near(own(true).total - own(false).total, P1[P1.length - 1].value) && Math.abs(P1.reduce((t, p) => t + p.share, 0) - 1) < 1e-9);
+  ok('furnishing shows for an SA let', Calc.ownParts(Calc.ledger(deal, false).exits.sa.own).some(p => p.key === 'furnishing'));
+  ok('nothing to show: no parts, no division by zero', JSON.stringify(Calc.ownParts({ deposit: 0, sdlt: 0 })) === '[]' && JSON.stringify(Calc.ownParts(null)) === '[]');
+  ok('a negative figure is never a part', !Calc.ownParts({ deposit: 100, legal: -5 }).some(p => p.key === 'legal'));
+}
 console.log(n + ' checks ran');
 if (fails) process.exit(1);

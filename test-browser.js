@@ -92,14 +92,29 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const fold = n => p.locator(`.lg-fold:has(.fold-txt b:text-is("${n}"))`);
   await fold('BTL figures').locator('.fold-head').click();
   ok('opening BTL figures shows its sliders', await fold('BTL figures').locator('.fold-body').isVisible() && (await fold('BTL figures').locator('.rent-row').count()) === 4);
-  await fold('Your own money in').locator('.fold-head').click();
-  ok('opening another closes the first', !(await fold('BTL figures').locator('.fold-body').isVisible()) && await fold('Your own money in').locator('.fold-body').isVisible());
-  ok('closed cards show a one-line summary', /^Monthly income £1,000 · Mortgage rate 5%$/.test(await fold('BTL figures').locator('small').textContent()), await fold('BTL figures').locator('small').textContent());
-  await fold('Paying for it').locator('.fold-head').click(); await p.click('.lg-seg button:has-text("Bridging loan")'); await p.waitForTimeout(100);
-  ok('turning bridging on keeps Paying for it open', await fold('Paying for it').locator('.fold-body').isVisible() && (await fold('Paying for it').locator('.bridge-grid').count()) === 1);
-  ok('its summary names the bridging cost', /^Bridging loan · £[\d,]+ cost$/.test(await fold('Paying for it').locator('small').textContent()));
+  ok('More detail now holds only the letting figures (design 11a)', (await p.locator('.lg-figures .lg-fold').count()) === 1);
+  await fold('BTL figures').locator('.fold-head').click(); await p.waitForTimeout(40);
+  ok('a closed card shows a one-line summary', /^Monthly income £1,000 · Mortgage rate 5%$/.test(await fold('BTL figures').locator('small').textContent()), await fold('BTL figures').locator('small').textContent());
+  // How you'll pay (design 11a): the switch, the tiles, the bridge figures and your own money in, in one card
+  const parts = () => p.$$eval('.fund11-seg', ss => ss.map(e => e.className.replace('fund11-seg k-', '') + ':' + parseFloat(e.style.width)));
+  ok('11a: How you’ll pay comes straight after the purchase price, with the switch, Lender pays / Deposit and your own money in', await p.evaluate(() => { const hd = [...document.querySelectorAll('.lg-figures .lg-h')].find(x => x.textContent === 'How you’ll pay'), f = document.querySelector('.fund11'); return !!(hd && hd.previousElementSibling.querySelector('#lg-purchasePrice') && hd.nextElementSibling === f && f.querySelector('.lg-seg') && f.querySelector('#lg-ltv') && f.querySelector('#lg-depositPct') && f.querySelector('.fund11-own')); }));
+  ok('11a: your own money in is £85,500, with no bridging figures', (await p.textContent('.fund11-total')) === '£85,500' && !(await p.locator('.fund11 .bridge-grid').count()));
+  const bar0 = await parts();
+  ok('11a: the bar: deposit, stamp duty, legal, refurb (no £0 costs), adding up to 100%', bar0.map(x => x.split(':')[0]).join() === 'deposit,sdlt,legal,refurb' && Math.abs(bar0.reduce((t, x) => t + Number(x.split(':')[1]), 0) - 100) < 0.05, JSON.stringify(bar0));
+  ok('11a: the breakdown starts shut', !(await p.isVisible('.fund11-rows')) && (await p.textContent('.fund11-btn')) === 'Breakdown');
+  await p.click('.fund11-btn'); await p.waitForTimeout(40);
+  ok('11a: Breakdown lists each cost with its colour; the button says Hide', (await p.$$eval('.fund11-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'))) === 'Deposit £31,250|Stamp duty £6,250|Legal costs £3,000|Refurb costs £45,000' && (await p.textContent('.fund11-btn')) === 'Hide' && (await p.locator('.fund11-row .fund11-sq').count()) === 4);
+  await p.click('.lg-seg button:has-text("Bridging loan")'); await p.waitForTimeout(100);
+  const bar1 = await parts(), tot1 = await p.textContent('.fund11-total');
+  ok('11a: bridging on: the bridge figures appear in the card, with its cost in amber', (await p.locator('.fund11 .bridge-grid').count()) === 1 && /^£[\d,]+$/.test(await p.textContent('.fund11-cost-v')) && (await p.locator('.fund11-cost .lg-link').count()) === 1);
+  ok('11a: ... the bar gains a Bridging cost part, still adding up to 100%, and the total goes up by that cost', bar1.map(x => x.split(':')[0]).join() === 'deposit,sdlt,legal,refurb,bridge' && Math.abs(bar1.reduce((t, x) => t + Number(x.split(':')[1]), 0) - 100) < 0.05 && Number(tot1.replace(/[£,]/g, '')) - 85500 === Number((await p.textContent('.fund11-cost-v')).replace(/[£,]/g, '')), tot1 + ' ' + JSON.stringify(bar1));
+  ok('11a: the breakdown stays open across the redraw (kept for the session)', await p.isVisible('.fund11-rows') && (await p.textContent('.fund11-row:last-child span')) === 'Bridging cost');
+  ok('11a: the pinned panel says it includes the bridging', /^Includes £[\d,]+ bridging$/.test(await p.textContent('.pin-tag')));
+  await p.reload(); await p.waitForTimeout(300);
+  ok('11a: the breakdown is still open after a reload (kept for the session)', await p.isVisible('.fund11-rows') && (await p.textContent('.fund11-btn')) === 'Hide');
+  await p.click('.fund11-btn'); await p.waitForTimeout(40);
   // A rent nudge and slider in the open let fold
-  await fold('BTL figures').locator('.fold-head').click();
+  if (!(await fold('BTL figures').locator('.fold-body').isVisible())) await fold('BTL figures').locator('.fold-head').click();
   const rent = await p.$eval('#lg-monthlyRent', e => e.value); await fold('BTL figures').locator('.nudge >> nth=1').click(); await p.waitForTimeout(50);
   ok('a rent + nudge steps the rent by £25', Number(await p.$eval('#lg-monthlyRent', e => e.value)) === Number(rent) + 25);
   // Exit switch keeps the remembered choice
@@ -218,7 +233,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
 
   // ---- design 7a: the order of the deal and "Any other costs" ----
   await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
-  const order = await p.evaluate(() => [...document.querySelectorAll('#v-home .lg-figures > .lg-card')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
+  const order = await p.evaluate(() => [...document.querySelectorAll('#v-home .lg-figures > .lg-card:not(.fund11)')].map(c => c.classList.contains('tax-card') ? 'stamp duty' : (c.querySelector('.lg-label') || {}).textContent));
   ok('The deal reads: End value, Refurb, Legal, Any other costs, Stamp duty (its own card), Purchase price', order.join(' | ') === 'End value (GDV) | Refurb costs | Legal costs | Any other costs | stamp duty | Purchase price', order.join(' | '));
   ok('the purchase price card no longer holds the stamp duty', !(await p.locator('.deal-card:has(#lg-purchasePrice) .tax-block').count()) && (await p.locator('.deal-card:has(#lg-purchasePrice) .rec-btn').count()) === 1);
   const oc = p.locator('.deal-card:has(#lg-otherUpfront)');
@@ -227,8 +242,8 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('+ adds £100', (await p.$eval('#lg-otherUpfront', e => e.value)) === '100');
   await p.fill('#lg-otherUpfront', '1000'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
   if (!(await p.isVisible('.exit-tile.on:has(.nm:text-is("Flip"))'))) { await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80); }
-  await fold('Your own money in').locator('.fold-head').click(); await p.waitForTimeout(40);
-  ok('"Your own money in" lists Other costs £1,000, after Legal costs', (await fold('Your own money in').locator('.lg-stat span').allTextContents()).join('|').includes('Legal costs|Other costs|Refurb costs') && (await fold('Your own money in').locator('.lg-stat:has(span:text-is("Other costs")) b').textContent()) === '£1,000');
+  if (!(await p.isVisible('.fund11-rows'))) { await p.click('.fund11-btn'); await p.waitForTimeout(40); }
+  ok('"Your own money in" lists Other costs £1,000, after Legal costs (and the bar has it)', (await p.$$eval('.fund11-row span', ss => ss.map(x => x.textContent).join('|'))).includes('Legal costs|Refurb costs|Other costs') && (await p.textContent('.fund11-row:has(span:text-is("Other costs")) b')) === '£1,000' && (await p.locator('.fund11-seg.k-other').count()) === 1, await p.$$eval('.fund11-row span', ss => ss.map(x => x.textContent).join('|')));
   await p.click('.clear-pill'); await p.waitForTimeout(60);
   ok('Clear figures empties any other costs too', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
   await p.click('.pin-reset'); await p.waitForTimeout(60);
@@ -243,7 +258,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.evaluate(() => document.activeElement.blur()); await q.click('.exit-tile:has(.nm:text-is("BTL"))'); await q.waitForTimeout(100);
     const pressed = () => q.$$eval('.lg-switch button', bs => bs.map(x => x.textContent + ':' + x.getAttribute('aria-pressed')).join());
     ok('8a: the switch sits right under the exit tiles and starts on Figures', await q.evaluate(() => document.querySelector('.lg-exits').nextElementSibling.classList.contains('lg-switch')) && (await pressed()) === 'Figures:true,Results:false', await pressed());
-    ok('8a: Figures holds The deal, its cards, Lender pays / Deposit and More detail; Results is hidden', await q.evaluate(() => { const f = document.querySelector('.lg-figures'); return !!(f.querySelector('.clear-pill') && f.querySelector('#lg-endValue') && f.querySelector('.tax-card') && f.querySelector('.rec-btn') && f.querySelector('.lg-chips') && f.querySelectorAll('.lg-fold').length === 3) && document.querySelector('.lg-results').hidden; }));
+    ok('8a: Figures holds The deal, its cards, Lender pays / Deposit and More detail; Results is hidden', await q.evaluate(() => { const f = document.querySelector('.lg-figures'); return !!(f.querySelector('.clear-pill') && f.querySelector('#lg-endValue') && f.querySelector('.tax-card') && f.querySelector('.rec-btn') && f.querySelector('.lg-chips') && f.querySelector('.fund11') && f.querySelectorAll('.lg-fold').length === 1) && document.querySelector('.lg-results').hidden; }));
     ok('8a: each switch button is at least 44px tall', (await q.$$eval('.lg-switch button', bs => bs.every(x => x.getBoundingClientRect().height >= 44))));
     await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(100);
     const sw = await q.evaluate(() => ({ sw: document.querySelector('.lg-switch').getBoundingClientRect().top, pin: document.querySelector('.pin').getBoundingClientRect().bottom }));
@@ -251,9 +266,9 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('8a: switching puts the switch just under the pinned panel', sw.sw >= sw.pin && sw.sw - sw.pin <= 16, JSON.stringify(sw));
     ok('8a: Results tiles are larger (22px figures, 14px padding)', await q.$eval('.lg-results .lg-tile', t => getComputedStyle(t.querySelector('b')).fontSize === '22px' && getComputedStyle(t).paddingTop === '14px'));
     const ownCard = await q.$$eval('.own-card .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
-    const ownFold = await q.$$eval('.lg-fold .lg-stat', rs => rs.map(r => r.textContent).length);
+    const ownFold = await q.$$eval('.fund11-row', rs => rs.length);
     ok('8a: the own money card lists deposit, stamp duty, legal, refurb, mortgage and total', /Deposit \(25% of £125,000\) £31,250\|Stamp duty £6,250\|Legal costs £3,000\|Refurb costs £45,000\|Mortgage covers £93,750\|Total money in/.test(ownCard), ownCard);
-    ok('8a: ... with the same summary as the fold', (await q.textContent('.own-card-head small')) === '£85,500 · total in £179,250' && ownFold > 0);
+    ok('8a: ... with the same total as the How you’ll pay card', (await q.textContent('.own-card-head small')) === '£85,500 · total in £179,250' && ownFold === 4 && (await q.textContent('.fund11-total')) === '£85,500');
     // a change on Figures shows straight away in Results and the panel
     const before = await q.textContent('.lg-results .lg-tile >> nth=4');
     await q.click('.lg-switch button:text-is("Figures")'); await q.fill('#lg-purchasePrice', '115000'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
