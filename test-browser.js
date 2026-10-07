@@ -339,5 +339,21 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('r2r: its disclaimer asks you to check the landlord’s consent', (await txt('.legal-foot')).includes('Check your landlord’s consent and the contract before you sign.'));
     await c4.close();
   }
+  // ---- My usual figures in the Calculator's look ----
+  {
+    const c5 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await c5.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    const q = await c5.newPage(); q.on('pageerror', e => errs.push(e.message));
+    await q.goto(BASE + '/index.html#usual'); await q.waitForTimeout(250);
+    const look = await q.evaluate(() => ({ fonts: [...new Set([...document.querySelectorAll('#v-usual *')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))], heads: [...document.querySelectorAll('#v-usual .lg-h')].map(e => e.textContent).join('|'), cards: document.querySelectorAll('#v-usual .u6-card').length, rows: document.querySelectorAll('#v-usual .u6-row').length, oldBits: document.querySelectorAll('#v-usual .hero, #v-usual .eyebrow, #v-usual .fig-card, #v-usual .pick').length, small: [...document.querySelectorAll('#v-usual input, #v-usual button')].filter(e => e.getBoundingClientRect().height < 44).length }));
+    ok('usual figures: one font (Geist), section headings like the Calculator, rounded cards, no serif title', look.fonts.join() === 'Geist' && look.heads === 'Buying costs|Finance|Letting' && look.cards === 3 && look.rows === 6 && look.oldBits === 0, JSON.stringify(look));
+    ok('usual figures: every box and button 44px or more', look.small === 0);
+    await q.fill('#u-legal', '2500'); await q.waitForTimeout(40);
+    ok('usual figures: a typed figure is saved', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:usual')).legal)) === '2500');
+    await q.click('.u6-clear'); await q.waitForTimeout(60);
+    ok('usual figures: Clear empties them and shows the examples again', (await q.$eval('#u-legal', e => e.value)) === '' && (await q.$eval('#u-legal', e => e.placeholder)) !== '' && (await q.evaluate(() => localStorage.getItem('deal-analyser:usual'))) === '{}');
+    ok('usual figures: no sideways scroll', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+    await c5.close();
+  }
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

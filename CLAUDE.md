@@ -207,6 +207,13 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
 - test-browser.js checks the switch (default, contents, 44px, Results contents, own money rows, live updates, exit
   change, session memory, a new session, Change the figures, scroll position).
 
+## My usual figures in the Calculator's look (7 Oct 2026, Ashley: "should have the same look and feel")
+- renderUsual draws #v-usual with class u6: Geist only, a short intro (no eyebrow, no serif title; the header already
+  says "My usual figures"), .lg-h section headings (Buying costs, Finance, Letting), rounded cards (u6-card, like the
+  Calculator's cards) with rows like the targets sheet (label, small hint, a bold typed figure on a dashed line with
+  £ / %, the example as a faint italic placeholder), "Clear my usual figures" as the outlined pill (lg-back) and the note.
+  Same fields, same saving (deal-analyser:usual). test-browser.js checks the look, 44px boxes, saving and Clear.
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
   named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).

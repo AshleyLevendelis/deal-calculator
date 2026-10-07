@@ -1387,16 +1387,15 @@
     ['Finance', [['ltv', 'Re-mortgage LTV', '%', 'How much of the end value the lender pays out'], ['depositPct', 'Deposit', '%', 'Of the purchase price, on a mortgaged purchase'], ['mortgageRate', 'Mortgage rate', '%', 'Interest rate on your mortgage']]],
     ['Letting', [['mgmtPct', 'Management', '%', 'Letting agent fee, % of rent']]]];
   function renderUsual() {
-    var box = $('v-usual'); box.innerHTML = '';
-    box.appendChild(h('p', 'eyebrow', 'Settings'));
-    box.appendChild(h('h1', 'hero', 'My usual figures'));
-    box.appendChild(h('p', 'lede', 'Set these once and every deal starts with them. A figure you type on a deal still wins for that deal. Leave a box empty to use the spreadsheet example.'));
-    var ex = Calc.defaults(Calc.find('flip'));
+    // Drawn in the Calculator's look (design 6c): Geist, section headings, rounded cards, rows like the targets sheet.
+    var box = $('v-usual'); box.innerHTML = ''; box.className = 'u6';
+    box.appendChild(h('p', 'u6-intro', 'Set these once and every deal starts with them. A figure you type on a deal still wins for that deal. Leave a box empty to use the spreadsheet example.'));
     USUAL_FIELDS.forEach(function (g) {
-      var card = h('section', 'fig-card'); card.appendChild(h('h2', '', g[0]));
+      box.appendChild(h('p', 'lg-h', g[0]));
+      var card = h('section', 'u6-card');
       g[1].forEach(function (f) {
-        var row = h('div', 'row'), lab = h('label', '', f[1]); lab.setAttribute('for', 'u-' + f[0]); lab.appendChild(h('small', '', f[3]));
-        var wrap = h('div', 'f' + (f[2] === '£' ? ' pre' : ' suf')), input = h('input'); input.id = 'u-' + f[0]; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
+        var row = h('div', 'u6-row'), txt = h('span', 'u6-txt'), lab = h('label', '', f[1]); lab.setAttribute('for', 'u-' + f[0]); txt.appendChild(lab); txt.appendChild(h('small', '', f[3]));
+        var wrap = h('span', 'u6-val'), input = h('input'); input.id = 'u-' + f[0]; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
         var any = Calc.find('flip'), example = Calc.defaults(any)[f[0]];
         if (example === undefined) example = Calc.defaults(Calc.find(f[0] === 'otherUpfront' ? 'recycle' : 'btl'))[f[0]];
         input.placeholder = example === undefined || example === '' ? '' : String(example);
@@ -1406,14 +1405,14 @@
           store(USUAL_KEY, usual);
         });
         input.addEventListener('focus', function () { input.select(); });
-        if (f[2] === '£') wrap.appendChild(h('span', '', '£')); wrap.appendChild(input); if (f[2] === '%') wrap.appendChild(h('span', '', '%'));
-        row.appendChild(lab); row.appendChild(wrap); card.appendChild(row);
+        if (f[2] === '£') wrap.appendChild(h('span', 'u', '£')); wrap.appendChild(input); if (f[2] === '%') wrap.appendChild(h('span', 'u', '%'));
+        row.appendChild(txt); row.appendChild(wrap); card.appendChild(row);
       });
       box.appendChild(card);
     });
-    var reset = h('button', 'pick', 'Clear my usual figures'); reset.onclick = function () { usual = {}; store(USUAL_KEY, usual); renderUsual(); };
+    var reset = h('button', 'lg-back u6-clear', 'Clear my usual figures'); reset.type = 'button'; reset.onclick = function () { usual = {}; store(USUAL_KEY, usual); renderUsual(); };
     box.appendChild(reset);
-    box.appendChild(h('p', 'note', 'Deals you have already saved keep the figures they were saved with.'));
+    box.appendChild(h('p', 'u6-note', 'Deals you have already saved keep the figures they were saved with.'));
   }
 
   // ---- Redraw the screen in place (after targets or the tax setting change), keeping the scroll position ----

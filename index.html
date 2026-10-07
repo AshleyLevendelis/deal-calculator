@@ -199,6 +199,21 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .pin-caps span:last-child{overflow:hidden;text-overflow:ellipsis}
 .pin-tag{font:600 11.5px var(--font-ui);color:var(--amber);margin-top:4px}
 .lg-exits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
+/* My usual figures in the Calculator’s look (7 Oct 2026) */
+.u6{font-family:var(--font-ui)}
+.u6 .lg-h{font:700 16px var(--font-ui);color:var(--ink);margin:22px 4px 10px}
+.u6-intro{font-size:13.5px;line-height:1.45;color:var(--mute);margin:14px 4px 0}
+.u6-card{background:var(--card);border-radius:24px;padding:4px 16px;margin:0 0 10px}
+.u6-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:10px 0;border-top:1px dashed var(--dash)}
+.u6-row:first-child{border-top:0}
+.u6-txt{min-width:0}.u6-txt label{display:block;font:600 14.5px var(--font-ui);color:var(--ink)}.u6-txt small{display:block;font-size:12px;line-height:1.35;color:var(--faint);margin-top:2px}
+.u6-val{flex:none;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;min-width:96px}
+.u6-val .u{font:700 14px var(--font-ui);color:var(--faint)}
+.u6-val input{width:78px;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;padding:0;text-align:right;color:var(--ink);font:700 20px var(--font-ui)}
+.u6-val input::placeholder{color:var(--faint);font-weight:600;font-style:italic;opacity:1}
+.u6-val input:focus{outline:none;border-bottom-color:var(--mint)}
+.u6-clear{margin-top:16px}
+.u6-note{font-size:12px;line-height:1.4;color:var(--faint);margin:10px 4px 0}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}
