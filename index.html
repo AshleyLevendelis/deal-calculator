@@ -552,6 +552,7 @@ body.ledger #v-home .vs-mark{color:var(--bg)}
 .working summary{cursor:pointer;padding:10px 0;color:var(--mint);font:600 14px var(--font-ui)}
 .sticky-bar{position:fixed;left:0;right:0;bottom:calc(72px + env(safe-area-inset-bottom));z-index:5;display:grid;grid-template-columns:1fr 1.6fr;gap:10px;padding:10px 20px;background:var(--bg);border-top:1px solid var(--line)}
 .sticky-bar[hidden]{display:none}
+.sticky-bar.one{grid-template-columns:1fr}
 .sticky-bar button{height:46px;border-radius:999px;font:600 15px var(--font-ui)}
 .sticky-bar button.sec{background:none;border:1px solid var(--line);color:var(--ink)}
 .sticky-bar button:disabled{opacity:.5}
@@ -614,18 +615,6 @@ select{min-height:44px;max-width:170px;border:1px solid var(--line);background:v
 .overlay{position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:40}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--card);border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding:8px 20px calc(20px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
 
-/* ---- Client report ---- */
-.report-field{margin:0 0 12px}
-.report-field label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
-.report-field input{width:100%;min-height:44px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 12px;font:15px var(--font-ui)}
-.report-field input::placeholder{font-style:italic;color:var(--mute)}
-.paper{background:#fdfbf7;color:#211c17;border-radius:12px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-family:var(--font-ui)}
-.paper .p-eyebrow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#7a746b;margin:0 0 4px}
-.paper .p-title{font:400 24px var(--font-serif);margin:0 0 4px;color:#211c17}
-.paper .p-meta{font-size:12px;color:#7a746b;margin:0 0 16px}
-.paper .p-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px dashed #dbd7d2;font-size:13px}
-.paper .p-row.head{font-weight:700;border-top:1px solid #dbd7d2}
-.paper .p-best{background:#f3f0ea}
 /* ---- Deal pack (design 12a builder, 12b preview, 14c setup; 7 Oct 2026). Pages themselves are inline-styled (dealpack.js). ---- */
 .pk-pro{display:inline-block;flex:none;font:800 11px var(--font-ui);letter-spacing:.06em;padding:4px 9px;border-radius:999px;background:var(--amber);color:#2a1d05}
 .pk-pro.in{font-size:9.5px;padding:2px 7px;margin-left:8px;vertical-align:2px}
@@ -785,9 +774,7 @@ body.pk-setup header{display:none}
   <div id="v-deal" hidden></div>
   <div id="v-home"></div>
   <div id="v-calc" hidden></div>
-  <div id="v-compare" hidden></div>
   <div id="v-scompare" hidden></div>
-  <div id="v-report" hidden></div>
   <div id="v-usual" hidden></div>
   <div id="v-pack" hidden></div>
   <div id="v-saved" hidden>

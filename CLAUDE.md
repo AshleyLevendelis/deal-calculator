@@ -64,11 +64,11 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
   Vercel connection may not grant read access to the project). Ask Ashley to check on her phone.
 
 ## The app
-Two tabs: Calculator and Saved. Compare is a screen reached from the Calculator ("Compare side by side" on the ledger,
-"Compare every strategy" on the other calculators), and Settings (gear) holds theme, explanations, "My usual figures"
+Two tabs: Calculator and Saved. (The "Every strategy" Compare screen and the old Client report were REMOVED on 7 Oct 2026, see
+"Removed" below.) Settings (gear) holds theme, explanations, "My usual figures"
 and "Redo the setup questions" (onboarding: how you will use it, then price, end value and letting type).
 Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, sabtl, r2rhmo, r2rsa, bridging; old
-#c/flip, #c/hmobrr, #c/sabrr land on the ledger with the right exit), #compare, #report, #saved, #saved-compare, #usual.
+#c/flip, #c/hmobrr, #c/sabrr land on the ledger with the right exit), #saved, #saved-compare, #usual, #pack...
 - Calculator primary screen = design 7a (6c "Verdict docked" with the 7a deal order, 6 Oct 2026; see "Design 7a" below) =
   design 6c "Verdict docked" (4 Oct 2026, from Ashley's hand-off bundle "Design Requirements
   Inquiry.zip" / design_handoff_calculator_6c; only phone 6c was approved; built, then rebuilt the same day from her
@@ -82,8 +82,8 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
     chip per target (lets: £500 a month, 50% ROI, Money back in 6 months, All cash recycled; flip: 25% margin) and
     "Hide ▴". Starts shut; open/shut is remembered for the session (sessionStorage deal-analyser:targetsOpen).
   - NO fixed action bar and NO "Compare side by side" on this screen (Ashley's revised hand-off). Only the tab bar is
-    fixed; the page's bottom padding just clears it. Compare stays reachable from the other calculators ("Compare all
-    strategies" bar button, "Compare every strategy for this deal →"). The other calculators keep their Save / Compare bar.
+    fixed; the page's bottom padding just clears it. The other calculators' bar holds Save only (Max price: Save and Use
+    as my offer).
   - exit row: Flip, BTL, HMO, SA side by side, each with its headline % in its verdict colour.
   - The deal, with a "× Clear figures" pill beside the heading: it sets end value, price and refurb to 0 (shown blank;
     legal and every other figure stay; Reset brings the start figures back). One card per figure (end value, price,
@@ -122,9 +122,7 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
 - The other calculators (Max price, BTL, HMO BTL, SA BTL, R2R HMO, R2R SA, Bridging) keep their own screens with the pill
   row, reached from "Rent to rent →" at the bottom of the ledger, from Compare cards, or by #c/<key>. Max price has
   "Test an offer" (cash left in or pulled out at that price; minus = pulled out). The app header is not sticky on the ledger.
-- Compare: the deal through every calculator, sortable by ROI / monthly profit / money in, Download PDF and Client report
-  (prepared for / by, paper preview, same PDF). Saved: tick two or more to compare side by side ("Run every deal as"),
-  with its own PDF and client report.
+- Saved: tick two or more to compare side by side ("Run every deal as"), sortable, with Download PDF (pdf.js).
 - Offline: sw.js stores the whole app when installed and every good same-site answer after, so it opens with no signal
   (test-sw.js). The browser pane cannot run service workers; offline is tested by test-sw.js.
 - Local-only data on the phone: the deal, usual figures, saved deals (with their notes), exit, bridging, theme,
@@ -300,8 +298,19 @@ first restyle)
   on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
   live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the
   spreadsheet example (Calc.ledger({})); the sub line says which.
-- Entry: Save (sourcer) -> "Saved. What next?" sheet (Make a deal pack PRO / Client report); a Deal pack button on each
+- Entry: Save (sourcer) -> "Saved. What next?" sheet (Make a deal pack PRO); a Deal pack button on each
   saved deal; Settings -> Deal pack (templates sheet, or setup when there is none). Privacy policy has a Deal packs section.
+
+## Removed: Every strategy (#compare) and the old Client report (#report) (7 Oct 2026, hand-off design_handoff_remove_compare_report)
+- Both screens, their helpers (renderCompare, renderReport, openReport, reportSource, pdfInput, detailLines, paperPreview,
+  PDF_LABELS) and CSS are gone; the deal pack replaces them. pdf.js stays (the saved-deals comparison's Download PDF).
+- Old links: #compare -> #calculators, #report -> #saved, by history.replaceState in route() (GONE), so Back never lands
+  on them. goBack(): #saved-compare -> #saved; anything else -> where it was opened from, or the Calculator.
+- Save is the only button in the other calculators' bar (full width, primary); Max price keeps Use as my offer. The
+  sheet after Save offers Make a deal pack only; saved cards have Deal pack (no Client report); saved compare has no
+  report button; Settings has no Report branding row (the deal pack's step 3 is the branding). The old Report branding
+  name (deal-analyser:report .by) starts the deal pack's business name. Setup and Prefs wording say "Deal pack".
+  (Notes above that mention Compare, the client report or Report branding describe the app before this change.)
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

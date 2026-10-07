@@ -10,7 +10,8 @@
     var fromDeal = false;                           // setup opened from a deal (its figures) or from Settings (example figures)
     function openSetup(deal) { S = null; fromDeal = !!deal; location.hash = '#pack-setup'; }
 
-    function brand() { return Object.assign({ company: '', name: '', phone: '', email: '', web: '', color: DP.SWATCHES[0], logo: '' }, load(BRAND, {})); }
+    // The old Report branding name (deal-analyser:report .by) starts the business name, so nothing typed before is lost.
+    function brand() { return Object.assign({ company: (load('deal-analyser:report', {}) || {}).by || '', name: '', phone: '', email: '', web: '', color: DP.SWATCHES[0], logo: '' }, load(BRAND, {})); }
     function tpls() { var t = load(TPLS, null); return t && t.list ? t : { list: [], def: null }; }
     function tplById(id) { return tpls().list.filter(function (t) { return t.id === id; })[0] || null; }
     function defTpl() { var t = tpls(); return tplById(t.def) || t.list[0] || null; }

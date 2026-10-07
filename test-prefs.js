@@ -23,12 +23,12 @@ eq('the Settings line', [P.letNote('hmo'), P.letNote('unsure')], ['Opens on BRR 
 
 // who you are
 eq('only a sourcer gets client reports', ['new', 'invest', 'source', '', undefined].map(P.clientReports), [false, false, true, false, false]);
-eq('what each switches on', [P.does('new').length, P.does('invest')[0], P.does('source')[0]], [2, 'Explanations off: just the numbers', 'Client report button on every deal']);
+eq('what each switches on', [P.does('new').length, P.does('invest')[0], P.does('source')[0]], [2, 'Explanations off: just the numbers', 'Deal pack button on every saved deal']);
 eq('no answer reads as an investor', P.does(''), P.does('invest'));
 
 // "You're set up"
 const s1 = P.summary('source', 'hmo', false, { price: '60000', end: '225000' });
-eq('sourcer, HMO, typed figures', s1.map(r => [r.ok, r.title]), [[true, 'Calculator opens on BRR → HMO'], [false, 'Explanations off'], [true, 'Client reports on'], [true, 'Your first deal is started']]);
+eq('sourcer, HMO, typed figures', s1.map(r => [r.ok, r.title]), [[true, 'Calculator opens on BRR → HMO'], [false, 'Explanations off'], [true, 'Deal packs on'], [true, 'Your first deal is started']]);
 eq('the figures as typed', s1[3].sub, 'Price £60,000, end value £225,000.');
 const s2 = P.summary('new', 'unsure', true, {});
 eq('new, not sure, nothing typed: no client reports row', s2.map(r => [r.ok, r.title]), [[false, 'Calculator opens on BRR → BTL'], [true, 'Explanations on'], [false, 'Using the example deal']]);

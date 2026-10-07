@@ -1,7 +1,7 @@
 (function () {
   var DEALS = 'deal-analyser:deals', DEAL = 'deal-analyser:deal';
   var THEME = 'deal-analyser:theme', EXPLAIN = 'deal-analyser:explanations', PERSONA = 'deal-analyser:persona';
-  var LETTING = 'deal-analyser:lettingType', ONBOARDED = 'deal-analyser:onboarded', REPORT = 'deal-analyser:report';
+  var LETTING = 'deal-analyser:lettingType', ONBOARDED = 'deal-analyser:onboarded';
   var $ = function (id) { return document.getElementById(id); };
   var gbp = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 });
   var gbp2 = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 2 });
@@ -51,10 +51,10 @@
   var PERSONAS = [
     ['new', "I'm new to property", 'Plain-English explanations next to every result.'],
     ['invest', 'I invest already', 'Just the numbers, laid out to scan fast.'],
-    ['source', 'I source deals for clients', 'Client-ready reports with your name on them.']
+    ['source', 'I source deals for clients', 'Branded deal packs to send to clients.']
   ];
   // The setup answers change the app (design 10, 7 Oct 2026; the rules are in prefs.js): your letting type's strategies go
-  // first in every strategy list, the Calculator opens on its way out, and a sourcer gets client reports.
+  // first in every strategy list, the Calculator opens on its way out, and a sourcer gets the deal pack.
   function preferredCalcs(ids) { return Prefs.order(load(LETTING, ''), ids || STRATS.map(function (x) { return x.key; })); }
   function clientReportsOn() { return Prefs.clientReports(load(PERSONA, '')); }
   // Open the Calculator where your letting type points (main screen, that way out chosen). false for not sure / none.
@@ -892,7 +892,6 @@
     });
     nodes.note = h('p', 'note fig-note'); box.appendChild(nodes.note);
     var ul = h('button', 'text-link', 'Set my usual figures \u2192'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
-    var cl = h('button', 'text-link', 'Compare every strategy for this deal \u2192'); cl.onclick = function () { location.hash = '#compare'; }; box.appendChild(cl);
 
     if (st.key === 'recycle') {
       box.appendChild(h('p', 'eyebrow sect', 'Test an offer'));
@@ -921,15 +920,15 @@
 
     // ---- the bar above the tabs ----
     var bar = $('sticky-bar'); bar.innerHTML = '';
-    var save = h('button', 'sec', 'Save'), go = h('button', 'primary', st.key === 'recycle' ? 'Use as my offer' : 'Compare all strategies');
+    // Save is the main button; only Max price adds "Use as my offer" (the Every strategy screen was removed, 7 Oct 2026).
+    var recycle = st.key === 'recycle', save = h('button', recycle ? 'sec' : 'primary', 'Save'), go = recycle ? h('button', 'primary', 'Use as my offer') : null;
     save.onclick = saveDeal;
-    go.onclick = function () {
-      if (st.key !== 'recycle') { location.hash = '#compare'; return; }
+    if (go) go.onclick = function () {
       var v = current.compute(Calc.stateFor(current, eff(deal))).v;
       if (v.impossible) return;
       deal.purchasePrice = v.maxPrice; store(DEAL, deal); location.hash = '#c/brr';
     };
-    bar.appendChild(save); bar.appendChild(go); bar.hidden = false; nodes.go = go;
+    bar.appendChild(save); if (go) bar.appendChild(go); bar.classList.toggle('one', !go); bar.hidden = false; nodes.go = go;
     update();
   }
 
@@ -1083,7 +1082,7 @@
     if (clientReportsOn()) { savedNext(list[0]); return; }
     alert('Saved. Find it under Saved.');
   }
-  // Sourcers, after Save: make a deal pack (design 12a), a client report, or carry on.
+  // Sourcers, after Save: make a deal pack (design 12a), or carry on.
   function savedNext(d) {
     openSheet(function (sheet) {
       sheetHead(sheet, 'Saved', 'Done');
@@ -1095,7 +1094,6 @@
         b.onclick = function () { closeSettings(); go(); }; card.appendChild(b);
       };
       row('Make a deal pack', 'A branded PDF and a link your client can reserve from', function () { Pack.start(d.id); }, Pack.pro('in'));
-      row('Client report', 'This deal through every strategy', function () { openReport('deal'); });
       sheet.appendChild(card);
     });
   }
@@ -1156,10 +1154,7 @@
           var done = h('button', 'note-btn', 'Done'); done.onclick = function () { drawNote(false); }; nr.appendChild(done);
         } else {
           var nb = h('button', 'note-btn' + (d.note ? ' has' : ''), d.note ? d.note : 'Add a note'); nb.onclick = function () { drawNote(true); }; nr.appendChild(nb);
-          if (clientReportsOn()) {   // the deal's own figures, then the report on every strategy
-            var rp = h('button', 'note-btn rep10', 'Client report'); rp.type = 'button'; rp.setAttribute('aria-label', 'Client report for ' + d.name);
-            rp.onclick = function () { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; openReport('deal'); };
-            nr.appendChild(rp);
+          if (clientReportsOn()) {   // sourcers: this deal's pack (its figures are loaded first)
             var dp = h('button', 'note-btn rep10', 'Deal pack'); dp.type = 'button'; dp.setAttribute('aria-label', 'Deal pack for ' + d.name);
             dp.onclick = function () { Pack.start(d.id); }; nr.appendChild(dp);
           }
@@ -1182,46 +1177,11 @@
     return rows.slice().sort(function (a, b) { var x = key(a), y = key(b); return x === y ? 0 : x < y ? -1 : 1; });
   }
   // ---- PDF export ----------------------------------------------------------------------------------
-  // Short, unambiguous names for the PDF (the screen labels rely on the note beside them, which a list cannot show).
-  var PDF_LABELS = { depositPct: 'Deposit %', endValue: 'End value', ltv: 'Refinance LTV %', mortgageRate: 'Mortgage rate %',
-    monthlyRent: 'Monthly rent received', rentPaid: 'Rent you pay (monthly)', upfront: 'Deposit / up-front rent', roomRate: 'Room rate (per month)', nightlyRate: 'Room rate (per night)',
-    occupancyPct: 'Occupancy %', mgmtPct: 'Management %', voidsPct: 'Maintenance / voids % of rent', maintPct: 'Maintenance % of income', maintOnMortgagePct: 'Maintenance % of mortgage',
-    maintOnRentPct: 'Maintenance % of rent paid', commPct: 'Commission %', other: 'Other costs (monthly)', otherUpfront: 'Other costs', council: 'Council tax (monthly)',
-    utilities: 'Utility bills (monthly)', channel: 'Channel manager (monthly)', insurance: 'Insurance (monthly)' };
-  function fieldFor(id) {
-    for (var i = 0; i < Calc.calcs.length; i++) for (var s = 0; s < Calc.calcs[i].layout.length; s++) {
-      var items = Calc.calcs[i].layout[s].items;
-      for (var k = 0; k < items.length; k++) if (items[k].field && items[k].field.id === id) return items[k].field;
-    }
-    return null;
-  }
-  function detailLines() {
-    var out = [];
-    // Other costs sit straight after legal costs, and only when there are any.
-    var ids = Object.keys(deal).filter(function (id) { return id !== 'otherUpfront' || num(deal[id]) > 0; }), oi = ids.indexOf('otherUpfront'), li = ids.indexOf('legal');
-    if (oi >= 0 && li >= 0) { ids.splice(oi, 1); ids.splice(ids.indexOf('legal') + 1, 0, 'otherUpfront'); }
-    ids.forEach(function (id) {
-      var f = fieldFor(id), v = deal[id]; if (!f || v === '' || v == null) return;
-      out.push([PDF_LABELS[id] || f.label, f.unit === '£' ? money2(Number(v) || 0).replace(/\.00$/, '') : f.unit === '%' ? v + '%' : String(v)]);
-    });
-    var P = num(Calc.stateFor(FLIP_CALC, eff(deal)).purchasePrice);
-    if (P > 0) out.push(['Stamp duty (' + Calc.taxLabel().short + ')', money(Calc.stampDuty(P))]);
-    return out;
-  }
   function sortLabel() { return SORTS.filter(function (s) { return s[0] === sortBy; })[0][1]; }
   function today() { return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); }
   function pdfRow(r, sub) {
     return { name: r.name, sub: sub, refinance: r.refinance, roi: fmt('pct', r.roi), monthly: money2(r.monthly), annual: money(r.annual), moneyIn: money(r.moneyIn),
       extra: r.refinance ? 'Left in ' + money(r.cashLeft) : (r.breakeven == null ? '-' : fmt('months', r.breakeven)) };
-  }
-  function pdfInput(data) {
-    var f = data.flip;
-    return {
-      title: 'Deal comparison', sortLabel: sortLabel(), details: detailLines(), date: today(),
-      rows: sortRows(data.rows).map(function (r) { return pdfRow(r); }),
-      flip: { profit: money(f.profit), roi: fmt('pct', f.roi), moneyIn: money(f.moneyIn), marginVerdict: flipCls(f.margin) || null,
-        margin: fmt('pct', f.margin) + flipNote(Calc.flipVerdict(f.margin)) }
-    };
   }
   function savedPdfInput(rows) {
     return {
@@ -1268,7 +1228,6 @@
     return card;
   }
   // ---- compare saved deals: the ticked deals side by side ---------------------------------------------
-  var lastSavedRows = [];
   function renderSavedCompare() {
     var box = $('v-scompare'); box.innerHTML = '';
     box.appendChild(h('p', 'eyebrow', 'COMPARE')); box.appendChild(h('h1', 'hero', 'Deal against deal'));
@@ -1293,96 +1252,14 @@
     });
     box.appendChild(chips);
     var rows = Calc.compareDeals(picked.map(function (d) { return { id: d.id, name: d.name, calc: d.calc || 'flip', data: dealData(d) }; }), savedAs || undefined);
-    lastSavedRows = rows;
-    var exp = h('div', 'btns'), eb = h('button', '', 'Download PDF'), rb = h('button', 'primary', 'Client report');
+    var exp = h('div', 'btns'), eb = h('button', 'primary', 'Download PDF');
     eb.onclick = function () { exportPdf(savedPdfInput(rows), 'saved-deals-comparison'); };
-    rb.onclick = function () { openReport('saved'); };
-    exp.appendChild(eb); exp.appendChild(rb); box.appendChild(exp);
+    exp.appendChild(eb); box.appendChild(exp);
     sortRows(rows).forEach(function (r, i) {
       var d = picked.filter(function (x) { return x.id === r.key; })[0];
       box.appendChild(cardFor(r, i, r.calcName, function () { openDeal(d, r.calcId); }));
     });
   }
-  var lastDealData = null;
-  function renderCompare() {
-    var box = $('v-compare'); box.innerHTML = '';
-    box.appendChild(h('p', 'eyebrow', 'COMPARE')); box.appendChild(h('h1', 'hero', 'Every strategy, one deal'));
-    var entered = Object.keys(deal).length;
-    box.appendChild(h('p', 'lede', entered
-      ? 'Your ' + plural(entered, 'figure') + ' run through every calculator. Where a strategy needs something you have not entered, it uses the spreadsheet example, so fill those in for a fair fight.'
-      : 'You have not entered a deal yet, so this compares the examples from your spreadsheets. Open a calculator and type your details in, then come back.'));
-    var chips = h('div', 'segmented');
-    SORTS.forEach(function (s) {
-      var b = h('button', '', s[1]); b.setAttribute('aria-pressed', sortBy === s[0]);
-      b.onclick = function () { sortBy = s[0]; renderCompare(); }; chips.appendChild(b);
-    });
-    box.appendChild(chips);
-    var data = Calc.compareAll(eff(deal)); lastDealData = data;
-    var exp = h('div', 'btns'), eb = h('button', '', 'Download PDF'), rb = h('button', 'primary', 'Client report');
-    eb.onclick = function () { exportPdf(pdfInput(data), 'deal-comparison'); };
-    rb.onclick = function () { openReport('deal'); };
-    exp.appendChild(eb); exp.appendChild(rb); box.appendChild(exp);
-    sortRows(data.rows).forEach(function (r, i) { box.appendChild(cardFor(r, i, null, function () { goCalc(r.id); })); });
-    // A flip is a one-off profit, not income each year, so it is shown apart rather than ranked against them.
-    var f = data.flip, fc = h('button', 'cmp'), ft = h('div', 'top'), fn = h('span', 'nm', 'Flip (sell after refurb)');
-    fn.appendChild(h('span', 'tag', 'one-off'));
-    var fr = h('div'), fb = h('div', 'big fig', money(f.profit)); tone(fb, f.profit); fr.appendChild(fb); fr.appendChild(h('div', 'cap', 'profit, not per year'));
-    ft.appendChild(fn); ft.appendChild(fr); fc.appendChild(ft);
-    var fs = h('div', 'st');
-    fs.appendChild(stat('Net profit (of GDV)', flipMarginText(f.margin), flipCls(f.margin))); fs.appendChild(stat('Return on money in', fmt('pct', f.roi)));
-    fs.appendChild(stat('Money in', money(f.moneyIn))); fs.appendChild(stat('Your own money', money(f.ownMoney)));
-    fc.appendChild(fs); fc.onclick = function () { location.hash = '#c/flip'; }; box.appendChild(fc);
-  }
-
-  // ---- Client report: prepared for/by, a live paper preview, then the same PDF -------------------------
-  var reportSource = 'deal';
-  function openReport(source) { reportSource = source; location.hash = '#report'; }
-  function reportRows() {
-    if (reportSource === 'saved') return { rows: lastSavedRows, flip: null, base: savedPdfInput(lastSavedRows), kind: 'saved' };
-    var data = lastDealData || Calc.compareAll(deal);
-    return { rows: sortRows(data.rows), flip: data.flip, base: pdfInput(data), kind: 'deal' };
-  }
-  function paperPreview(input) {
-    var p = h('div', 'paper');
-    p.appendChild(h('div', 'p-eyebrow', input.tableTitle || 'DEAL COMPARISON'));
-    p.appendChild(h('div', 'p-title', input.title));
-    var meta = input.date + '   |   Ranked by ' + input.sortLabel;
-    if (input.preparedFor) meta += '   |   Prepared for ' + input.preparedFor;
-    p.appendChild(h('div', 'p-meta', meta));
-    var head = h('div', 'p-row head');
-    [input.nameHeading || 'Strategy', 'ROI', 'Monthly', 'Money in'].forEach(function (t) { head.appendChild(h('span', '', t)); });
-    p.appendChild(head);
-    input.rows.slice(0, 8).forEach(function (r, i) {
-      var row = h('div', 'p-row' + (i === 0 ? ' p-best' : ''));
-      [r.name, r.roi, r.monthly, r.moneyIn].forEach(function (t) { row.appendChild(h('span', '', t)); });
-      p.appendChild(row);
-    });
-    if (input.rows.length > 8) p.appendChild(h('div', 'p-meta', '+ ' + (input.rows.length - 8) + ' more on the PDF'));
-    return p;
-  }
-  function renderReport() {
-    var box = $('v-report'); box.innerHTML = '';
-    box.appendChild(h('p', 'eyebrow', 'CLIENT REPORT')); box.appendChild(h('h1', 'hero', 'Deal against deal, on paper'));
-    box.appendChild(h('p', 'lede', 'A one-page appraisal to send with the deal. What you see is what goes in the PDF.'));
-    var forField = h('div', 'report-field'), forLab = h('label', '', 'Prepared for'), forIn = h('input');
-    forLab.setAttribute('for', 'rep-for'); forIn.id = 'rep-for'; forIn.placeholder = 'Client name'; forIn.value = load(REPORT, {}).for || '';
-    forField.appendChild(forLab); forField.appendChild(forIn); box.appendChild(forField);
-    var byField = h('div', 'report-field'), byLab = h('label', '', 'Prepared by'), byIn = h('input');
-    byLab.setAttribute('for', 'rep-by'); byIn.id = 'rep-by'; byIn.placeholder = 'Your name or company'; byIn.value = load(REPORT, {}).by || '';
-    byField.appendChild(byLab); byField.appendChild(byIn); box.appendChild(byField);
-    function saved() { return { for: forIn.value, by: byIn.value }; }
-    [forIn, byIn].forEach(function (el) { el.addEventListener('input', function () { store(REPORT, saved()); renderPreview(); }); });
-    var btns = h('div', 'btns'), dl = h('button', 'primary', 'Download PDF'); btns.appendChild(dl); box.appendChild(btns);
-    var previewBox = h('div'); box.appendChild(previewBox);
-    function renderPreview() {
-      previewBox.innerHTML = '';
-      var r = reportRows(), input = Object.assign({}, r.base, { preparedFor: forIn.value, preparedBy: byIn.value });
-      previewBox.appendChild(paperPreview(input));
-      dl.onclick = function () { exportPdf(input, r.kind === 'saved' ? 'client-report-saved-deals' : 'client-report'); };
-    }
-    renderPreview();
-  }
-
   // ---- Onboarding (design 10, 7 Oct 2026): who you are, the property and how you let it, then what that changed ----------
   // Shown only on first launch (ONBOARDED not set); both answers are edited afterwards in Settings > About you.
   var onbStep = 0, onbPersona = load(PERSONA, ''), onbLetting = load(LETTING, '');
@@ -1456,9 +1333,9 @@
     });
     pg.body.appendChild(card);
     if (Prefs.clientReports(persona)) {
-      var br = h('div', 'ob10-brand'); br.appendChild(h('b', '', 'Put your name on reports'));
-      br.appendChild(h('p', '', 'Add your name or company once. Every client report uses it.'));
-      br.appendChild(onbButton('ob10-brand-go', 'Set up branding →', openBranding));
+      var br = h('div', 'ob10-brand'); br.appendChild(h('b', '', 'Brand your deal packs'));
+      br.appendChild(h('p', '', 'Add your logo, colour and contact details once. Every deal pack uses them.'));
+      br.appendChild(onbButton('ob10-brand-go', 'Set up branding →', function () { finishOnboarding(); location.hash = '#pack-brand'; }));
       pg.body.appendChild(br);
     }
     pg.foot.appendChild(onbButton('ob10-go wide', 'Open the calculator on ' + Prefs.openingName(onbLetting), function () { finishOnboarding(true); }));
@@ -1480,18 +1357,6 @@
   function startOnboarding() {
     onbStep = 0; onbPersona = load(PERSONA, ''); onbLetting = load(LETTING, '');
     $('v-onboard').hidden = false; document.body.classList.add('locked'); renderOnboard();
-  }
-  // Report branding: the name on every client report ("Prepared by", the same saved figure the report screen edits).
-  function openBranding() {
-    openSheet(function (sheet) {
-      sheetHead(sheet, 'Report branding', 'Done');
-      sheet.appendChild(h('p', 'bs-intro', 'Your name or company goes on every client report, as “Prepared by”. Saved on this phone.'));
-      var card = h('div', 'st9-card br10'), lab = h('label', 'br10-l', 'Your name or company'), input = h('input', 'br10-in');
-      lab.setAttribute('for', 'br-by'); input.id = 'br-by'; input.setAttribute('autocomplete', 'organization'); input.placeholder = 'Your business name';
-      input.value = load(REPORT, {}).by || '';
-      input.addEventListener('input', function () { var r = load(REPORT, {}); r.by = input.value; store(REPORT, r); });
-      card.appendChild(lab); card.appendChild(input); sheet.appendChild(card);
-    });
   }
 
   // ---- My usual figures: set once, applied to every deal until a deal has its own ----------------------------
@@ -1703,7 +1568,7 @@
       b.appendChild(h('span', mark ? 'st9-mark' : 'st9-chev', mark || '›')); b.onclick = go; c.appendChild(b);
     };
     if (clientReportsOn()) {                                                              // sourcers: straight under About you
-      var src = card(); link(src, 'Report branding', 'Your name on every client report', openBranding);
+      var src = card();
       link(src, 'Deal pack', Pack.hasTemplates() ? 'Templates and branding' : 'Set up your branded pack', function () { if (Pack.hasTemplates()) Pack.openTemplates(false); else { closeSettings(); Pack.openSetup(false); } });
       src.lastChild.querySelector('b').appendChild(Pack.pro('in'));
     }
@@ -1734,15 +1599,19 @@
   $('gear').onclick = openSettings;
   $('settings-overlay').onclick = closeSettings;
 
-  // ---- routing: (empty = calculator)  #calculators  #deal  #compare  #saved  #saved-compare  #report  #usual  #c/<id> ---
+  // ---- routing: (empty = calculator)  #calculators  #saved  #saved-compare  #usual  #pack...  #c/<id> ---------------
   var curHash = null, prevHash = null, prevHashSeen = null;
   function goBack() {
     var hash = location.hash;
     // Back returns to wherever this screen was opened from (the calculator, a saved deal), not always to the Calculator.
-    if (hash !== '#report' && hash !== '#saved-compare' && prevHash != null && prevHash !== hash) { location.hash = prevHash; return; }
-    location.hash = hash === '#saved-compare' ? '#saved' : hash === '#report' ? (reportSource === 'saved' ? '#saved-compare' : '#compare') : '';
+    // Saved compare always goes back to Saved; anything else to where it was opened from (never a removed screen).
+    if (hash === '#saved-compare') { location.hash = '#saved'; return; }
+    location.hash = prevHash != null && prevHash !== hash && !GONE[prevHash] ? prevHash : '';
   }
+  // Removed 7 Oct 2026 (the deal pack replaces them): old links land somewhere useful, without a Back step to them.
+  var GONE = { '#compare': '#calculators', '#report': '#saved' };
   function route() {
+    if (GONE[location.hash]) { history.replaceState(null, '', location.pathname + location.search + GONE[location.hash]); }
     var hash = location.hash, m = /^#c\/(\w+)$/.exec(hash), c = m && stratByKey(m[1]);
     if (m && !c && (m[1] === 'hmobrr' || m[1] === 'sabrr')) { goCalc(m[1]); return; }          // old links to the BRR calculators
     if (m && !c && m[1] === 'flip') { location.hash = '#c/brr'; return; }                      // Flip is part of the primary screen now
@@ -1752,24 +1621,21 @@
     else if (navigated && (hash === '' || hash === '#calculators')) openPreferred();   // no calculator in the address: your letting type's
     var PACK_VIEWS = { '#pack': 'pack', '#pack-setup': 'packsetup', '#pack-brand': 'packbrand', '#pack-preview': 'packprev' };
     if (PACK_VIEWS[hash] && !clientReportsOn()) { location.hash = '#calculators'; return; }     // the deal pack is for sourcers
-    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#compare' ? 'compare' : hash === '#saved-compare' ? 'scompare'
-      : hash === '#usual' ? 'usual' : hash === '#report' ? 'report' : PACK_VIEWS[hash] || 'home';
+    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#saved-compare' ? 'scompare' : hash === '#usual' ? 'usual' : PACK_VIEWS[hash] || 'home';
     var packView = /^pack/.test(view), setupView = view === 'packsetup' || view === 'packbrand';
     $('v-home').hidden = view !== 'home'; $('v-saved').hidden = view !== 'saved';
-    $('v-compare').hidden = view !== 'compare'; $('v-scompare').hidden = view !== 'scompare'; $('v-report').hidden = view !== 'report'; $('v-usual').hidden = view !== 'usual'; $('v-pack').hidden = !packView;
-    if (view === 'compare') renderCompare();
+    $('v-scompare').hidden = view !== 'scompare'; $('v-usual').hidden = view !== 'usual'; $('v-pack').hidden = !packView;
     if (view === 'scompare') renderSavedCompare();
-    if (view === 'report') renderReport();
     if (view === 'usual') renderUsual();
     if (packView) Pack.render(view, $('v-pack'));
     if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || packView);  // usual figures, deal pack: the Calculator's look
     document.body.classList.toggle('pk-setup', setupView);
-    var overlayView = view === 'compare' || view === 'scompare' || view === 'report';
+    var overlayView = view === 'scompare';
     $('tabs').hidden = overlayView || setupView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
     document.body.classList.toggle('has-tabs', !overlayView && !setupView);
     document.body.classList.toggle('has-bar', view === 'home');
     $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
-    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'compare' ? 'Every strategy' : 'BRR Calculator';
+    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
     if (view === 'home') renderCalculator();

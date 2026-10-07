@@ -165,7 +165,9 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const clear = await p.evaluate(() => { const last = [...document.querySelectorAll('#v-home > *')].filter(e => e.offsetParent).pop().getBoundingClientRect().bottom; return { last, tabs: document.getElementById('tabs').getBoundingClientRect().top }; });
   ok('the last thing on the page clears the tab bar', clear.last <= clear.tabs, JSON.stringify(clear));
   await p.evaluate(() => { location.hash = '#c/recycle'; }); await p.waitForTimeout(150);
-  ok('the other calculators keep their Save / Compare bar', await p.isVisible('#sticky-bar') && (await p.locator('#sticky-bar button').count()) === 2);
+  ok('Max price keeps Save and Use as my offer in its bar', await p.isVisible('#sticky-bar') && (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.textContent).join())) === 'Save,Use as my offer');
+  await p.evaluate(() => { location.hash = '#c/btl'; }); await p.waitForTimeout(150);
+  ok('the other calculators: Save is the one full-width button (Compare all strategies is gone)', (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.className + ':' + b.textContent).join())) === 'primary:Save' && Math.abs((await p.$eval('#sticky-bar button', e => e.getBoundingClientRect().width)) - 350) < 2 && !(await p.locator('text=Compare every strategy').count()));
   // ---- your targets ----
   await p.evaluate(() => { location.hash = '#c/brr'; }); await p.waitForTimeout(200);
   await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(80);
@@ -423,31 +425,30 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
     ok('setup 10a: first launch shows step 1, two bars (one filled), three cards', await q.isVisible('#v-onboard') && (await q.textContent('.ob10-h')) === 'How will you use it?' && (await q.locator('.ob10-bars i').count()) === 2 && (await q.locator('.ob10-bars i.on').count()) === 1 && (await q.locator('.ob10-card').count()) === 3);
     await q.click('.ob10-card:has-text("I source deals")'); await q.waitForTimeout(60);
-    ok('setup 10a: the chosen card says what it switches on', (await q.$$eval('.ob10-card[aria-checked=true] .ob10-do', ds => ds.map(d => d.textContent).join('|'))) === '✓Client report button on every deal|✓Report branding at the top of Settings|✓Explanations off: just the numbers');
+    ok('setup 10a: the chosen card says what it switches on', (await q.$$eval('.ob10-card[aria-checked=true] .ob10-do', ds => ds.map(d => d.textContent).join('|'))) === '✓Deal pack button on every saved deal|✓Deal pack at the top of Settings|✓Explanations off: just the numbers');
     await q.click('.ob10-go'); await q.waitForTimeout(60);
     ok('setup 10b: step 2, both bars filled, four letting cards with "Opens on" tags', (await q.locator('.ob10-bars i.on').count()) === 2 && (await q.$$eval('.ob10-tag', ts => ts.map(t => t.textContent).join('|'))) === 'Opens on BRR → BTL|Opens on BRR → HMO|Opens on BRR → SA|Opens on BRR → BTL');
     await q.fill('#ob-price', '60000'); await q.fill('#ob-end', '225000'); await q.click('.ob10-let:has(b:text-is("By the room"))'); await q.waitForTimeout(60);
     ok('setup 10b: typed figures survive choosing a letting card', (await q.$eval('#ob-price', e => e.value)) === '60000' && (await q.$eval('.ob10-let[aria-checked=true] b', e => e.textContent)) === 'By the room');
     await q.click('.ob10-go'); await q.waitForTimeout(60);
-    ok('setup 10c: You’re set up, with what changed', (await q.textContent('.ob10-h')) === 'You’re set up' && (await q.$$eval('.ob10-sr b', bs => bs.map(x => x.textContent).join('|'))) === 'Calculator opens on BRR → HMO|Explanations off|Client reports on|Your first deal is started' && (await q.isVisible('.ob10-brand')));
-    await q.click('.ob10-brand-go'); await q.waitForTimeout(80); await q.fill('#br-by', 'Levendelis Property'); await q.click('.bs-done'); await q.waitForTimeout(60);
-    ok('setup 10c: Set up branding saves your name for client reports', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:report')).by)) === 'Levendelis Property' && await q.isVisible('#v-onboard'));
+    ok('setup 10c: You’re set up, with what changed', (await q.textContent('.ob10-h')) === 'You’re set up' && (await q.$$eval('.ob10-sr b', bs => bs.map(x => x.textContent).join('|'))) === 'Calculator opens on BRR → HMO|Explanations off|Deal packs on|Your first deal is started' && (await q.isVisible('.ob10-brand')));
+    ok('setup 10c: the branding card is for deal packs', (await q.textContent('.ob10-brand b')) === 'Brand your deal packs' && (await q.textContent('.ob10-brand-go')) === 'Set up branding →');
     ok('setup 10c: the button says where it opens', (await q.textContent('.ob10-go')) === 'Open the calculator on BRR → HMO');
     await q.click('.ob10-go'); await q.waitForTimeout(300);
     ok('setup: finishing opens the main Calculator with HMO chosen, answers saved', !(await q.isVisible('#v-onboard')) && (await q.url()).endsWith('#c/brr') && (await q.textContent('.pin-exit')) === 'BRR → HMO' && (await q.evaluate(() => [localStorage.getItem('deal-analyser:persona'), localStorage.getItem('deal-analyser:lettingType')].join())) === '"source","hmo"' && (await q.$eval('#lg-purchasePrice', e => e.value)) === '60,000');
-    // sourcer: Client report on saved deals and after saving
+    // sourcer: a Deal pack on saved deals and after saving
     q.on('dialog', d => d.type() === 'prompt' ? d.accept('Test house') : d.dismiss());
     await q.click('.pin-save'); await q.waitForTimeout(150);
-    ok('sourcer: Save asks what next: a deal pack (PRO) or a client report', (await q.$$eval('#settings-sheet .st9-link b', bs => bs.map(b => b.textContent).join('|'))) === 'Make a deal packPRO|Client report');
+    ok('sourcer: Save offers Make a deal pack (PRO) only', (await q.$$eval('#settings-sheet .st9-link b', bs => bs.map(b => b.textContent).join('|'))) === 'Make a deal packPRO');
     await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(80);
     await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
-    ok('sourcer: every saved deal has a Client report and a Deal pack button', (await q.$$eval('.rep10', bs => bs.map(b => b.textContent).join())) === 'Client report,Deal pack' && (await q.$eval('.rep10', e => e.getBoundingClientRect().height)) >= 44);
-    await q.click('.rep10:text-is("Client report")'); await q.waitForTimeout(250);
-    ok('sourcer: it opens the client report for that deal, prepared by your name', (await q.url()).endsWith('#report') && (await q.$eval('#rep-by', e => e.value)) === 'Levendelis Property');
+    ok('sourcer: every saved deal has a Deal pack button (no Client report)', (await q.$$eval('.rep10', bs => bs.map(b => b.textContent).join())) === 'Deal pack' && (await q.$eval('.rep10', e => e.getBoundingClientRect().height)) >= 44);
+    await q.click('.rep10'); await q.waitForTimeout(250);
+    ok('sourcer: it opens the deal pack for that deal (setup first, as there is no template yet)', (await q.url()).endsWith('#pack-setup'));
     // Settings > About you
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80);
-    ok('settings 10d: About you first, with both answers chosen, Report branding under it for a sourcer, no setup questions', (await q.$eval('.st9-label', e => e.textContent)) === 'About you' && (await q.$$eval('.ab10-seg button[aria-pressed=true]', bs => bs.map(x => x.textContent).join())) === 'Sourcer,HMO' && (await q.$eval('.ab10 + .st9-card .st9-link b', e => e.textContent)) === 'Report branding' && !(await q.locator('text=Redo the setup questions').count()));
-    ok('settings 10d: the notes say what each answer does', (await q.$$eval('.ab10-n', ns => ns.map(n => n.textContent).join('|'))) === 'Client report button on every deal · Report branding at the top of Settings · Explanations off: just the numbers.|Opens on BRR → HMO. Shown first: HMO BTL and R2R HMO.');
+    ok('settings 10d: About you first, with both answers chosen, Report branding under it for a sourcer, no setup questions', (await q.$eval('.st9-label', e => e.textContent)) === 'About you' && (await q.$$eval('.ab10-seg button[aria-pressed=true]', bs => bs.map(x => x.textContent).join())) === 'Sourcer,HMO' && (await q.$eval('.ab10 + .st9-card .st9-link b', e => e.textContent)) === 'Deal packPRO' && !(await q.locator('text=Report branding').count()) && !(await q.locator('text=Redo the setup questions').count()));
+    ok('settings 10d: the notes say what each answer does', (await q.$$eval('.ab10-n', ns => ns.map(n => n.textContent).join('|'))) === 'Deal pack button on every saved deal · Deal pack at the top of Settings · Explanations off: just the numbers.|Opens on BRR → HMO. Shown first: HMO BTL and R2R HMO.');
     await q.click('.st9-switch'); await q.waitForTimeout(60); const expl = await q.evaluate(() => localStorage.getItem('deal-analyser:explanations'));
     await q.click('.ab10-seg button:text-is("New")'); await q.waitForTimeout(80);
     ok('settings 10d: changing who you are never overwrites an explicit Explanations choice', (await q.evaluate(() => localStorage.getItem('deal-analyser:explanations'))) === expl && (await q.evaluate(() => localStorage.getItem('deal-analyser:persona'))) === '"new"');
@@ -456,7 +457,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('settings 10d: changing how you let does not move the open Calculator', (await q.url()).endsWith('#c/brr') && (await q.textContent('.pin-exit')) === 'BRR → HMO');
     await q.click('.bs-done'); await q.waitForTimeout(60);
     await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
-    ok('settings 10d: not a sourcer: no Client report buttons', !(await q.locator('.rep10').count()));
+    ok('settings 10d: not a sourcer: no Deal pack buttons', !(await q.locator('.rep10').count()));
     await q.click('#t-home'); await q.waitForTimeout(250);
     ok('the Calculator tab (no calculator in the address) opens where you let: BRR → SA', (await q.textContent('.pin-exit')) === 'BRR → SA');
     await q.goto(BASE + '/index.html#c/r2rhmo'); await q.waitForTimeout(250);
@@ -501,6 +502,29 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('.lg-seg button:has-text("Bridging loan")'); await q.waitForTimeout(150);
     ok('11a: with bridging, the first tile says Bridge instead', (await mort()).startsWith('Until the refinance Bridge instead Bridge interest is in its cost above|After the refinance £863'));
     ok('11a: the rate box is 44px tall', (await q.$eval('#lg-mortRate11', e => e.getBoundingClientRect().height)) >= 44);
+    await c.close();
+    // ---- Every strategy (#compare) and the old Client report (#report) removed (7 Oct 2026) ----
+    ({ c, q } = await fresh({ onboarded: true, persona: 'source', report: { by: 'Levendelis Property' }, deals: [{ id: 'a1', v: 2, calc: 'flip', view: 'brr', letting: 'btl', name: 'A', data: { endValue: 200000, purchasePrice: 100000 }, savedAt: 1 }, { id: 'b2', v: 2, calc: 'flip', view: 'brr', letting: 'btl', name: 'B', data: { endValue: 250000, purchasePrice: 140000 }, savedAt: 2 }] }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250);
+    const hl = await q.evaluate(() => history.length);
+    await q.evaluate(() => { location.hash = '#compare'; }); await q.waitForTimeout(250);
+    ok('old #compare link lands on the Calculator, replacing itself (Back cannot land on it)', (await q.url()).endsWith('#calculators') && (await q.evaluate(() => history.length)) === hl + 1 && await q.isVisible('#v-home') && !(await q.locator('#v-compare').count()));
+    await q.goBack(); await q.waitForTimeout(250);
+    ok('... and Back from there goes to where you were, not to #compare', (await q.url()).endsWith('#c/brr'));
+    await q.evaluate(() => { location.hash = '#report'; }); await q.waitForTimeout(250);
+    ok('old #report link lands on Saved', (await q.url()).endsWith('#saved') && await q.isVisible('#v-saved') && !(await q.locator('#v-report').count()));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#t-saved'); await q.waitForTimeout(200); await q.goBack(); await q.waitForTimeout(250);
+    ok('calculator → Saved → Back ends on the calculator', (await q.url()).endsWith('#c/brr') && await q.isVisible('#v-home'));
+    await q.click('#t-saved'); await q.waitForTimeout(200);
+    await q.$$eval('.deal input[type=checkbox]', cs => cs.forEach(c => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }));
+    await q.waitForTimeout(80); await q.click('#v-saved .btns .primary'); await q.waitForTimeout(250);
+    ok('Saved → compare saved deals: Download PDF only, no Client report', (await q.url()).endsWith('#saved-compare') && (await q.$$eval('#v-scompare .btns button', bs => bs.map(b => b.textContent).join())) === 'Download PDF');
+    await q.click('#back'); await q.waitForTimeout(250);
+    ok('... and Back ends on Saved', (await q.url()).endsWith('#saved'));
+    await q.goto(BASE + '/index.html#saved-compare'); await q.reload(); await q.waitForTimeout(250); await q.click('#back'); await q.waitForTimeout(250);
+    ok('... even when the comparison was opened straight from its address', (await q.url()).endsWith('#saved'));
+    await q.goto(BASE + '/index.html#pack-brand'); await q.waitForTimeout(250);
+    ok('the old Report branding name carries into the deal pack’s business name', (await q.inputValue('.pk-field:has(span:text-is("Business name")) input')) === 'Levendelis Property');
     await c.close();
     // ---- Deal pack (design 12a / 12b / 12d / 14c, 7 Oct 2026; sourcers only) ----
     ({ c, q } = await fresh({ onboarded: true, persona: 'source', deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } }));

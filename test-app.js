@@ -14,9 +14,9 @@ const tabs = [...html.matchAll(/role="tab" id="([^"]+)"/g)].map(m => m[1]);
 ok('two tabs: Calculator then Saved', tabs.join(',') === 't-home,t-saved', tabs.join(','));
 ok('the tab bar has two columns, one per tab', /\.tabs\{[^}]*grid-template-columns:repeat\(2,1fr\)/.test(html));
 ok('the Calculator tab starts selected and its screen starts shown', /id="t-home" aria-selected="true"/.test(html) && /<div id="v-home"><\/div>/.test(html));
-ok('an empty address opens the Calculator', /: hash === '#report' \? 'report' : PACK_VIEWS\[hash\] \|\| 'home';/.test(app));
+ok('an empty address opens the Calculator', /: PACK_VIEWS\[hash\] \|\| 'home';/.test(app));
 ok('the page title is BRR Calculator', /<title>BRR Calculator<\/title>/.test(html) && /<h1 id="title">BRR Calculator<\/h1>/.test(html));
-ok('the header falls back to BRR Calculator', /: view === 'compare' \? 'Every strategy' : 'BRR Calculator';/.test(app));
+ok('the header falls back to BRR Calculator', /view === 'scompare' \? 'Compare saved deals' : 'BRR Calculator';/.test(app));
 ok('the manifest names the app BRR Calculator', manifest.name === 'BRR Calculator' && manifest.short_name && manifest.short_name.length <= 12 && manifest.display === 'standalone');
 ok('the manifest icons exist', manifest.icons.every(i => fs.existsSync(__dirname + '/' + i.src)));
 // A PNG's width and height sit at bytes 16-23; an install or store listing rejects an icon whose size is wrong.

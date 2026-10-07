@@ -25,11 +25,11 @@
     var l = letOf(letting);
     return l ? 'Opens on ' + l.short + '. Shown first: ' + l.first + '.' : 'Opens on BRR → BTL. Every strategy, in the usual order.';
   }
-  // Who you are -> what it switches on. Only a sourcer gets client reports (and branding near the top of Settings).
+  // Who you are -> what it switches on. Only a sourcer gets the deal pack (a button on every saved deal, and in Settings).
   var PERSONA_DOES = {
     'new': ['Explanations switched on next to every result', 'Targets and verdicts explained in words'],
     invest: ['Explanations off: just the numbers', 'Verdict strip stays collapsed'],
-    source: ['Client report button on every deal', 'Report branding at the top of Settings', 'Explanations off: just the numbers']
+    source: ['Deal pack button on every saved deal', 'Deal pack at the top of Settings', 'Explanations off: just the numbers']
   };
   function does(persona) { return (Object.prototype.hasOwnProperty.call(PERSONA_DOES, persona) ? PERSONA_DOES[persona] : PERSONA_DOES.invest).slice(); }
   function clientReports(persona) { return persona === 'source'; }
@@ -40,7 +40,7 @@
       : { ok: false, title: 'Calculator opens on BRR → BTL', sub: 'Every strategy, in the usual order.' });
     out.push(explanations ? { ok: true, title: 'Explanations on', sub: 'A plain-English line next to each result.' }
       : { ok: false, title: 'Explanations off', sub: 'Just the numbers. Switch on in Settings.' });
-    if (clientReports(persona)) out.push({ ok: true, title: 'Client reports on', sub: 'A Client report button on every saved deal.' });
+    if (clientReports(persona)) out.push({ ok: true, title: 'Deal packs on', sub: 'A Deal pack button on every saved deal.' });
     var p = figs && Number(figs.price) > 0 ? figs.price : null, e = figs && Number(figs.end) > 0 ? figs.end : null;
     out.push(p || e ? { ok: true, title: 'Your first deal is started', sub: [p && 'Price ' + g(p), e && 'end value ' + g(e)].filter(Boolean).join(', ') + '.' }
       : { ok: false, title: 'Using the example deal', sub: 'Type your own figures on the calculator.' });
