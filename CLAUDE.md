@@ -214,6 +214,13 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
   £ / %, the example as a faint italic placeholder), "Clear my usual figures" as the outlined pill (lg-back) and the note.
   Same fields, same saving (deal-analyser:usual). test-browser.js checks the look, 44px boxes, saving and Clear.
 
+## Settings in the Calculator's look (7 Oct 2026, Ashley)
+- renderSettings draws the settings sheet as a big-sheet like Your targets (class s6): grab, "Settings" with a Done pill
+  (sheetHead), then three groups of rounded rows (s6-group on the page colour, dashed dividers): Appearance (Dark /
+  Light / Match my phone with swatch and radio; Explanations as a whole-row switch, role=switch), Your figures (My usual
+  figures, Your targets with the summary, Stamp duty with the basis), About (Privacy policy, Redo the setup questions).
+  Link rows end in a mint ›. Geist only, every row 44px+. test-browser.js checks the look and each row works.
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
   named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).

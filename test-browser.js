@@ -169,8 +169,8 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.reload(); await p.waitForTimeout(300);
   ok('the targets are still there after reopening the app', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":30,"monthly":400,"roi":50,"payback":6}');
   await p.click('#gear'); await p.waitForTimeout(60);
-  ok('Settings has Your targets (with the summary), Stamp duty and Privacy policy', (await p.locator('#settings-sheet .pick').allTextContents()).join('|').includes('Your targets30% flip · £400/mo · 50% ROI · 6 mo back'));
-  await p.click('#settings-sheet .pick:has-text("Your targets")'); await p.waitForTimeout(60);
+  ok('Settings has Your targets (with the summary), Stamp duty and Privacy policy', (await p.locator('#settings-sheet .s6-link').allTextContents()).join('|').includes('Your targets30% flip · £400/mo · 50% ROI · 6 mo back'));
+  await p.click('#settings-sheet .s6-link:has-text("Your targets")'); await p.waitForTimeout(60);
   await p.click('.tg-back'); await p.waitForTimeout(60);
   ok('Back to the starting targets', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":25,"monthly":500,"roi":50,"payback":6}' && !(await p.isVisible('.tg-back')));
   await p.click('#settings-overlay', { position: { x: 20, y: 20 } }); await p.waitForTimeout(60);
@@ -213,7 +213,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const opens = {};
   await p.click('.vs-lab'); await p.click('.vs-link'); await p.waitForTimeout(60); opens.strip = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
   await p.evaluate(() => scrollTo(0, 1e6)); await p.click('.legal-links button:has-text("Your targets")'); await p.waitForTimeout(60); opens.footer = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
-  await p.evaluate(() => scrollTo(0, 0)); await p.click('#gear'); await p.click('#settings-sheet .pick:has-text("Your targets")'); await p.waitForTimeout(60); opens.settings = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
+  await p.evaluate(() => scrollTo(0, 0)); await p.click('#gear'); await p.click('#settings-sheet .s6-link:has-text("Your targets")'); await p.waitForTimeout(60); opens.settings = await p.isVisible('.big-sheet .tg-row'); await p.click('.bs-done');
   ok('the targets sheet opens from "Edit targets →", the footer and Settings', opens.strip && opens.footer && opens.settings, JSON.stringify(opens));
 
   // ---- design 7a: the order of the deal and "Any other costs" ----
@@ -354,6 +354,25 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('usual figures: Clear empties them and shows the examples again', (await q.$eval('#u-legal', e => e.value)) === '' && (await q.$eval('#u-legal', e => e.placeholder)) !== '' && (await q.evaluate(() => localStorage.getItem('deal-analyser:usual'))) === '{}');
     ok('usual figures: no sideways scroll', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
     await c5.close();
+  }
+  // ---- Settings in the Calculator's look ----
+  {
+    const c6 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+    await c6.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    const q = await c6.newPage(); q.on('pageerror', e => errs.push(e.message));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(100);
+    const look = await q.evaluate(() => { const s = document.getElementById('settings-sheet'); return { big: s.classList.contains('big-sheet'), title: s.querySelector('.bs-head h2').textContent, done: !!s.querySelector('.bs-done'), heads: [...s.querySelectorAll('.s6-h')].map(e => e.textContent).join('|'), groups: s.querySelectorAll('.s6-group').length, links: [...s.querySelectorAll('.s6-link b')].map(e => e.textContent).join('|'), fonts: [...new Set([...s.querySelectorAll('*')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join(), small: [...s.querySelectorAll('button')].filter(e => e.offsetParent && e.getBoundingClientRect().height < 44).length }; });
+    ok('Settings: drawn like the targets sheet (heading and Done, three groups of rounded rows, one font)', look.big && look.title === 'Settings' && look.done && look.heads === 'Appearance|Your figures|About' && look.groups === 3 && look.links === 'My usual figures|Your targets|Stamp duty|Privacy policy|Redo the setup questions' && look.fonts === 'Geist' && look.small === 0, JSON.stringify(look));
+    const expRow = () => q.$eval('.s6-row:has(b:text-is("Explanations"))', e => e.getAttribute('aria-checked'));
+    const before = await expRow(); await q.click('.s6-row:has(b:text-is("Explanations"))'); await q.waitForTimeout(60);
+    ok('Settings: tapping the Explanations row switches it (and saves it)', (await expRow()) === String(before !== 'true') && String(await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:explanations')))) === (await expRow()), before + ' -> ' + (await expRow()));
+    await q.click('.theme-row:has(b:text-is("Light"))'); await q.waitForTimeout(80);
+    ok('Settings: choosing Light switches the theme and ticks it', (await q.evaluate(() => document.documentElement.getAttribute('data-theme'))) === 'light' && (await q.$eval('.theme-row:has(b:text-is("Light"))', e => e.getAttribute('aria-pressed'))) === 'true');
+    await q.click('.s6-link:has(b:text-is("My usual figures"))'); await q.waitForTimeout(150);
+    ok('Settings: My usual figures opens its screen and closes the sheet', (await q.url()).endsWith('#usual') && !(await q.isVisible('#settings-sheet')));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80); await q.click('.bs-done'); await q.waitForTimeout(60);
+    ok('Settings: Done closes it', !(await q.isVisible('#settings-sheet')));
+    await c6.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

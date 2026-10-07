@@ -214,6 +214,18 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .u6-val input:focus{outline:none;border-bottom-color:var(--mint)}
 .u6-clear{margin-top:16px}
 .u6-note{font-size:12px;line-height:1.4;color:var(--faint);margin:10px 4px 0}
+/* Settings in the Calculator look (7 Oct 2026): like the Your targets sheet */
+.s6{font-family:var(--font-ui)}
+.s6-h{font:700 14px var(--font-ui);color:var(--ink);margin:18px 2px 8px}
+.s6-group{background:var(--bg);border-radius:18px;padding:0 14px}
+.s6-row{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:10px 0;border:0;border-top:1px dashed var(--dash);border-radius:0;background:none;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.s6-row:first-child{border-top:0}
+.s6-txt{flex:1;min-width:0}.s6-txt b{display:block;font:600 14.5px var(--font-ui);color:var(--ink)}.s6-txt small{display:block;font-size:12px;line-height:1.35;color:var(--faint);margin-top:2px}
+.s6-chev{flex:none;font:500 22px/1 var(--font-ui);color:var(--mint)}
+.s6 .swatch{width:32px;height:32px;border-radius:10px}
+.s6 .switch{display:block;flex:none}
+.s6 .theme-row{padding:10px 0}
+.s6 .s6-row[aria-checked=true] .switch{background:var(--mint)}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}

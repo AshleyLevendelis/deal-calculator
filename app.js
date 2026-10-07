@@ -1530,35 +1530,40 @@
 
   // ---- Settings sheet: theme, explanations, replay onboarding --------------------------------------------
   function closeSettings() { $('settings-overlay').hidden = true; $('settings-sheet').hidden = true; }
+  // Drawn like the Your targets sheet (design 6c look): a bold heading with Done, then grouped rounded rows.
   function renderSettings() {
-    var sheet = $('settings-sheet'); sheet.innerHTML = '';
-    var close = h('button', 'sheet-close', '×'); close.setAttribute('aria-label', 'Close'); close.onclick = closeSettings; sheet.appendChild(close);
-    sheet.appendChild(h('div', 'sheet-head')).appendChild(h('div', 'grab'));
-    sheet.appendChild(h('h2', '', 'Settings'));
-    var THEMES = [['dark', 'Dark', 'Ink on warm paper.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']];
+    var sheet = $('settings-sheet'); sheet.innerHTML = ''; sheet.className = 'sheet big-sheet s6';
+    sheet.appendChild(h('div', 'grab')); sheetHead(sheet, 'Settings', 'Done');
+    var group = function (title) { sheet.appendChild(h('p', 's6-h', title)); var g = h('div', 's6-group'); sheet.appendChild(g); return g; };
+    var look = group('Appearance');
+    var THEMES = [['dark', 'Dark', 'Deep green with light text.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']];
     THEMES.forEach(function (t) {
-      var row = h('button', 'theme-row'); row.setAttribute('aria-pressed', theme() === t[0]);
+      var row = h('button', 's6-row theme-row'); row.type = 'button'; row.setAttribute('aria-pressed', theme() === t[0]);
       row.appendChild(h('span', 'swatch sw-' + t[0]));
-      var tt = h('div', 'tt'); tt.appendChild(h('b', '', t[1])); tt.appendChild(h('small', '', t[2])); row.appendChild(tt);
+      var tt = h('span', 's6-txt'); tt.appendChild(h('b', '', t[1])); tt.appendChild(h('small', '', t[2])); row.appendChild(tt);
       var radio = h('span', 'radio2'); radio.appendChild(h('i')); row.appendChild(radio);
       row.onclick = function () { store(THEME, t[0]); applyTheme(); renderSettings(); };
-      sheet.appendChild(row);
+      look.appendChild(row);
     });
-    var expRow = h('div', 'setting-row'), expLab = h('div'); expLab.appendChild(h('b', '', 'Explanations')); expLab.appendChild(h('div', 'note', 'Plain-English sentences next to results.'));
-    var sw = h('button', 'switch'); sw.setAttribute('aria-pressed', explanationsOn()); sw.setAttribute('aria-label', 'Explanations');
-    sw.onclick = function () { store(EXPLAIN, !explanationsOn()); renderSettings(); if (current) update(); };
-    expRow.appendChild(expLab); expRow.appendChild(sw); sheet.appendChild(expRow);
-    var usualRow = h('div', 'setting-row'), usualBtn = h('button', 'pick', 'My usual figures');
-    usualBtn.style.width = '100%'; usualBtn.onclick = function () { closeSettings(); location.hash = '#usual'; }; usualRow.appendChild(usualBtn); sheet.appendChild(usualRow);
-    [['Your targets', Calc.targetsSummary(), openTargets], ['Stamp duty', Calc.taxLabel().tax + ' · ' + Calc.taxLabel().short, function () { closeSettings(); taxOpen = true; location.hash = '#calculators'; redraw(); }],
-      ['Privacy policy', 'What stays on your phone', openPrivacy]].forEach(function (r) {
-      var row = h('div', 'setting-row'), b = h('button', 'pick'); b.appendChild(document.createTextNode(r[0])); b.appendChild(h('small', '', r[1]));
-      b.style.width = '100%'; b.onclick = r[2]; row.appendChild(b); sheet.appendChild(row);
-    });
-    var replayRow = h('div', 'setting-row'), replay = h('button', 'pick', 'Redo the setup questions');
-    replay.style.width = '100%'; replay.onclick = startOnboarding; replayRow.appendChild(replay); sheet.appendChild(replayRow);
+    var exp = h('button', 's6-row'), et = h('span', 's6-txt'), sw = h('span', 'switch'); exp.type = 'button';
+    et.appendChild(h('b', '', 'Explanations')); et.appendChild(h('small', '', 'Plain-English sentences next to results.'));
+    exp.setAttribute('role', 'switch'); exp.setAttribute('aria-checked', explanationsOn()); sw.setAttribute('aria-pressed', explanationsOn());
+    exp.onclick = function () { store(EXPLAIN, !explanationsOn()); renderSettings(); if (current) update(); };
+    exp.appendChild(et); exp.appendChild(sw); look.appendChild(exp);
+    var link = function (g, title, sub, go) {
+      var b = h('button', 's6-row s6-link'), tt = h('span', 's6-txt'); b.type = 'button';
+      tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt); b.appendChild(h('span', 's6-chev', '›'));
+      b.onclick = go; g.appendChild(b);
+    };
+    var yours = group('Your figures');
+    link(yours, 'My usual figures', 'The figures every deal starts with', function () { closeSettings(); location.hash = '#usual'; });
+    link(yours, 'Your targets', Calc.targetsSummary(), openTargets);
+    link(yours, 'Stamp duty', Calc.taxLabel().tax + ' · ' + Calc.taxLabel().short, function () { closeSettings(); taxOpen = true; location.hash = '#calculators'; redraw(); });
+    var about = group('About');
+    link(about, 'Privacy policy', 'What stays on your phone', openPrivacy);
+    link(about, 'Redo the setup questions', 'How you use the app, and your starting figures', startOnboarding);
   }
-  function openSettings() { $('settings-sheet').className = 'sheet'; renderSettings(); $('settings-overlay').hidden = false; $('settings-sheet').hidden = false; }
+  function openSettings() { renderSettings(); $('settings-overlay').hidden = false; $('settings-sheet').hidden = false; }
   $('gear').onclick = openSettings;
   $('settings-overlay').onclick = closeSettings;
 
