@@ -169,7 +169,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.reload(); await p.waitForTimeout(300);
   ok('the targets are still there after reopening the app', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":30,"monthly":400,"roi":50,"payback":6}');
   await p.click('#gear'); await p.waitForTimeout(60);
-  ok('Settings has Your targets and Privacy policy (design 9a)', (await p.locator('#settings-sheet .st9-link b').allTextContents()).join('|') === 'Your targets|My usual figures|Redo the setup questions|Privacy policy');
+  ok('Settings has Your targets and Privacy policy (design 9a)', (await p.locator('#settings-sheet .st9-link b').allTextContents()).join('|') === 'Your targets|My usual figures|Privacy policy');
   await p.click('#settings-sheet .st9-link:has-text("Your targets")'); await p.waitForTimeout(60);
   await p.click('.tg-back'); await p.waitForTimeout(60);
   ok('Back to the starting targets', JSON.stringify(await p.evaluate(() => Calc.targets())) === '{"flip":25,"monthly":500,"roi":50,"payback":6}' && !(await p.isVisible('.tg-back')));
@@ -379,9 +379,9 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     const q = await c6.newPage(); q.on('pageerror', e => errs.push(e.message));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(100);
     const look = await q.evaluate(() => { const s = document.getElementById('settings-sheet'); return { title: s.querySelector('.bs-head h2').textContent, done: !!s.querySelector('.bs-done'), close: !!s.querySelector('.sheet-close'), labels: [...s.querySelectorAll('.st9-label')].map(e => e.textContent).join('|'), cards: s.querySelectorAll('.st9-card').length, themes: [...s.querySelectorAll('.st9-theme small')].map(e => e.textContent).join('|'), links: [...s.querySelectorAll('.st9-link')].map(e => e.innerText.replace(/\s+/g, ' ')).join('|'), foot: s.querySelector('.st9-foot').textContent, fonts: [...new Set([...s.querySelectorAll('*')].map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join() }; });
-    ok('settings 9a: title and Done, no ×, Appearance / Your figures labels, four cards, one font', look.title === 'Settings' && look.done && !look.close && look.labels === 'Appearance|Your figures' && look.cards === 4 && look.fonts === 'Geist', JSON.stringify(look));
+    ok('settings 9a + 10d: title and Done, no ×, About you / Appearance / Your figures labels, five cards, one font', look.title === 'Settings' && look.done && !look.close && look.labels === 'About you|Appearance|Your figures' && look.cards === 5 && look.fonts === 'Geist', JSON.stringify(look));
     ok('settings 9a: the theme subtitles', look.themes === 'Deep green, light ink.|Cream paper, dark ink.|Follows your phone’s setting.', look.themes);
-    ok('settings 9a: the link rows and the footer', look.links === 'Your targets Monthly profit, ROI, money back, flip margin ›|My usual figures Using the spreadsheet examples ›|Redo the setup questions ↺|Privacy policy ›' && look.foot === 'Estimates only, not financial, tax or legal advice. Your figures, targets and saved deals stay on this phone.', look.links);
+    ok('settings 9a: the link rows and the footer', look.links === 'Your targets Monthly profit, ROI, money back, flip margin ›|My usual figures Using the spreadsheet examples ›|Privacy policy ›' && look.foot === 'Estimates only, not financial, tax or legal advice. Your figures, targets and saved deals stay on this phone.', look.links);
     const exp = () => q.$eval('.st9-switch', e => e.getAttribute('aria-checked'));
     const before = await exp(); await q.click('.st9-switch'); await q.waitForTimeout(60);
     ok('settings 9a: the Explanations switch flips and is saved', (await exp()) === String(before !== 'true') && String(await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:explanations')))) === (await exp()));
@@ -397,6 +397,81 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('#gear'); await q.waitForTimeout(80); await q.click('#settings-overlay', { position: { x: 20, y: 20 } }); await q.waitForTimeout(60);
     ok('settings 9a: tapping the dimmed page closes it', !(await q.isVisible('#settings-sheet')));
     await c6.close();
+  }
+  // ---- Setup answers that count (design 10) ----
+  {
+    const fresh = async (seed) => { const c = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await c.addInitScript(sd => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); Object.keys(sd).forEach(k => localStorage.setItem('deal-analyser:' + k, JSON.stringify(sd[k]))); }, seed || {});
+      const q = await c.newPage(); q.on('pageerror', e => errs.push(e.message)); return { c, q }; };
+    // the whole setup, as a sourcer who lets by the room
+    let { c, q } = await fresh();
+    await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
+    ok('setup 10a: first launch shows step 1, two bars (one filled), three cards', await q.isVisible('#v-onboard') && (await q.textContent('.ob10-h')) === 'How will you use it?' && (await q.locator('.ob10-bars i').count()) === 2 && (await q.locator('.ob10-bars i.on').count()) === 1 && (await q.locator('.ob10-card').count()) === 3);
+    await q.click('.ob10-card:has-text("I source deals")'); await q.waitForTimeout(60);
+    ok('setup 10a: the chosen card says what it switches on', (await q.$$eval('.ob10-card[aria-checked=true] .ob10-do', ds => ds.map(d => d.textContent).join('|'))) === '✓Client report button on every deal|✓Report branding at the top of Settings|✓Explanations off: just the numbers');
+    await q.click('.ob10-go'); await q.waitForTimeout(60);
+    ok('setup 10b: step 2, both bars filled, four letting cards with "Opens on" tags', (await q.locator('.ob10-bars i.on').count()) === 2 && (await q.$$eval('.ob10-tag', ts => ts.map(t => t.textContent).join('|'))) === 'Opens on BRR → BTL|Opens on BRR → HMO|Opens on BRR → SA|Opens on BRR → BTL');
+    await q.fill('#ob-price', '60000'); await q.fill('#ob-end', '225000'); await q.click('.ob10-let:has(b:text-is("By the room"))'); await q.waitForTimeout(60);
+    ok('setup 10b: typed figures survive choosing a letting card', (await q.$eval('#ob-price', e => e.value)) === '60000' && (await q.$eval('.ob10-let[aria-checked=true] b', e => e.textContent)) === 'By the room');
+    await q.click('.ob10-go'); await q.waitForTimeout(60);
+    ok('setup 10c: You’re set up, with what changed', (await q.textContent('.ob10-h')) === 'You’re set up' && (await q.$$eval('.ob10-sr b', bs => bs.map(x => x.textContent).join('|'))) === 'Calculator opens on BRR → HMO|Explanations off|Client reports on|Your first deal is started' && (await q.isVisible('.ob10-brand')));
+    await q.click('.ob10-brand-go'); await q.waitForTimeout(80); await q.fill('#br-by', 'Levendelis Property'); await q.click('.bs-done'); await q.waitForTimeout(60);
+    ok('setup 10c: Set up branding saves your name for client reports', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:report')).by)) === 'Levendelis Property' && await q.isVisible('#v-onboard'));
+    ok('setup 10c: the button says where it opens', (await q.textContent('.ob10-go')) === 'Open the calculator on BRR → HMO');
+    await q.click('.ob10-go'); await q.waitForTimeout(300);
+    ok('setup: finishing opens the main Calculator with HMO chosen, answers saved', !(await q.isVisible('#v-onboard')) && (await q.url()).endsWith('#c/brr') && (await q.textContent('.pin-exit')) === 'BRR → HMO' && (await q.evaluate(() => [localStorage.getItem('deal-analyser:persona'), localStorage.getItem('deal-analyser:lettingType')].join())) === '"source","hmo"' && (await q.$eval('#lg-purchasePrice', e => e.value)) === '60,000');
+    // sourcer: Client report on saved deals and after saving
+    q.on('dialog', d => d.type() === 'prompt' ? d.accept('Test house') : d.dismiss());
+    await q.click('.pin-save'); await q.waitForTimeout(150);
+    await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
+    ok('sourcer: every saved deal has a Client report button', (await q.locator('.rep10').count()) === 1 && (await q.$eval('.rep10', e => e.getBoundingClientRect().height)) >= 44);
+    await q.click('.rep10'); await q.waitForTimeout(250);
+    ok('sourcer: it opens the client report for that deal, prepared by your name', (await q.url()).endsWith('#report') && (await q.$eval('#rep-by', e => e.value)) === 'Levendelis Property');
+    // Settings > About you
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80);
+    ok('settings 10d: About you first, with both answers chosen, Report branding under it for a sourcer, no setup questions', (await q.$eval('.st9-label', e => e.textContent)) === 'About you' && (await q.$$eval('.ab10-seg button[aria-pressed=true]', bs => bs.map(x => x.textContent).join())) === 'Sourcer,HMO' && (await q.$eval('.ab10 + .st9-card .st9-link b', e => e.textContent)) === 'Report branding' && !(await q.locator('text=Redo the setup questions').count()));
+    ok('settings 10d: the notes say what each answer does', (await q.$$eval('.ab10-n', ns => ns.map(n => n.textContent).join('|'))) === 'Client report button on every deal · Report branding at the top of Settings · Explanations off: just the numbers.|Opens on BRR → HMO. Shown first: HMO BTL and R2R HMO.');
+    await q.click('.st9-switch'); await q.waitForTimeout(60); const expl = await q.evaluate(() => localStorage.getItem('deal-analyser:explanations'));
+    await q.click('.ab10-seg button:text-is("New")'); await q.waitForTimeout(80);
+    ok('settings 10d: changing who you are never overwrites an explicit Explanations choice', (await q.evaluate(() => localStorage.getItem('deal-analyser:explanations'))) === expl && (await q.evaluate(() => localStorage.getItem('deal-analyser:persona'))) === '"new"');
+    ok('settings 10d: not a sourcer any more: no Report branding row', !(await q.locator('.st9-link:has(b:text-is("Report branding"))').count()));
+    await q.click('.ab10-seg button:text-is("SA")'); await q.waitForTimeout(150);
+    ok('settings 10d: changing how you let does not move the open Calculator', (await q.url()).endsWith('#c/brr') && (await q.textContent('.pin-exit')) === 'BRR → HMO');
+    await q.click('.bs-done'); await q.waitForTimeout(60);
+    await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
+    ok('settings 10d: not a sourcer: no Client report buttons', !(await q.locator('.rep10').count()));
+    await q.click('#t-home'); await q.waitForTimeout(250);
+    ok('the Calculator tab (no calculator in the address) opens where you let: BRR → SA', (await q.textContent('.pin-exit')) === 'BRR → SA');
+    await q.goto(BASE + '/index.html#c/r2rhmo'); await q.waitForTimeout(250);
+    ok('an address that names a calculator wins', (await q.textContent('.pin-exit')) === 'R2R HMO');
+    ok('rent to rent: R2R SA comes first for nightly lets', (await q.$$eval('.r2r-tile .nm', ns => ns.map(n => n.textContent).join())) === 'R2R SA,R2R HMO');
+    await q.goto(BASE + '/index.html#c/btl'); await q.waitForTimeout(250);
+    if (await q.locator('.strat-pill.more').count()) { await q.click('.strat-pill.more').catch(() => {}); await q.waitForTimeout(80); }
+    ok('the strategy list puts SA BTL and R2R SA first', (await q.$$eval('.strat-pill:not(.more)', ps => ps.slice(0, 2).map(p => p.textContent).join())) === 'SA BTL,R2R SA', await q.$$eval('.strat-pill:not(.more)', ps => ps.map(p => p.textContent).join()));
+    await c.close();
+    // Skip: an investor, straight in, where the app opens normally
+    ({ c, q } = await fresh());
+    await q.goto(BASE + '/index.html'); await q.waitForTimeout(300); await q.click('.ob10-skip'); await q.waitForTimeout(250);
+    ok('setup: Skip makes you an investor and goes straight in', !(await q.isVisible('#v-onboard')) && (await q.evaluate(() => localStorage.getItem('deal-analyser:persona'))) === '"invest"' && (await q.evaluate(() => localStorage.getItem('deal-analyser:explanations'))) === 'false' && (await q.textContent('.pin-exit')) === 'Flip', await q.evaluate(() => [localStorage.getItem('deal-analyser:persona'), localStorage.getItem('deal-analyser:explanations'), document.querySelector('.pin-exit') && document.querySelector('.pin-exit').textContent, document.getElementById('v-onboard').hidden].join(' ')));
+    await c.close();
+    ({ c, q } = await fresh());
+    await q.goto(BASE + '/index.html'); await q.waitForTimeout(300); await q.click('.ob10-card:has-text("I invest")'); await q.click('.ob10-go'); await q.click('.ob10-let:has(b:text-is("Not sure yet"))'); await q.click('.ob10-go'); await q.waitForTimeout(60);
+    const ctaText = await q.textContent('.ob10-go'); await q.click('.ob10-go'); await q.waitForTimeout(300);
+    ok('setup, not sure: "Open the calculator on BRR → BTL" does just that', ctaText === 'Open the calculator on BRR → BTL' && (await q.textContent('.pin-exit')) === 'BRR → BTL');
+    await c.close();
+    // opening with and without a calculator in the address, when setup is done
+    ({ c, q } = await fresh({ onboarded: true, lettingType: 'hmo', brrlet: 'none' }));
+    await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
+    ok('no calculator in the address: opens on BRR → HMO', (await q.textContent('.pin-exit')) === 'BRR → HMO');
+    await c.close();
+    ({ c, q } = await fresh({ onboarded: true, lettingType: 'hmo', brrlet: 'none' }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    ok('an explicit #c/brr keeps the way out you were on (Flip)', (await q.textContent('.pin-exit')) === 'Flip');
+    await c.close();
+    ({ c, q } = await fresh({ onboarded: true, lettingType: 'unsure', brrlet: 'none' }));
+    await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
+    ok('not sure: today’s start (where you were)', (await q.textContent('.pin-exit')) === 'Flip');
+    await c.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));
   await b.close(); server.close(); console.log(fails ? fails + ' failed' : 'all browser checks passed'); process.exit(fails ? 1 : 0); });

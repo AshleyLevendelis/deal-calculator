@@ -252,6 +252,71 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .u9-reset{position:relative;border:0;background:none;padding:0;min-height:0;font:500 12px var(--font-ui);color:var(--mute)}
 .u9-reset::after{content:"";position:absolute;inset:-12px -6px}
 .u9-note{padding:8px 4px 0;margin:0;font-size:12px;line-height:1.45;color:var(--faint)}
+/* ---- Setup (design 10, 7 Oct 2026): the calculator's cards, pills and tokens ---- */
+.ob10{min-height:100%;display:flex;flex-direction:column;padding-top:calc(40px + env(safe-area-inset-top));font-family:var(--font-ui)}
+.ob10-bars{display:flex;gap:6px;margin:0 0 22px}
+.ob10-bars i{width:28px;height:5px;border-radius:5px;background:var(--dash)}
+.ob10-bars i.on{background:var(--mint)}
+.ob10-h{font:700 30px/1.1 var(--font-ui);letter-spacing:-.03em;margin:0;color:var(--ink)}
+.ob10-lede{font-size:14px;line-height:1.45;color:var(--mute);margin:8px 0 18px}
+.ob10-body{flex:1;padding-bottom:16px}
+.ob10-list{display:flex;flex-direction:column;gap:10px}
+.ob10-card{display:block;width:100%;text-align:left;background:var(--card);border:2px solid transparent;border-radius:24px;padding:14px 16px;color:var(--ink);font:inherit}
+.ob10-card[aria-checked=true]{border-color:var(--mint)}
+.ob10-card[aria-checked=true] .st9-radio{border-color:var(--mint)}.ob10-card[aria-checked=true] .st9-radio i{background:var(--mint)}
+.ob10-top{display:flex;align-items:center;gap:12px}
+.ob10 .tt{flex:1;min-width:0}
+.ob10 .tt b{display:block;font:700 16px var(--font-ui)}
+.ob10 .tt small{display:block;font-size:12.5px;line-height:1.35;color:var(--faint);margin-top:1px}
+.ob10-does{display:flex;flex-direction:column;gap:6px;margin:12px 0 0 36px;padding-top:10px;border-top:1px dashed var(--dash)}
+.ob10-do{display:flex;gap:8px;font-size:12.5px;line-height:1.4;color:var(--ink)}
+.ob10-do i{flex:none;font-style:normal;font-weight:700;color:var(--mint)}
+.ob10-figs{background:var(--card);border-radius:24px;padding:4px 16px}
+.ob10-fig{display:block;padding:12px 0 10px}
+.ob10-fig+.ob10-fig{border-top:1px dashed var(--dash)}
+.ob10-fl{display:block;font:600 13px var(--font-ui);color:var(--mute)}
+.ob10-num{display:flex;align-items:baseline;gap:2px;margin-top:2px}
+.ob10-num .cur{font:700 22px var(--font-ui);color:var(--faint)}
+.ob10-num input{flex:1;min-width:0;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;padding:0 0 2px;color:var(--ink);font:700 28px/1.1 var(--font-ui);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.ob10-num input::placeholder{color:var(--faint);font-style:italic;font-weight:600}
+.ob10-q{font:700 16px var(--font-ui);letter-spacing:0;text-transform:none;color:var(--ink);margin:20px 4px 4px}
+.ob10-qn{font-size:12.5px;color:var(--faint);margin:0 4px 10px}
+.ob10-lets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ob10-let{text-align:left;background:var(--card);border:2px solid transparent;border-radius:20px;padding:12px 14px;min-height:84px;min-width:0;color:var(--ink);font:inherit}
+.ob10-let[aria-checked=true]{border-color:var(--mint)}
+.ob10-let b{display:block;font:700 15px var(--font-ui)}
+.ob10-let small{display:block;font-size:11.5px;line-height:1.3;color:var(--faint);margin-top:2px}
+.ob10-tag{display:inline-block;margin-top:8px;font:700 11px var(--font-ui);padding:3px 8px;border-radius:999px;background:var(--bg);color:var(--faint)}
+.ob10-let[aria-checked=true] .ob10-tag{background:var(--mint);color:var(--mintInk)}
+.ob10-sum{background:var(--card);border-radius:24px;padding:4px 16px}
+.ob10-sr{display:flex;gap:12px;align-items:flex-start;padding:12px 0}
+.ob10-sr+.ob10-sr{border-top:1px dashed var(--dash)}
+.ob10-sr .tt b{font-size:14.5px}.ob10-sr .tt small{font-size:12px;line-height:1.4}
+.ob10-mark{flex:none;width:30px;height:30px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font:700 13px var(--font-ui);color:var(--faint)}
+.ob10-mark.ok{color:var(--mint)}
+.ob10-brand{margin-top:12px;background:var(--card);border-radius:24px;padding:14px 16px;border:1.5px solid var(--amber)}
+.ob10-brand b{font:700 15px var(--font-ui)}
+.ob10-brand p{font-size:12.5px;line-height:1.4;color:var(--mute);margin:4px 0 0}
+.ob10-brand-go{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;padding:0 16px;border-radius:999px;border:1.5px solid var(--amber);background:none;color:var(--amber);font:700 13px var(--font-ui)}
+.ob10-foot{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -20px;padding:12px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg)}
+.ob10-skip{min-height:48px;padding:0 10px;border:0;background:none;color:var(--mute);font:600 14px var(--font-ui)}
+.ob10-go{min-height:48px;padding:0 28px;border-radius:999px;border:0;background:var(--mint);color:var(--mintInk);font:700 15px var(--font-ui)}
+.ob10-go.wide{flex:1;min-height:50px}
+/* Settings > About you (10d) and the branding sheet */
+.ab10{padding:12px 14px 14px}
+.ab10-q+.ab10-q{border-top:1px dashed var(--dash);padding-top:12px;margin-top:12px}
+.ab10-l{font:600 12.5px var(--font-ui);color:var(--mute);margin:0 2px 6px}
+.ab10-seg{display:grid;gap:4px;padding:3px;border:1px solid var(--line);border-radius:16px}
+.ab10-seg.n3{grid-template-columns:repeat(3,minmax(0,1fr))}.ab10-seg.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ab10-seg button{min-width:0;min-height:44px;border:0;border-radius:13px;padding:4px;background:none;color:var(--mute);font:600 12px/1.2 var(--font-ui)}
+.ab10-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.ab10-n{font-size:11.5px;line-height:1.4;color:var(--faint);margin:6px 2px 0}
+.br10{padding:12px 16px 14px}
+.br10-l{display:block;font:600 12.5px var(--font-ui);color:var(--mute);margin:0 0 6px}
+.br10-in{width:100%;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;color:var(--ink);font:700 18px var(--font-ui);padding:0}
+.note-row:has(.rep10){display:flex;align-items:center;gap:10px}
+.note-row:has(.rep10) .note-btn{flex:1;min-width:0}
+.note-row .note-btn.rep10{flex:none;width:auto;min-height:44px;padding:0 14px;border:1.5px solid var(--line);border-radius:999px;color:var(--mint);font:700 12.5px var(--font-ui);display:inline-flex;align-items:center}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}
@@ -494,24 +559,11 @@ select{min-height:44px;max-width:170px;border:1px solid var(--line);background:v
 [hidden]{display:none!important}
 
 /* ---- Onboarding ---- */
-#v-onboard{position:fixed;inset:0;background:var(--bg);z-index:30;overflow:auto;padding:32px 20px calc(24px + env(safe-area-inset-bottom))}
+#v-onboard{position:fixed;inset:0;background:var(--bg);color:var(--ink);z-index:30;overflow:auto;padding:0 20px}
 #v-onboard .in{max-width:480px;margin:0 auto}
-.dots{display:flex;gap:6px;margin:0 0 24px}
-.dots i{flex:1;height:3px;border-radius:3px;background:var(--line)}
-.dots i.on{background:var(--mint)}
-.opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:14px 16px;margin:0 0 10px;font-family:var(--font-ui)}
-.opt[aria-pressed=true]{border-color:var(--mint);background:var(--mintBg)}
-.opt b{display:block;font-size:15px}
-.opt small{display:block;color:var(--mute);font-size:13px;margin-top:2px;font-weight:400}
-.radio{width:20px;height:20px;border:1.5px solid var(--dash);border-radius:999px;display:inline-block;margin-right:10px;vertical-align:middle;position:relative;flex-shrink:0}
-.opt[aria-pressed=true] .radio{border-color:var(--mint)}
-.opt[aria-pressed=true] .radio::after{content:'';position:absolute;inset:4px;background:var(--mint);border-radius:999px}
-.opt-row{display:flex;align-items:flex-start}
 .pills{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px}
 .pills button{flex:1;min-width:80px;min-height:44px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:999px;font:600 13px var(--font-ui)}
 .pills button[aria-pressed=true]{border-color:var(--mint);background:var(--mintBg);color:var(--ink)}
-.onb-nav{display:flex;justify-content:space-between;align-items:center;margin-top:20px}
-.link-btn{border:0;background:none;color:var(--mute);font:600 15px var(--font-ui);min-height:44px}
 
 /* ---- Settings sheet ---- */
 .overlay{position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:40}
@@ -569,6 +621,7 @@ select{min-height:44px;max-width:170px;border:1px solid var(--line);background:v
 
 <script src="calc.js"></script>
 <script src="pdf.js"></script>
+<script src="prefs.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

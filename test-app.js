@@ -26,7 +26,7 @@ ok('icons for installing: 192, 512 and a maskable 512 (Android shapes)', ['192x1
 ok('an iPhone home-screen icon (180) and a 32px tab icon are linked', /rel="apple-touch-icon" href="apple-touch-icon.png"/.test(html) && pngSize('apple-touch-icon.png') === '180x180' && /rel="icon" href="favicon-32.png"/.test(html) && pngSize('favicon-32.png') === '32x32');
 ok('the home-screen name is BRR Calc / BRR Calculator', manifest.short_name === 'BRR Calc' && /apple-mobile-web-app-title" content="BRR Calculator"/.test(html));
 const scripts = [...html.matchAll(/<script src="([^"]+)">/g)].map(m => m[1]);
-ok('the page loads calc.js, pdf.js and app.js only', scripts.join(',') === 'calc.js,pdf.js,app.js', scripts.join(','));
+ok('the page loads calc.js, pdf.js, prefs.js and app.js only', scripts.join(',') === 'calc.js,pdf.js,prefs.js,app.js', scripts.join(','));
 
 // Nothing that only served the deal feed is left behind.
 const feed = ['deals.json', 'history/', 'Geo.', 'geo.js', 'postcodes.io', '#property', '#day/', 'v-today', 'v-property', 't-today', 'renderToday',

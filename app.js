@@ -53,6 +53,12 @@
     ['invest', 'I invest already', 'Just the numbers, laid out to scan fast.'],
     ['source', 'I source deals for clients', 'Client-ready reports with your name on them.']
   ];
+  // The setup answers change the app (design 10, 7 Oct 2026; the rules are in prefs.js): your letting type's strategies go
+  // first in every strategy list, the Calculator opens on its way out, and a sourcer gets client reports.
+  function preferredCalcs(ids) { return Prefs.order(load(LETTING, ''), ids || STRATS.map(function (x) { return x.key; })); }
+  function clientReportsOn() { return Prefs.clientReports(load(PERSONA, '')); }
+  // Open the Calculator where your letting type points (main screen, that way out chosen). false for not sure / none.
+  function openPreferred() { var o = Prefs.opening(load(LETTING, '')); if (!o) return false; calcKey = o.calc; store(STRAT_KEY, calcKey); setLet(o.exit); return true; }
   var LETTINGS = [['single', 'Single let', ['btl']], ['hmo', 'By the room (HMO)', ['hmo', 'hmobrr', 'r2rhmo']], ['sa', 'Nightly (SA)', ['sabtl', 'sabrr', 'r2rsa']], ['unsure', 'Not sure yet', []]];
 
   // The deal is only what the person has typed. Every calculator reads it, so a value entered once
@@ -691,7 +697,7 @@
 
     // ---- the two kinds, side by side ----
     var modes = h('div', 'r2r-modes');
-    Object.keys(R2R_MODES).forEach(function (k) {
+    preferredCalcs(Object.keys(R2R_MODES)).forEach(function (k) {
       var on = k === key, b = h('button', 'exit-tile r2r-tile' + (on ? ' on' : '')), big = h('span', 'big fig'); b.type = 'button'; b.setAttribute('aria-pressed', on);
       b.appendChild(h('span', 'nm', R2R_MODES[k].name)); b.appendChild(h('span', 'r2r-sub', R2R_MODES[k].sub)); b.appendChild(big);
       b.onclick = function () { if (!on) location.hash = '#c/' + k; };
@@ -795,7 +801,7 @@
     // Calculator and Max price come first; the rent-based ones sit behind "More".
     var inMain = MAIN_STRATS.indexOf(st.key) >= 0, open = stratMore || !inMain;
     var picker = h('div', 'strat-pills' + (open ? ' open' : ''));
-    STRATS.forEach(function (x) {
+    preferredCalcs().map(stratByKey).forEach(function (x) {
       if (open ? false : MAIN_STRATS.indexOf(x.key) < 0) return;
       var b = h('button', 'strat-pill', x.name); b.setAttribute('aria-pressed', x.key === st.key);
       b.onclick = function () { location.hash = '#c/' + x.key; };
@@ -1028,6 +1034,7 @@
   function saveDeal() {
     var name = prompt('Name this deal (e.g. the address)'); if (!name) return;
     var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, letting: brrLet, bridge: bridgeOn, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
+    if (clientReportsOn()) { if (confirm('Saved. Make a client report for this deal now?')) openReport('deal'); return; }
     alert('Saved. Find it under Saved.');
   }
   function dealData(d) { return d.v === 2 ? d.data : Calc.migrate(d.calc || 'flip', d.data); }
@@ -1087,6 +1094,11 @@
           var done = h('button', 'note-btn', 'Done'); done.onclick = function () { drawNote(false); }; nr.appendChild(done);
         } else {
           var nb = h('button', 'note-btn' + (d.note ? ' has' : ''), d.note ? d.note : 'Add a note'); nb.onclick = function () { drawNote(true); }; nr.appendChild(nb);
+          if (clientReportsOn()) {   // the deal's own figures, then the report on every strategy
+            var rp = h('button', 'note-btn rep10', 'Client report'); rp.type = 'button'; rp.setAttribute('aria-label', 'Client report for ' + d.name);
+            rp.onclick = function () { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; openReport('deal'); };
+            nr.appendChild(rp);
+          }
         }
       };
       drawNote(false); listBox.appendChild(nr);
@@ -1307,78 +1319,115 @@
     renderPreview();
   }
 
-  // ---- Onboarding: who you are, then the property basics -----------------------------------------------
+  // ---- Onboarding (design 10, 7 Oct 2026): who you are, the property and how you let it, then what that changed ----------
+  // Shown only on first launch (ONBOARDED not set); both answers are edited afterwards in Settings > About you.
   var onbStep = 0, onbPersona = load(PERSONA, ''), onbLetting = load(LETTING, '');
+  var ONB_LETS = [['single', 'Single let', 'One tenant, monthly rent'], ['hmo', 'By the room', 'HMO, rent per room'], ['sa', 'Nightly', 'Serviced accommodation'], ['unsure', 'Not sure yet', 'Try them all']];
+  // A page: the two progress bars, a title and lede, a body, and a footer pinned to the bottom of the screen.
+  function onbPage(filled, title, lede) {
+    var box = h('div', 'in ob10'), bars = h('div', 'ob10-bars');
+    for (var i = 0; i < 2; i++) bars.appendChild(h('i', i < filled ? 'on' : ''));
+    box.appendChild(bars); box.appendChild(h('h1', 'ob10-h', title)); box.appendChild(h('p', 'ob10-lede', lede));
+    var body = h('div', 'ob10-body'), foot = h('div', 'ob10-foot'); box.appendChild(body); box.appendChild(foot);
+    return { box: box, body: body, foot: foot };
+  }
+  function onbButton(cls, text, go) { var b = h('button', cls, text); b.type = 'button'; b.onclick = go; return b; }
   function onbStep1() {
-    var box = h('div', 'in');
-    box.appendChild(dots(0));
-    box.appendChild(h('h1', 'hero', 'How will you use it?'));
-    box.appendChild(h('p', 'lede', 'This sets how much explanation you see. Change it any time.'));
+    var pg = onbPage(1, 'How will you use it?', 'This changes what the app shows you. You can change it any time in Settings.');
+    var list = h('div', 'ob10-list'); list.setAttribute('role', 'radiogroup'); list.setAttribute('aria-label', 'How will you use it?');
     PERSONAS.forEach(function (p) {
-      var opt = h('button', 'opt'); opt.setAttribute('aria-pressed', onbPersona === p[0]);
-      var inner = h('div', 'opt-row'), radio = h('span', 'radio'), txt = h('div');
-      txt.appendChild(h('b', '', p[1])); txt.appendChild(h('small', '', p[2]));
-      inner.appendChild(radio); inner.appendChild(txt); opt.appendChild(inner);
-      opt.onclick = function () { onbPersona = p[0]; renderOnboard(); };
-      box.appendChild(opt);
+      var on = onbPersona === p[0], b = onbButton('ob10-card', null, function () { onbPersona = p[0]; renderOnboard(); });
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', on);
+      var top = h('span', 'ob10-top'), r = h('span', 'st9-radio'), tt = h('span', 'tt'); r.appendChild(h('i'));
+      tt.appendChild(h('b', '', p[1])); tt.appendChild(h('small', '', p[2])); top.appendChild(r); top.appendChild(tt); b.appendChild(top);
+      if (on) {   // the chosen card says what it switches on
+        var d = h('span', 'ob10-does');
+        Prefs.does(p[0]).forEach(function (x) { var l = h('span', 'ob10-do'); l.appendChild(h('i', '', '✓')); l.appendChild(h('span', '', x)); d.appendChild(l); });
+        b.appendChild(d);
+      }
+      list.appendChild(b);
     });
-    var nav = h('div', 'onb-nav'), skip = h('button', 'link-btn', 'Skip'), cont = h('button', 'primary', 'Continue');
-    cont.style.flex = '0 0 auto'; cont.style.padding = '0 28px';
-    skip.onclick = finishOnboarding; cont.onclick = function () { if (!onbPersona) onbPersona = 'invest'; onbStep = 1; renderOnboard(); };
-    nav.appendChild(skip); nav.appendChild(cont); box.appendChild(nav);
-    return box;
+    pg.body.appendChild(list);
+    pg.foot.appendChild(onbButton('ob10-skip', 'Skip', function () { onbPersona = 'invest'; finishOnboarding(); }));
+    pg.foot.appendChild(onbButton('ob10-go', 'Continue', function () { if (!onbPersona) onbPersona = 'invest'; onbStep = 1; renderOnboard(); }));
+    return pg.box;
   }
   function onbStep2() {
-    var box = h('div', 'in');
-    box.appendChild(dots(1));
-    box.appendChild(h('h1', 'hero', 'Start with the property'));
-    box.appendChild(h('p', 'lede', 'A few figures are enough to start comparing. Anything you leave uses the example from your spreadsheets, shown in grey italics.'));
-    var s = h('section');
-    var priceRow = h('div', 'row'), priceLab = h('label', '', 'Purchase price'), priceWrap = h('div', 'f pre'), priceIn = h('input');
-    priceLab.setAttribute('for', 'ob-price'); priceIn.id = 'ob-price'; priceIn.inputMode = 'decimal'; priceIn.value = deal.purchasePrice || '';
-    priceIn.placeholder = String(Calc.defaults(Calc.find('flip')).purchasePrice);
-    // Written to the shared deal on every keystroke (not just at Continue) so a later re-render — e.g. tapping a
-    // letting-type pill below, which rebuilds this whole step to update its pressed state â€” never loses it.
-    priceIn.addEventListener('input', function () { if (priceIn.value !== '') deal.purchasePrice = priceIn.value; else delete deal.purchasePrice; store(DEAL, deal); });
-    priceWrap.appendChild(h('span', '', '£')); priceWrap.appendChild(priceIn); priceRow.appendChild(priceLab); priceRow.appendChild(priceWrap); s.appendChild(priceRow);
-    var endRow = h('div', 'row'), endLab = h('label', '', 'End value after any refurb'), endWrap = h('div', 'f pre'), endIn = h('input');
-    endLab.setAttribute('for', 'ob-end'); endIn.id = 'ob-end'; endIn.inputMode = 'decimal'; endIn.value = deal.endValue || '';
-    endIn.placeholder = String(Calc.defaults(Calc.find('flip')).endValue);
-    endIn.addEventListener('input', function () { if (endIn.value !== '') deal.endValue = endIn.value; else delete deal.endValue; store(DEAL, deal); });
-    endWrap.appendChild(h('span', '', '£')); endWrap.appendChild(endIn); endRow.appendChild(endLab); endRow.appendChild(endWrap); s.appendChild(endRow);
-    box.appendChild(s);
-    box.appendChild(h('p', '', 'How would you let it?')).style.fontWeight = '600';
-    var pills = h('div', 'pills');
-    LETTINGS.forEach(function (l) {
-      var b = h('button', '', l[1]); b.setAttribute('aria-pressed', onbLetting === l[0]); b.onclick = function () { onbLetting = l[0]; renderOnboard(); }; pills.appendChild(b);
+    var pg = onbPage(2, 'Start with the property', 'Two figures are enough to start. Leave either blank to use the example.');
+    var card = h('div', 'ob10-figs'), ex = Calc.defaults(Calc.find('flip'));
+    [['purchasePrice', 'Purchase price', 'ob-price'], ['endValue', 'End value after any refurb', 'ob-end']].forEach(function (f) {
+      var lab = h('label', 'ob10-fig'), row = h('span', 'ob10-num'), input = h('input'); lab.setAttribute('for', f[2]);
+      input.id = f[2]; input.setAttribute('inputmode', 'numeric'); input.setAttribute('autocomplete', 'off'); input.value = deal[f[0]] || '';
+      input.placeholder = Number(ex[f[0]]).toLocaleString('en-GB');
+      // Written to the shared deal on every keystroke, so tapping a letting card (which redraws this step) never loses it.
+      input.addEventListener('input', function () {
+        var v = input.value.replace(/[^0-9]/g, ''); if (input.value !== v) input.value = v;
+        if (v !== '') deal[f[0]] = v; else delete deal[f[0]]; store(DEAL, deal);
+      });
+      lab.appendChild(h('span', 'ob10-fl', f[1])); row.appendChild(h('span', 'cur', '£')); row.appendChild(input); lab.appendChild(row); card.appendChild(lab);
     });
-    box.appendChild(pills);
-    var note = LETTINGS.filter(function (l) { return l[0] === onbLetting; })[0];
-    box.appendChild(h('p', 'note', note && note[0] === 'hmo' ? 'Rent per room each month. Used by HMO BTL, BRR to HMO and R2R HMO. Renting it rather than buying? The rent-to-rent calculators ask what you pay the landlord.'
-      : note && note[0] === 'sa' ? 'Nightly rate and occupancy. Used by SA BTL, BRR to SA and R2R SA.'
-        : note && note[0] === 'single' ? 'Monthly rent. Used by BTL and Flip / BRR to BTL.' : 'You can try every calculator either way — nothing here locks you in.'));
-    var nav = h('div', 'onb-nav'), back = h('button', 'link-btn', 'Back'), cont = h('button', 'primary', 'Continue');
-    cont.style.flex = '0 0 auto'; cont.style.padding = '0 28px';
-    back.onclick = function () { onbStep = 0; renderOnboard(); };
-    cont.onclick = finishOnboarding;
-    nav.appendChild(back); nav.appendChild(cont); box.appendChild(nav);
-    return box;
+    pg.body.appendChild(card);
+    pg.body.appendChild(h('h2', 'ob10-q', 'How would you let it?'));
+    pg.body.appendChild(h('p', 'ob10-qn', 'The calculator opens on this, and puts these strategies first.'));
+    var grid = h('div', 'ob10-lets'); grid.setAttribute('role', 'radiogroup'); grid.setAttribute('aria-label', 'How would you let it?');
+    ONB_LETS.forEach(function (l) {
+      var on = onbLetting === l[0], b = onbButton('ob10-let', null, function () { onbLetting = l[0]; renderOnboard(); });
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', on);
+      b.appendChild(h('b', '', l[1])); b.appendChild(h('small', '', l[2])); b.appendChild(h('span', 'ob10-tag', 'Opens on ' + Prefs.openingName(l[0])));
+      grid.appendChild(b);
+    });
+    pg.body.appendChild(grid);
+    pg.foot.appendChild(onbButton('ob10-skip', 'Back', function () { onbStep = 0; renderOnboard(); }));
+    pg.foot.appendChild(onbButton('ob10-go', 'Continue', function () { onbStep = 2; renderOnboard(); }));
+    return pg.box;
   }
-  function dots(activeIdx) { var d = h('div', 'dots'); for (var i = 0; i < 3; i++) d.appendChild(h('i', i <= activeIdx ? 'on' : '')); return d; }
+  // "You're set up": what the answers changed, a branding prompt for sourcers, and the way into the calculator.
+  function onbStep3() {
+    var pg = onbPage(2, 'You’re set up', 'Here’s what your answers changed. All of it is in Settings if you want it different.');
+    var persona = onbPersona || 'invest', expl = load(EXPLAIN, null) == null ? persona === 'new' : !!load(EXPLAIN, null);
+    var card = h('div', 'ob10-sum');
+    Prefs.summary(persona, onbLetting, expl, { price: deal.purchasePrice, end: deal.endValue }).forEach(function (r) {
+      var row = h('div', 'ob10-sr'), tt = h('span', 'tt'); row.appendChild(h('span', 'ob10-mark' + (r.ok ? ' ok' : ''), r.ok ? '✓' : '·'));
+      tt.appendChild(h('b', '', r.title)); tt.appendChild(h('small', '', r.sub)); row.appendChild(tt); card.appendChild(row);
+    });
+    pg.body.appendChild(card);
+    if (Prefs.clientReports(persona)) {
+      var br = h('div', 'ob10-brand'); br.appendChild(h('b', '', 'Put your name on reports'));
+      br.appendChild(h('p', '', 'Add your name or company once. Every client report uses it.'));
+      br.appendChild(onbButton('ob10-brand-go', 'Set up branding →', openBranding));
+      pg.body.appendChild(br);
+    }
+    pg.foot.appendChild(onbButton('ob10-go wide', 'Open the calculator on ' + Prefs.openingName(onbLetting), function () { finishOnboarding(true); }));
+    return pg.box;
+  }
   function renderOnboard() {
-    var box = $('v-onboard'); box.innerHTML = '';
-    box.appendChild(onbStep === 0 ? onbStep1() : onbStep2());
+    var box = $('v-onboard'); box.innerHTML = ''; box.scrollTop = 0;
+    box.appendChild(onbStep === 0 ? onbStep1() : onbStep === 1 ? onbStep2() : onbStep3());
   }
-  function finishOnboarding() {
+  // toCalc === true (the last step's button): open the Calculator where your letting type points. Skip stays where it was.
+  function finishOnboarding(toCalc) {
     store(PERSONA, onbPersona || ''); store(LETTING, onbLetting || '');
     if (load(EXPLAIN, null) == null) store(EXPLAIN, onbPersona === 'new');
     store(ONBOARDED, true);
-    $('v-onboard').hidden = true; document.body.classList.remove('locked');
-    route();
+    closeSettings(); $('v-onboard').hidden = true; document.body.classList.remove('locked');
+    if (toCalc === true) { if (!openPreferred()) { calcKey = 'brr'; store(STRAT_KEY, calcKey); setLet('btl'); /* not sure: BRR → BTL, as the button says */ } if (location.hash === '#c/brr') route(); else location.hash = '#c/brr'; }
+    else route();
   }
   function startOnboarding() {
     onbStep = 0; onbPersona = load(PERSONA, ''); onbLetting = load(LETTING, '');
-    closeSettings(); $('v-onboard').hidden = false; document.body.classList.add('locked'); renderOnboard();
+    $('v-onboard').hidden = false; document.body.classList.add('locked'); renderOnboard();
+  }
+  // Report branding: the name on every client report ("Prepared by", the same saved figure the report screen edits).
+  function openBranding() {
+    openSheet(function (sheet) {
+      sheetHead(sheet, 'Report branding', 'Done');
+      sheet.appendChild(h('p', 'bs-intro', 'Your name or company goes on every client report, as “Prepared by”. Saved on this phone.'));
+      var card = h('div', 'st9-card br10'), lab = h('label', 'br10-l', 'Your name or company'), input = h('input', 'br10-in');
+      lab.setAttribute('for', 'br-by'); input.id = 'br-by'; input.setAttribute('autocomplete', 'organization'); input.placeholder = 'Your business name';
+      input.value = load(REPORT, {}).by || '';
+      input.addEventListener('input', function () { var r = load(REPORT, {}); r.by = input.value; store(REPORT, r); });
+      card.appendChild(lab); card.appendChild(input); sheet.appendChild(card);
+    });
   }
 
   // ---- My usual figures: set once, applied to every deal until a deal has its own ----------------------------
@@ -1570,6 +1619,25 @@
     var body = h('div', 'st9-body'); sheet.appendChild(body);
     var label = function (t) { body.appendChild(h('p', 'st9-label', t)); };
     var card = function () { var c = h('div', 'st9-card'); body.appendChild(c); return c; };
+    // About you (design 10d): both setup answers, saved and applied as soon as they are tapped (lists re-ordered, client
+    // report buttons shown or hidden). The open calculator is not re-routed; Explanations are left as they are.
+    label('About you');
+    var ab = card(); ab.classList.add('ab10');
+    var per = load(PERSONA, '') || 'invest', let0 = load(LETTING, '') || 'unsure';
+    var question = function (lbl, opts, cur, key, note) {
+      var q = h('div', 'ab10-q'), seg = h('div', 'ab10-seg n' + opts.length); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', lbl);
+      q.appendChild(h('div', 'ab10-l', lbl));
+      opts.forEach(function (o) { var b = h('button', '', o[1]); b.type = 'button'; b.setAttribute('aria-pressed', cur === o[0]); b.onclick = function () { store(key, o[0]); renderSettings(); redraw(); }; seg.appendChild(b); });
+      q.appendChild(seg); q.appendChild(h('p', 'ab10-n', note)); ab.appendChild(q);
+    };
+    question('I use it as', [['new', 'New'], ['invest', 'Investor'], ['source', 'Sourcer']], per, PERSONA, Prefs.does(per).join(' · ') + '.');
+    question('I usually let', [['single', 'BTL'], ['hmo', 'HMO'], ['sa', 'SA'], ['unsure', 'Unsure']], let0, LETTING, Prefs.letNote(let0));
+    var link = function (c, title, sub, go, mark) {
+      var b = h('button', 'st9-row st9-link'), tt = h('span', 'st9-txt'); b.type = 'button';
+      tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt);
+      b.appendChild(h('span', mark ? 'st9-mark' : 'st9-chev', mark || '›')); b.onclick = go; c.appendChild(b);
+    };
+    if (clientReportsOn()) link(card(), 'Report branding', 'Your name on every client report', openBranding);   // sourcers: straight under About you
     label('Appearance');
     var look = card();
     [['dark', 'Dark', 'Deep green, light ink.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']].forEach(function (t) {
@@ -1585,17 +1653,11 @@
     var sw = h('button', 'st9-switch'); sw.type = 'button'; sw.setAttribute('role', 'switch'); sw.setAttribute('aria-checked', explanationsOn()); sw.setAttribute('aria-label', 'Explanations'); sw.appendChild(h('i'));
     sw.onclick = function () { store(EXPLAIN, !explanationsOn()); renderSettings(); if (current) update(); };
     expCard.appendChild(sw);
-    var link = function (c, title, sub, go, mark) {
-      var b = h('button', 'st9-row st9-link'), tt = h('span', 'st9-txt'); b.type = 'button';
-      tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt);
-      b.appendChild(h('span', mark ? 'st9-mark' : 'st9-chev', mark || '›')); b.onclick = go; c.appendChild(b);
-    };
     label('Your figures');
     var yours = card(), n = usualCount();
     link(yours, 'Your targets', 'Monthly profit, ROI, money back, flip margin', openTargets);
     link(yours, 'My usual figures', n ? n + ' of ' + USUAL_IDS.length + ' set, used on every new deal' : 'Using the spreadsheet examples', function () { closeSettings(); location.hash = '#usual'; });
     var more = card();
-    link(more, 'Redo the setup questions', '', startOnboarding, '↺');
     link(more, 'Privacy policy', '', openPrivacy, '›');
     body.appendChild(h('p', 'st9-foot', 'Estimates only, not financial, tax or legal advice. Your figures, targets and saved deals stay on this phone.'));
   }
@@ -1604,7 +1666,7 @@
   $('settings-overlay').onclick = closeSettings;
 
   // ---- routing: (empty = calculator)  #calculators  #deal  #compare  #saved  #saved-compare  #report  #usual  #c/<id> ---
-  var curHash = null, prevHash = null;
+  var curHash = null, prevHash = null, prevHashSeen = null;
   function goBack() {
     var hash = location.hash;
     // Back returns to wherever this screen was opened from (the calculator, a saved deal), not always to the Calculator.
@@ -1616,7 +1678,9 @@
     if (m && !c && (m[1] === 'hmobrr' || m[1] === 'sabrr')) { goCalc(m[1]); return; }          // old links to the BRR calculators
     if (m && !c && m[1] === 'flip') { location.hash = '#c/brr'; return; }                      // Flip is part of the primary screen now
     if (hash !== curHash) { prevHash = curHash; curHash = hash; }
+    var navigated = hash !== prevHashSeen; prevHashSeen = hash;
     if (c) { calcKey = c.key; store(STRAT_KEY, calcKey); }
+    else if (navigated && (hash === '' || hash === '#calculators')) openPreferred();   // no calculator in the address: your letting type's
     var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#compare' ? 'compare' : hash === '#saved-compare' ? 'scompare'
       : hash === '#usual' ? 'usual' : hash === '#report' ? 'report' : 'home';
     $('v-home').hidden = view !== 'home'; $('v-saved').hidden = view !== 'saved';

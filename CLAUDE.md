@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -230,6 +230,30 @@ first restyle)
 - The old .sheet h2 / .sheet-head / .sheet-close / .theme-row / .swatch / .radio2 / .setting-row / .switch rules and the
   first restyle's .u6 / .s6 rules were removed (nothing used them). .sheet stays (the sheet container); .fig-card and
   .pick stay (other screens use them). test-browser.js covers both screens.
+
+## Setup answers that count (design 10a-10d, 7 Oct 2026)
+- prefs.js (pure, loaded before app.js, precached; tested by test-prefs.js) holds the rules. The answers stay in
+  deal-analyser:persona and deal-analyser:lettingType.
+- LETTING TYPE: Ashley chose (7 Oct 2026) that in THIS app the Calculator opens on its MAIN screen with the matching way
+  out chosen: single -> BRR → BTL, hmo -> BRR → HMO, sa -> BRR → SA (Prefs.opening -> {calc:'brr', exit}); not sure /
+  none -> nothing changes (the setup's last button still opens BRR → BTL, as it says). "Opens on" applies when the
+  address names no calculator ('' or #calculators, i.e. first launch and the Calculator tab; app.js openPreferred) and
+  after setup; an explicit #c/<key> or a saved deal wins. preferredCalcs(ids) puts the letting's group first (hmo: hmo,
+  hmobrr, r2rhmo; sa: sabtl, sabrr, r2rsa; single: btl) in every strategy list: the pill row and the R2R HMO / R2R SA
+  tiles. The Flip / BTL / HMO / SA exit tiles keep their order.
+- PERSONA: new / invest / source. explanationsOn() unchanged (an explicit choice wins; otherwise new = on). Only a
+  sourcer gets client reports: a "Client report" button on every saved deal card (loads that deal, opens the report) and
+  "Saved. Make a client report for this deal now?" after Save; and "Report branding" straight under About you.
+- REPORT BRANDING (Ashley pointed to the Deal Analyser session's version): openBranding, a sheet for "Your name or
+  company", the same saved "Prepared by" the client report screen uses (deal-analyser:report.by). No logo, no colour,
+  no PRO label (there is no paid tier).
+- SETUP (renderOnboard, class ob10, Geist and the app's tokens): 1 How will you use it? (cards; the chosen one lists what
+  it switches on; Skip = investor, straight in), 2 Start with the property (price and end value, typed to the deal on
+  every key; a 2x2 grid of letting cards with "Opens on BRR → X"), 3 You're set up (what changed, a branding card for
+  sourcers, "Open the calculator on BRR → X"). Only on first launch: "Redo the setup questions" is gone.
+- SETTINGS: a first ABOUT YOU card with two segmented controls (I use it as: New / Investor / Sourcer; I usually let:
+  BTL / HMO / SA / Unsure), each with its note; saved at once and the screen behind redrawn (redraw()), never re-routed.
+- Old onboarding styles (.dots, .opt, .radio, .onb-nav, .link-btn) removed. test-browser.js walks the whole setup.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
