@@ -199,6 +199,19 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .pin-caps span:last-child{overflow:hidden;text-overflow:ellipsis}
 .pin-tag{font:600 11.5px var(--font-ui);color:var(--amber);margin-top:4px}
 .lg-exits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 10px}
+/* rent to rent (design 7b / 8b) */
+.pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
+.pin-back::after{content:"";position:absolute;inset:-8px -6px}
+.pin-back .chev{font:600 22px/1 var(--font-ui);color:var(--ink)}
+.pin-bar .b.cost{background:var(--red)}
+.r2r-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
+.r2r-tile{min-height:70px;padding:10px 6px}body.ledger #v-home .r2r-tile.on,.r2r-tile.on{border-color:var(--mint)}
+.r2r-sub{display:block;font:500 11px var(--font-ui);color:var(--faint);margin-top:1px}
+.r2r-tile .big{font-size:14px;margin-top:3px}
+.r2r-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;background:var(--card);border-radius:18px;padding:14px 16px;margin:0 0 10px;font-size:13.5px;color:var(--mute)}
+.r2r-total b{font:700 18px var(--font-ui);color:var(--ink)}
+.r2r-brk{padding:6px 16px 6px}.r2r-brk .lg-stat:first-child{border-top:0}
+.lg-stat.strong span{font-weight:700;color:var(--ink)}
 /* design 8a: Figures | Results under the exit tiles */
 .lg-switch{display:grid;grid-template-columns:1fr 1fr;gap:0;padding:3px;margin:0 0 4px;border:1px solid var(--line);border-radius:999px}
 .lg-switch button{min-height:44px;border:0;border-radius:999px;background:transparent;color:var(--mute);font:600 13.5px var(--font-ui)}

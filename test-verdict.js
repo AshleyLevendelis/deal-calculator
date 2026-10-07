@@ -67,5 +67,30 @@ ok('with both figures entered the deal is scored as normal', V('btl', best, { en
 ok('dealEntered needs both figures above 0', Calc.dealEntered({ endValue: 5, purchasePrice: 5 }) && !Calc.dealEntered({ endValue: 5 }) && !Calc.dealEntered({ endValue: -5, purchasePrice: 5 }) && !Calc.dealEntered(null));
 const blank = Calc.ledger({ endValue: 0, purchasePrice: 0, refurb: 0, legal: 1500 }, false);
 ok('a blank deal would otherwise score a let (640% ROI): the empty state stops that', V('btl', blank.exits.btl.v).kind === 'let' && V('btl', blank.exits.btl.v, blank.ps).kind === 'empty');
+// ---- Rent to rent (Calc.r2rVerdict, design 7b / 8b): three targets ----
+{
+  const RV = Calc.r2rVerdict, run = id => { const c = Calc.find(id); return c.compute(Calc.stateFor(c, {})).v; };
+  const good = { income: 3000, expenses: 2000, monthly: 1000, totalIn: 4000, roi: 3, breakeven: 4 };
+  const w = o => Object.assign({}, good, o);
+  let q = RV(good);
+  ok('r2r: all three targets: Strong deal, 3/3, good, "hits all 3 targets"', q.kind === 'r2r' && q.score === 3 && q.of === 3 && q.title === 'Strong deal' && q.tone === 'good' && q.detail === 'hits all 3 targets' && q.line === 'Every target met', JSON.stringify(q));
+  ok('r2r: the three targets are named from your targets', q.targets.join(' | ') === '£500 a month | 50% ROI | Money back in 6 months', q.targets.join(' | '));
+  q = RV(w({ breakeven: 10.2 }));
+  ok('r2r: two of three: Good deal, amber, misses money back', q.score === 2 && q.title === 'Good deal' && q.tone === 'amber' && q.line === 'Misses: Money back in 6 months' && q.tones.join() === 'good,good,bad', JSON.stringify(q));
+  q = RV(w({ breakeven: 10.2, monthly: 400 }));
+  ok('r2r: one of three: Borderline, bad', q.score === 1 && q.title === 'Borderline' && q.tone === 'bad');
+  q = RV(w({ breakeven: 30, monthly: 400, roi: 0.2 }));
+  ok('r2r: none: Weak deal, bad, every miss listed in order', q.score === 0 && q.title === 'Weak deal' && q.tone === 'bad' && q.line === 'Misses: £500 a month, 50% ROI, Money back in 6 months');
+  ok('r2r: exactly £500 a month meets it; £499.99 does not', RV(w({ monthly: 500 })).hits[0] && !RV(w({ monthly: 499.99 })).hits[0]);
+  ok('r2r: exactly 50% ROI meets it; 49.9% does not', RV(w({ roi: 0.5 })).hits[1] && !RV(w({ roi: 0.499 })).hits[1]);
+  ok('r2r: exactly 6 months meets it; 6.1 does not; never paying back misses', RV(w({ breakeven: 6 })).hits[2] && !RV(w({ breakeven: 6.1 })).hits[2] && !RV(w({ breakeven: 'Not at this profit' })).hits[2]);
+  ok('r2r: nothing put in counts as the ROI and money back met', (q = RV(w({ totalIn: 0, roi: '—', breakeven: 0 }))).hits[1] && q.hits[2], JSON.stringify(q));
+  ok('r2r: no income (no rooms or no rate) is the empty state, never scored', (q = RV(w({ income: 0, monthly: -2300 }))).kind === 'empty' && q.score === null && q.targets.length === 0 && q.tone === 'none' && RV(null).kind === 'empty');
+  ok('r2r: the sheets\' own examples: R2R HMO 2/3 (10.2 months back), R2R SA 3/3', RV(run('r2rhmo')).score === 2 && RV(run('r2rsa')).score === 3);
+  Calc.setTargets({ flip: 25, monthly: 800, roi: 100, payback: 12 });
+  q = RV(run('r2rhmo'));
+  ok('r2r: follows your own targets (£800 / 100% / 12 months: HMO hits ROI and money back only)', q.hits.join() === 'false,true,true' && q.targets.join(' | ') === '£800 a month | 100% ROI | Money back in 12 months', JSON.stringify(q));
+  Calc.setTargets(Calc.defaultTargets());
+}
 console.log(n + ' checks ran');
 if (fails) process.exit(1);

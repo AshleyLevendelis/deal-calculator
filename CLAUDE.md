@@ -188,8 +188,22 @@ Routes: (empty) or #calculators = Calculator, #c/<key> (brr, recycle, btl, hmo, 
 - Starts on Figures; the choice is kept for the session (sessionStorage deal-analyser:ledgerView), not per deal, and
   survives an exit change. Switching (or Change the figures) scrolls so the switch sits just under the pinned panel.
   No maths changes: Results only shows what Calc.ledger already works out, and both views refresh together.
-- NOT BUILT: the design's Rent to rent screen ("7b" and its "8b" switch, Rent to Rent.dc.html: pinned panel, 2 of 3
-  targets, R2R HMO / R2R SA tiles). This app's rent to rent is still the plain calculator screen; asked Ashley.
+- RENT TO RENT (design 7b with the 8b switch; built 7 Oct 2026 at Ashley's go-ahead): #c/r2rhmo and #c/r2rsa open
+  renderR2R in app.js (not the old pill-row screen). Pinned panel: "‹ Rent to rent" (back to #c/brr), Reset, Save, the
+  R2R HMO / R2R SA pill; "Monthly profit, after the rent you pay", the monthly profit (target colour), ROI on money in,
+  a money bar (income green, costs red) with "In £X a month / Out £Y", and the shared verdict strip (verdictStrip) fed
+  by Calc.r2rVerdict: 3 targets (monthly profit, ROI on money in, money back; nothing put in counts as met), 3 Strong
+  good, 2 Good deal amber, 1 Borderline / 0 Weak bad; no income = empty state. Then R2R HMO / R2R SA tiles (monthly
+  profit each, mint outline on the chosen one), the shared Figures | Results switch (viewSwitch, same session memory).
+  Figures: "Money in" cards (deposit / up-front rent, refurb, furnishing, any other costs, rent you pay: R2R_RANGE,
+  stretching tops, sub lines from the design), Total money in, More detail folds (Room income or Nightly income, open
+  first; Running costs). Results: six tiles (monthly, annual, money back, ROI, income, costs incl. rent), the monthly
+  breakdown (income, rent you pay, other running costs, monthly profit, total money in) and "← Change the figures".
+  Footer "Buying it instead? Buy, refurb & refinance →" and the disclaimer ending "Check your landlord's consent and the
+  contract before you sign." Fields are the R2R calculators' own (all yellow cells), shared by id; numbers are their
+  compute() results (money back shown as fmt months, e.g. 10.2, not the design's rounded-up 11). Reset (and a card's
+  "from" reset) restores each figure exactly as it was when the screen opened, untyped ones untyped, so example figures
+  never carry over by id. Saved R2R deals reopen here. test-verdict.js and test-browser.js cover it.
 - test-browser.js checks the switch (default, contents, 44px, Results contents, own money rows, live updates, exit
   change, session memory, a new session, Change the figures, scroll position).
 

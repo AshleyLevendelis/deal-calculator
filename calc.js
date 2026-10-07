@@ -709,6 +709,21 @@
   function targetsSummary(t) { t = t || TG; return t.flip + '% flip \u00b7 ' + poundsText(t.monthly) + '/mo \u00b7 ' + t.roi + '% ROI \u00b7 ' + t.payback + ' mo back'; }
   // The four let targets, named from the current figures: £500 a month, 50% ROI, Money back in 6 months, All cash recycled.
   function letTargets() { return [poundsText(TG.monthly) + ' a month', TG.roi + '% ROI', 'Money back in ' + TG.payback + (TG.payback === 1 ? ' month' : ' months'), 'All cash recycled']; }
+  // Rent to rent (design 7b / 8b, 7 Oct 2026): three targets, judged as their figures are coloured: the monthly profit
+  // target (monthlyProfitVerdict), the ROI target on the money in (cashRoiVerdict; nothing put in counts as met) and money
+  // back within the payback target (paybackVerdict; nothing put in = 0 months). 3 Strong (good), 2 Good deal (amber),
+  // 1 Borderline, 0 Weak deal (bad). No income (no rooms or no rate) is the empty state: nothing to score.
+  function r2rVerdict(v) {
+    v = v || {};
+    if (!(n(v.income) > 0)) return { kind: 'empty', score: null, of: null, hits: [], tones: [], targets: [], tone: 'none', title: 'Enter the rent figures',
+      detail: 'add the rooms and what each earns', misses: [], line: '' };
+    var none = n(v.totalIn) <= 0;
+    var hits = [monthlyProfitVerdict(v.monthly) === 'good', none || cashRoiVerdict(v.roi) === 'good', paybackVerdict(v.breakeven, none ? 0 : v.totalIn) === 'good'];
+    var names = letTargets().slice(0, 3), k = hits.filter(Boolean).length, misses = names.filter(function (t, i) { return !hits[i]; });
+    return { kind: 'r2r', score: k, of: 3, hits: hits, tones: hits.map(function (x) { return x ? 'good' : 'bad'; }), targets: names,
+      tone: k === 3 ? 'good' : k === 2 ? 'amber' : 'bad', title: k === 3 ? 'Strong deal' : k === 2 ? 'Good deal' : k === 1 ? 'Borderline' : 'Weak deal',
+      detail: k === 3 ? 'hits all 3 targets' : 'hits ' + k + ' of 3 targets', misses: misses, line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
+  }
   function dealEntered(ps) { return Number(ps && ps.endValue) > 0 && Number(ps && ps.purchasePrice) > 0; }
   function dealVerdict(exit, v, ps) {
     v = v || {};
@@ -733,7 +748,7 @@
       line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
 
-  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, r2rVerdict: r2rVerdict, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
   setTargets(DEFAULT_TARGETS);
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(this);
