@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deal pack</title>
+<style>
+/* The client link (design 12d, 7 Oct 2026): a light page in the sourcer's colour, the pack's sections as cards, Call and
+   Reserve fixed at the bottom. Everything shown comes from the address itself (dealpack.js decode); no server, no photos. */
+@font-face{font-family:'Geist';src:url('fonts/Geist-Variable.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Instrument Serif';src:url('fonts/InstrumentSerif-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+:root{--brand:#1f5c4a;--bg:#f7f4ee;--card:#ffffff;--ink:#1d1b18;--mute:#5b554e;--faint:#77716a;--rule:#ece8df;--panel:#f6f3ec}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Geist',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:560px;margin:0 auto;padding:18px 16px calc(110px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.chip{flex:none;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font:700 15px 'Geist';background:var(--brand)}
+.top b{display:block;font:700 15px 'Geist'}.top small{display:block;font-size:12px;color:var(--mute)}
+.eyebrow{font:600 11px 'Geist';letter-spacing:.14em;text-transform:uppercase;color:var(--brand)}
+h1{font:400 32px/1.05 'Instrument Serif',Georgia,serif;margin:6px 0 4px}
+.sub{font-size:13px;color:var(--mute)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:12px 14px}
+.stat b{display:block;font:700 19px 'Geist';letter-spacing:-.02em}.stat span{display:block;font-size:11.5px;color:var(--mute);margin-top:2px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:20px;padding:16px 18px;margin:0 0 12px}
+.card h2{margin:0 0 10px;font:700 11.5px 'Geist';letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+.quote{font:400 19px/1.35 'Instrument Serif',Georgia,serif;color:#3d3933;margin:0}
+.row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--rule);font-size:13.5px;color:#3d3933}.row:first-of-type{border-top:0}
+.row b{white-space:nowrap}.row.strong{font-weight:700}
+.key{margin-top:10px;background:var(--panel);border-radius:12px;padding:10px 12px}.key span{display:block;font:600 12px 'Geist';color:var(--mute)}.key b{display:block;font:700 26px 'Geist';letter-spacing:-.03em;color:var(--brand)}
+.exit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--rule)}.exit:first-of-type{border-top:0}
+.exit b{font:700 14px 'Geist'}.exit .h{font:700 15px 'Geist';text-align:right}.exit p{grid-column:1/-1;margin:0;font-size:12.5px;color:var(--mute);line-height:1.4}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.panel{background:var(--panel);border-radius:12px;padding:10px 12px}.panel span{display:block;font:600 11.5px 'Geist';color:var(--mute)}.panel b{display:block;font:700 18px 'Geist';margin-top:2px}.panel small{display:block;font-size:11.5px;color:var(--mute);margin-top:2px}
+.note{font-size:11.5px;color:var(--faint);margin:8px 0 0}
+.area{height:120px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#f1ede4 0 8px,#f8f5ef 8px 16px)}.area span{font:500 12px ui-monospace,monospace;color:var(--faint);background:#fff;padding:4px 8px;border-radius:6px}
+.fee{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.fee span{font:600 14px 'Geist'}.fee b{font:700 24px 'Geist';color:var(--brand)}
+.terms{white-space:pre-line;font-size:13px;line-height:1.55;color:#3d3933;margin:8px 0 0}
+.step{display:flex;gap:12px;align-items:flex-start;padding:6px 0;font-size:13.5px;line-height:1.45;color:#3d3933}.step i{flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 12px 'Geist';font-style:normal;color:#fff;background:var(--brand)}
+.foot{font-size:11.5px;line-height:1.5;color:var(--faint);padding:4px 2px}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:10px;padding:12px 16px calc(16px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--rule)}
+.bar>*{min-height:52px;border-radius:999px;font:700 16px 'Geist';display:flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer}
+.call{flex:none;padding:0 22px;border:1.5px solid #d9d3c7;background:var(--card);color:var(--ink)}
+.reserve{flex:1;border:0;background:var(--brand);color:#fff}
+.sheet-bg{position:fixed;inset:0;background:rgba(20,17,14,.45)}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--bg);border-radius:24px 24px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto}
+.sheet h2{font:700 22px 'Geist';letter-spacing:-.02em;margin:0 0 4px}.sheet p{font-size:13.5px;color:var(--mute);margin:0 0 12px;line-height:1.45}
+.sheet label{display:block;background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:8px 14px;margin-bottom:8px}
+.sheet label span{display:block;font:600 12px 'Geist';color:var(--mute)}
+.sheet input{width:100%;min-height:36px;border:0;background:none;font:600 16px 'Geist';color:var(--ink);padding:0;outline:none}
+.sends{display:grid;gap:8px;margin-top:6px}
+.sends a,.sends button{min-height:50px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:700 15px 'Geist';text-decoration:none;border:1.5px solid #d9d3c7;background:var(--card);color:var(--ink)}
+.sends a.main{background:var(--brand);border-color:var(--brand);color:#fff}
+.sends .off{opacity:.45;pointer-events:none}
+.close{display:block;margin:10px auto 0;min-height:44px;border:0;background:none;color:var(--mute);font:600 14px 'Geist'}
+.thanks{text-align:center;padding:10px 0}.thanks b{display:block;font:700 22px 'Geist';margin-bottom:6px}
+.bad{text-align:center;padding:60px 20px;color:var(--mute)}.bad b{display:block;font:700 20px 'Geist';color:var(--ink);margin-bottom:6px}
+</style>
+</head>
+<body>
+<main id="m"><p class="bad">Opening the deal pack…</p></main>
+<script src="dealpack.js"></script>
+<script>
+(function () {
+  var DP = window.DealPack, esc = DP.esc, m = document.getElementById('m');
+  function fail() { m.innerHTML = '<div class="bad"><b>This link is incomplete</b>Part of it may have been cut off when it was copied. Ask the person who sent it to send it again.</div>'; }
+  if (!location.hash || location.hash.length < 3) { fail(); return; }
+  DP.decode(location.hash).then(draw, fail);
+  window.addEventListener('hashchange', function () { location.reload(); });
+
+  function draw(p) {
+    var d = p.d, b = p.b, color = DP.colourOk(b.color);
+    document.documentElement.style.setProperty('--brand', color);
+    document.title = d.title + (b.company ? ' · ' + b.company : '');
+    var html = '<div class="top"><span class="chip">' + esc(DP.initials(b)) + '</span><span><b>' + esc(b.company || b.name) + '</b><small>For ' + esc(d.client) + '</small></span></div>' +
+      '<div class="eyebrow">' + esc(d.eyebrow) + '</div><h1>' + esc(d.title) + '</h1><div class="sub">' + esc(d.sub) + '</div>' +
+      '<div class="stats">' + d.stats.map(function (s) { return '<div class="stat"><b style="color:' + esc(s.color) + '">' + esc(s.val) + '</b><span>' + esc(s.label) + '</span></div>'; }).join('') + '</div>';
+    var cards = {
+      summary: function () { return (d.note ? '<p class="quote">“' + esc(d.note) + '”</p>' : '<div class="key" style="margin:0"><span>' + esc(d.keyLabel) + '</span><b>' + esc(d.keyVal) + '</b></div>'); },
+      figures: function () { return d.costs.map(function (r) { return '<div class="row' + (r.strong ? ' strong' : '') + '"><span>' + esc(r.label) + '</span><b>' + esc(r.val) + '</b></div>'; }).join('') +
+        '<div style="height:8px"></div>' + d.after.map(function (r) { return '<div class="row"><span>' + esc(r.label) + '</span><b>' + esc(r.val) + '</b></div>'; }).join('') +
+        '<div class="key"><span>' + esc(d.keyLabel) + '</span><b>' + esc(d.keyVal) + '</b></div>'; },
+      exits: function () { return d.exits.map(function (x) { return '<div class="exit"><b>' + esc(x.name) + '</b><span class="h" style="color:' + esc(x.color) + '">' + esc(x.head) + '</span><p>' + esc(x.detail) + '</p></div>'; }).join(''); },
+      evidence: function () { return '<div class="pair">' + d.evidence.map(function (e) { return '<div class="panel"><span>' + esc(e.label) + '</span><b>' + esc(e.big) + '</b><small>' + esc(e.detail) + '</small></div>'; }).join('') + '</div><p class="note">' + esc(d.evidenceSrc) + '</p>'; },
+      epc: function () { return '<div class="pair">' + d.epc.map(function (e) { return '<div class="panel"><b style="margin:0">' + esc(e.val) + '</b><small>' + esc(e.label) + '</small></div>'; }).join('') + '</div><p class="note">' + esc(d.epcNote) + '</p>'; },
+      area: function () { return '<div class="area"><span>' + esc(d.district) + '</span></div><p class="note">' + esc(d.areaNote) + '</p>'; },
+      photos: function () { return '<p class="note" style="margin:0">Photos are in the PDF pack. Ask ' + esc(b.name || b.company || 'the sender') + ' for it.</p>'; },
+      fee: function () { return '<div class="fee"><span>Sourcing fee</span><b>' + esc(d.fee) + '</b></div><p class="terms">' + esc(d.terms) + '</p>'; },
+      next: function () { return d.steps.map(function (s) { return '<div class="step"><i>' + s.n + '</i><span>' + esc(s.text) + '</span></div>'; }).join(''); }
+    };
+    (p.on || []).forEach(function (k) { if (cards[k]) html += '<section class="card" data-sec="' + k + '"><h2>' + esc(DP.SECS[k][0]) + '</h2>' + cards[k]() + '</section>'; });
+    html += '<p class="foot">Estimates only, not financial, tax or legal advice. Figures based on information available on ' + esc(d.date) + '. ' +
+      esc([[b.name, b.company].filter(Boolean).join(', '), b.phone, b.email, b.web].filter(Boolean).join(' · ')) + '</p>';
+    m.innerHTML = html;
+    var bar = document.createElement('div'); bar.className = 'bar';
+    var tel = String(b.phone || '').replace(/[^0-9+]/g, '');
+    bar.innerHTML = (tel ? '<a class="call" href="tel:' + esc(tel) + '">Call</a>' : '') + '<button class="reserve" type="button">Reserve this deal</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('.reserve').onclick = function () { reserve(p); };
+  }
+
+  // Reserve: the client types their name and phone; their own phone then sends it as a text, WhatsApp or email.
+  // Nothing is stored or sent by this page.
+  function reserve(p) {
+    var bg = document.createElement('div'), sh = document.createElement('div'), r = { name: '', phone: '', email: '' };
+    bg.className = 'sheet-bg'; sh.className = 'sheet'; sh.setAttribute('role', 'dialog'); sh.setAttribute('aria-label', 'Reserve this deal');
+    var close = function () { bg.remove(); sh.remove(); };
+    bg.onclick = close;
+    sh.innerHTML = '<h2>Reserve this deal</h2><p>No payment is taken. Your message goes to ' + esc(p.b.name || p.b.company || 'the sourcer') + ', who will call you back.</p>' +
+      [['name', 'Your name', 'text', 'name'], ['phone', 'Phone', 'tel', 'tel'], ['email', 'Email (optional)', 'email', 'email']].map(function (f) {
+        return '<label><span>' + f[1] + '</span><input data-k="' + f[0] + '" type="' + f[2] + '" autocomplete="' + f[3] + '"></label>';
+      }).join('') + '<div class="sends"></div><button class="close" type="button">Not now</button>';
+    document.body.appendChild(bg); document.body.appendChild(sh);
+    sh.querySelector('.close').onclick = close;
+    var sends = sh.querySelector('.sends');
+    function draw() {
+      var msg = DP.reserveMessage(p, r), first = r.name.trim().split(/\s+/)[0];
+      var opts = [['sms', 'Send by text'], ['whatsapp', 'Send on WhatsApp'], ['email', 'Send by email']].filter(function (o) { return msg[o[0]]; });
+      sends.innerHTML = opts.length ? opts.map(function (o, i) { return '<a class="' + (i ? '' : 'main ') + (msg.ok ? '' : 'off') + '" data-go="' + o[0] + '" href="' + esc(msg.ok ? msg[o[0]] : '#') + '"' + (o[0] === 'whatsapp' ? ' target="_blank" rel="noopener"' : '') + '>' + o[1] + '</a>'; }).join('')
+        : '<p>Contact details are missing from this link. Ask the person who sent it.</p>';
+      if (!msg.ok && opts.length) sends.insertAdjacentHTML('afterbegin', '<p style="margin:0 0 4px">Add your name and phone to send.</p>');
+      Array.prototype.forEach.call(sends.querySelectorAll('a'), function (a) {
+        a.addEventListener('click', function () { if (!msg.ok) return; setTimeout(function () {
+          sh.innerHTML = '<div class="thanks"><b>Thanks, ' + esc(first) + '</b><p>Send the message that opened, and ' + esc(p.b.name || p.b.company || 'the sourcer') + ' will be in touch, usually within one working day.</p></div><button class="close" type="button">Close</button>';
+          sh.querySelector('.close').onclick = close;
+        }, 300); });
+      });
+    }
+    Array.prototype.forEach.call(sh.querySelectorAll('input'), function (inp) { inp.addEventListener('input', function () { r[inp.getAttribute('data-k')] = inp.value; draw(); }); });
+    draw();
+    sh.querySelector('input').focus();
+  }
+})();
+</script>
+</body>
+</html>

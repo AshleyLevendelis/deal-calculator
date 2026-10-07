@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -268,6 +268,31 @@ first restyle)
 - The "Your own money in" and "Paying for it" fold-outs and the standalone Lender pays / Deposit row are gone; "More
   detail" now holds only the letting figures (lets only; the flip has no More detail). The Results view's own money card
   is unchanged.
+
+## Deal pack (designs 12a / 12b / 12d / 14c / 15, 7 Oct 2026; hand-off design_handoff_deal_pack)
+- SOURCERS ONLY (Ashley's choice; the design says Pro but there are no payments or accounts, so it is shown with a PRO
+  label to sourcers and hidden from everyone else; #pack* addresses send others to the Calculator).
+- NO SERVER (Ashley's choice, 7 Oct 2026; she declined a Vercel Blob store): the client link carries the pack's words and
+  figures INSIDE the address (p.html#z + deflate-raw + base64url, 'j' = plain fallback; ~1,500 characters). Reserve on the
+  link opens a ready-written text, WhatsApp or email to the sourcer (DealPack.reserveMessage); nothing is stored, so the
+  design's "lead in Saved" does not exist. Photos and the logo are NOT in the link (PDF only).
+- PHONE ONLY (Ashley's choice): branding with the logo (deal-analyser:packBrand), templates (deal-analyser:packTemplates
+  {list, def}), the pack being built (deal-analyser:pack; also copied onto its saved deal as d.pack) and its photos
+  (deal-analyser:packPhotos:<saved id>, JPEGs made smaller on the phone; photos of deleted deals are cleared) stay on the
+  phone. A full store says so in plain words.
+- dealpack.js (pure, browser + node; test-dealpack.js): SECS (9 sections), LOOKS (the hand-off's values), figsFromLedger
+  (BRR → BTL and flip figures from Calc.ledger, bridging included once), data (words and figures; hide address = "3-bed
+  terraced house, Margate" / "Margate CT9"), paginate (cover, then 2 a page), pageHTML (600 x 848, inline styles, 4 looks),
+  linkPayload / encode / decode, reserveMessage. NO verdict or score anywhere in a pack (tested). Colours follow the own
+  targets (flip green / amber / red, BTL monthly).
+- packui.js (screens; PackUI(ctx) from app.js): setup 14c (#pack-setup, full screen, 4 steps; the first template saved is
+  the default; "✓ Saved" then the builder), branding only (#pack-brand), builder 12a (#pack: template row, calculator
+  figures read-only, property details, prepared for, a note, hide address, sections ↑ ↓ and ticks, cover + 6 photos, fee
+  and terms, branding, fixed Preview), preview 12b (#pack-preview: the pages, PDF / Copy link / Share), templates sheet.
+- PDF = the browser's print: #pack-print holds full-size pages, @page A4 margin 0, each page zoomed 1.3229 to fill A4
+  (checked: 6 pages with every section, 2 with two, in all four looks).
+- Entry: Save (sourcer) -> "Saved. What next?" sheet (Make a deal pack PRO / Client report); a Deal pack button on each
+  saved deal; Settings -> Deal pack (templates sheet, or setup when there is none). Privacy policy has a Deal packs section.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

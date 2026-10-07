@@ -208,12 +208,12 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.evaluate(() => scrollTo(0, 1e6)); await p.waitForTimeout(60);
   ok('the disclaimer is under the page', (await p.locator('.legal-foot').textContent()).startsWith('Estimates only, not financial, tax or legal advice.'));
   await p.click('.legal-links button:has-text("Privacy policy")'); await p.waitForTimeout(60);
-  ok('Privacy policy opens with its six headings', (await p.locator('.bs-h').count()) === 6 && (await p.locator('.big-sheet h2').textContent()) === 'Privacy policy');
+  ok('Privacy policy opens with its seven headings', (await p.locator('.bs-h').count()) === 7 && (await p.locator('.big-sheet h2').textContent()) === 'Privacy policy');
   const sheetTaps = await p.evaluate(() => [...document.querySelectorAll('#settings-sheet button')].filter(e => e.offsetParent).map(e => Math.round(e.getBoundingClientRect().height)).filter(h => h < 44));
   ok('sheet buttons are 44px tall or more', !sheetTaps.length, JSON.stringify(sheetTaps));
   await p.click('.bs-done');
   await p.goto(BASE + '/privacy.html'); await p.waitForTimeout(150);
-  ok('the standalone privacy page opens with the same six headings', (await p.locator('h2').count()) === 6 && (await p.locator('h1').textContent()) === 'Privacy policy');
+  ok('the standalone privacy page opens with the same seven headings', (await p.locator('h2').count()) === 7 && (await p.locator('h1').textContent()) === 'Privacy policy');
   // ---- the verdict strip without the Edit targets pill: one tap target, and three ways to the targets sheet ----
   await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
   await p.evaluate(() => { sessionStorage.removeItem('deal-analyser:targetsOpen'); }); await p.reload(); await p.waitForTimeout(300);
@@ -438,9 +438,11 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     // sourcer: Client report on saved deals and after saving
     q.on('dialog', d => d.type() === 'prompt' ? d.accept('Test house') : d.dismiss());
     await q.click('.pin-save'); await q.waitForTimeout(150);
+    ok('sourcer: Save asks what next: a deal pack (PRO) or a client report', (await q.$$eval('#settings-sheet .st9-link b', bs => bs.map(b => b.textContent).join('|'))) === 'Make a deal packPRO|Client report');
+    await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(80);
     await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
-    ok('sourcer: every saved deal has a Client report button', (await q.locator('.rep10').count()) === 1 && (await q.$eval('.rep10', e => e.getBoundingClientRect().height)) >= 44);
-    await q.click('.rep10'); await q.waitForTimeout(250);
+    ok('sourcer: every saved deal has a Client report and a Deal pack button', (await q.$$eval('.rep10', bs => bs.map(b => b.textContent).join())) === 'Client report,Deal pack' && (await q.$eval('.rep10', e => e.getBoundingClientRect().height)) >= 44);
+    await q.click('.rep10:text-is("Client report")'); await q.waitForTimeout(250);
     ok('sourcer: it opens the client report for that deal, prepared by your name', (await q.url()).endsWith('#report') && (await q.$eval('#rep-by', e => e.value)) === 'Levendelis Property');
     // Settings > About you
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80);
@@ -486,6 +488,100 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ({ c, q } = await fresh({ onboarded: true, lettingType: 'unsure', brrlet: 'none' }));
     await q.goto(BASE + '/index.html'); await q.waitForTimeout(300);
     ok('not sure: today’s start (where you were)', (await q.textContent('.pin-exit')) === 'Flip');
+    await c.close();
+    // ---- Deal pack (design 12a / 12b / 12d / 14c, 7 Oct 2026; sourcers only) ----
+    ({ c, q } = await fresh({ onboarded: true, persona: 'source', deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } }));
+    let copied = ''; q.on('dialog', d => { if (d.message() === 'Copy this link') { copied = d.defaultValue(); d.dismiss(); } else if (d.type() === 'prompt') d.accept('12 Albert Road'); else d.accept(); });
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    await q.click('.pin-save'); await q.waitForTimeout(150);
+    await q.click('#settings-sheet .st9-link:has-text("Make a deal pack")'); await q.waitForTimeout(250);
+    ok('pack: Make a deal pack with no template yet opens setup step 1 of 4, without the tab bar', (await q.url()).endsWith('#pack-setup') && (await q.textContent('.pk14-h')) === 'Pick a look' && (await q.textContent('.pk14-step')) === 'Step 1 of 4' && (await q.locator('.pk14-bars i.on').count()) === 1 && !(await q.isVisible('#tabs')));
+    ok('pack 14c: four looks with real cover thumbnails, Classic chosen', (await q.$$eval('.pk14-lrow b', bs => bs.map(b => b.textContent).join())) === 'Classic,Editorial,Bold,Memo' && (await q.locator('.pk14-look .dp-page').count()) === 4 && (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Classic');
+    await q.click('.pk14-look:has(b:text-is("Bold"))'); await q.waitForTimeout(60);
+    ok('pack 14c: tapping a look chooses it; the footer names it', (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Bold' && (await q.textContent('.pk14-fl')) === 'Bold');
+    await q.click('.pk14-next'); await q.waitForTimeout(60);
+    ok('pack 14c step 2: nine sections, all in', (await q.locator('.pk14-sec').count()) === 9 && (await q.textContent('.pk14-fl')) === '9 of 9 sections');
+    await q.click('.pk14-sec:has-text("EPC and size")'); await q.waitForTimeout(60);
+    ok('pack 14c step 2: tapping takes one out', (await q.textContent('.pk14-fl')) === '8 of 9 sections' && (await q.getAttribute('.pk14-sec:has-text("EPC and size")', 'aria-pressed')) === 'false');
+    await q.click('.pk14-next'); await q.waitForTimeout(60);
+    for (const [l, v] of [['Business name', 'Palmer Property Sourcing'], ['Your name', 'Ashley Palmer'], ['Phone', '07700 900123'], ['Email', 'ash@example.com']]) await q.fill('.pk-field:has(span:text-is("' + l + '")) input', v);
+    await q.click('.pk-sw >> nth=1'); await q.waitForTimeout(60);
+    ok('pack 14c step 3: branding saved on the phone as typed, with the colour', JSON.stringify(await q.evaluate(() => { const b = JSON.parse(localStorage.getItem('deal-analyser:packBrand')); return [b.company, b.name, b.phone, b.email, b.color]; })) === JSON.stringify(['Palmer Property Sourcing', 'Ashley Palmer', '07700 900123', 'ash@example.com', '#1e3a5f']));
+    await q.click('.pk14-next'); await q.waitForTimeout(60);
+    ok('pack 14c step 4: the mini cover with 8 sections; Save waits for a name', (await q.locator('.pk14-chips span').count()) === 8 && (await q.textContent('.pk14-mt span')) === '5 pages · Bold' && await q.isDisabled('.pk14-foot .pk14-next'));
+    await q.fill('.pk14-name', 'Standard pack'); await q.click('.pk14-foot .pk14-next'); await q.waitForTimeout(100);
+    ok('pack 14c step 4: saving shows “✓ Saved. Used on every new deal pack.”', (await q.isVisible('.pk14-flash')) && (await q.textContent('.pk14-flash')) === '✓ Saved. Used on every new deal pack.');
+    await q.waitForTimeout(1400);
+    ok('pack: saving the first template makes it the default and opens the builder with it', (await q.url()).endsWith('#pack') && (await q.textContent('.pk-tpl b')) === 'Standard pack' && (await q.evaluate(() => { const t = JSON.parse(localStorage.getItem('deal-analyser:packTemplates')); return t.list.length === 1 && t.def === t.list[0].id && t.list[0].look === 'bold' && t.list[0].off.epc; })));
+    ok('pack 12a: the tab bar shows, Saved selected; PRO marked', await q.isVisible('#tabs') && (await q.getAttribute('#t-saved', 'aria-selected')) === 'true' && (await q.textContent('.pk-pin .pk-pro')) === 'PRO');
+    ok('pack 12a: every figure from the calculator', (await q.$$eval('.pk-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'))) === 'Strategy BRR → BTL|End value £230,000|Refurb £30,000|Legal £1,500|Other costs £0|Stamp duty £6,250|Purchase price £125,000|Rent £1,000/mo|Lender pays / deposit 75% / 25%', await q.$$eval('.pk-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|')));
+    ok('pack 12a: the address starts as the saved deal’s name', (await q.inputValue('.pk-field:has(span:text-is("Street address")) input')) === '12 Albert Road');
+    for (const [l, v] of [['Town', 'Margate'], ['Postcode', 'CT9 1AA'], ['Bedrooms', '3'], ['Property type', 'terraced house'], ['Prepared for', 'Sarah Reed']]) await q.fill('.pk-field:has(span:text-is("' + l + '")) input', v);
+    ok('pack 12a: hide the address is on, and says what shows', (await q.getAttribute('.pk-switch-row .st9-switch', 'aria-checked')) === 'true' && (await q.textContent('.pk-switch-row small')) === 'Shows “Margate CT9” until the client reserves.');
+    ok('pack 12a: sections: cover, the nine in order with EPC out, disclaimer; 5 pages', (await q.locator('.pk-sec').count()) === 11 && (await q.getAttribute('.pk-tick-b[aria-label="EPC and size"]', 'aria-checked')) === 'false' && (await q.textContent('.pk-go')) === 'Preview the pack · 5 pages');
+    await q.click('.pk-tick-b[aria-label="Photos gallery"]'); await q.click('.pk-tick-b[aria-label="Area map"]'); await q.waitForTimeout(60);
+    ok('pack 12a: taking two more out: 4 pages', (await q.textContent('.pk-go')) === 'Preview the pack · 4 pages' && (await q.textContent('.pk-h small:text-matches("pages")')) === '4 pages');
+    await q.click('.pk-mv[aria-label="Move up Next steps"]'); await q.waitForTimeout(60);
+    ok('pack 12a: ↑ moves a section up; the first can’t go up, the last can’t go down', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:pack')).order.slice(-2).join())) === 'next,fee' && await q.isDisabled('.pk-mv[aria-label="Move up Deal summary"]') && await q.isDisabled('.pk-mv[aria-label="Move down Your fee and terms"]'));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+    await q.setInputFiles('.pk-slot.cover input[type=file]', { name: 'c.png', mimeType: 'image/png', buffer: png }); await q.waitForTimeout(300);
+    ok('pack 12a: a cover photo is made smaller and kept on the phone for this deal', (await q.locator('.pk-slot.cover img').count()) === 1 && (await q.evaluate(() => { const id = JSON.parse(localStorage.getItem('deal-analyser:pack')).savedId; return /^data:image\/jpeg/.test(JSON.parse(localStorage.getItem('deal-analyser:packPhotos:' + id)).cover); })));
+    const big = await q.$$eval('.pk12 button, .pk12 .pk-field input, .pk12 .pk-add', es => es.filter(e => e.offsetParent && !e.classList.contains('pk-more') && !e.classList.contains('st9-switch') && !e.classList.contains('pin-back') && e.getBoundingClientRect().height < 44).map(e => e.className + ':' + e.getBoundingClientRect().height));
+    ok('pack 12a: tap targets 44px or more (text links and the switch have a bigger hit area)', !big.length, JSON.stringify(big));
+    await q.reload(); await q.waitForTimeout(300);
+    ok('pack 12a: everything typed is still there after a reload', (await q.inputValue('.pk-field:has(span:text-is("Town")) input')) === 'Margate' && (await q.textContent('.pk-go')) === 'Preview the pack · 4 pages' && (await q.locator('.pk-slot.cover img').count()) === 1);
+    await q.click('.pk-go'); await q.waitForTimeout(400);
+    ok('pack 12b: the preview shows 4 pages in the Bold look, cover first with its photo', (await q.url()).endsWith('#pack-preview') && (await q.locator('.pk-page .dp-page').count()) === 4 && (await q.getAttribute('.pk-page .dp-page >> nth=0', 'data-look')) === 'bold' && (await q.locator('.pk-page >> nth=0 >> img').count()) >= 1 && (await q.textContent('.pk-count')) === '4 pages');
+    const pv = await q.$$eval('.pk-page .dp-page', ps => ps.map(p => p.innerText).join(' '));
+    ok('pack 12b: the address is hidden; the title is the kind of house; no verdict or score', !pv.includes('Albert Road') && pv.includes('3-bed terraced house, Margate') && !/Good deal|verdict|hits \d of|Strong|Weak|Borderline/.test(pv));
+    ok('pack 12b: the sections in the chosen order, with page numbers', (await q.$$eval('.pk-page .dp-block', bs => bs.map(b => b.dataset.sec).join())) === 'summary,figures,exits,evidence,next,fee' && (await q.$$eval('.pk-page .dp-num', ns => ns.map(n => n.textContent).join())) === '1 / 4,2 / 4,3 / 4,4 / 4');
+    ok('pack 12b: PDF, Copy link and Share', (await q.$$eval('.pk-act', bs => bs.map(b => b.innerText.replace(/\s+/g, ' ').trim()).join('|'))) === '↓ PDF|⧉ Copy link|↗ Share');
+    // the PDF: the print view holds only the pages, one A4 sheet each
+    await q.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await q.click('.pk-act:has-text("PDF")'); await q.waitForTimeout(200);
+    ok('pack PDF: Print is opened with the four pages ready', (await q.evaluate(() => window.__printed)) === 1 && (await q.locator('#pack-print .pk-print-page').count()) === 4);
+    await q.emulateMedia({ media: 'print' });
+    ok('pack PDF: in print only the pages show', (await q.evaluate(() => getComputedStyle(document.querySelector('main')).display)) === 'none' && (await q.evaluate(() => getComputedStyle(document.getElementById('pack-print')).display)) === 'block');
+    const pdf = await q.pdf({ preferCSSPageSize: true, printBackground: true });
+    ok('pack PDF: a real print makes exactly 4 A4 pages', (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 4 && /\/MediaBox \[0 0 59[45]\.\d* 841\.\d*\]/.test(pdf.toString('latin1')), (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length + ' ' + (/\/MediaBox \[[^\]]*\]/.exec(pdf.toString('latin1')) || [''])[0]);
+    await q.emulateMedia({ media: 'screen' });
+    // the link: words and figures only, opened on another phone
+    await q.click('.pk-act:has-text("Copy link")'); await q.waitForTimeout(300);
+    ok('pack link: one address holding the whole pack (no server), shorter than 2,500 characters', /\/p\.html#z[A-Za-z0-9_-]+$/.test(copied) && copied.length < 2500, copied.length);
+    const lc = await b.newContext({ viewport: { width: 360, height: 780 }, serviceWorkers: 'block' }), lp = await lc.newPage(); lp.on('pageerror', e => errs.push('link: ' + e.message));
+    await lp.goto(copied); await lp.waitForTimeout(400);
+    ok('pack 12d: the client sees the pack in the sourcer’s colour, the same sections, no address', (await lp.textContent('h1')) === '3-bed terraced house, Margate' && (await lp.$$eval('.card', cs => cs.map(x => x.dataset.sec).join())) === 'summary,figures,exits,evidence,next,fee' && !(await lp.content()).includes('Albert Road') && (await lp.$eval('.reserve', e => getComputedStyle(e).backgroundColor)) === 'rgb(30, 58, 95)');
+    ok('pack 12d: no sideways scrolling at 360px; Call and Reserve 44px+', (await lp.evaluate(() => document.documentElement.scrollWidth)) <= 360 && (await lp.$eval('.call', e => e.getBoundingClientRect().height)) >= 44 && (await lp.getAttribute('.call', 'href')) === 'tel:07700900123');
+    await lp.click('.reserve'); await lp.waitForTimeout(100);
+    ok('pack 12d: Reserve asks for name, phone and email; can’t send until name and phone are in', (await lp.locator('.sheet input').count()) === 3 && (await lp.locator('.sends a.off').count()) === 3);
+    await lp.fill('input[data-k=name]', 'Sarah Reed'); await lp.fill('input[data-k=phone]', '07700 111222'); await lp.waitForTimeout(60);
+    const hrefs = await lp.$$eval('.sends a', as => as.map(a => a.getAttribute('href')));
+    ok('pack 12d: ... then text, WhatsApp or email to the sourcer, with the client’s details written in', hrefs.length === 3 && hrefs[0].startsWith('sms:07700900123?&body=') && hrefs[1].startsWith('https://wa.me/447700900123?text=') && hrefs[2].startsWith('mailto:ash@example.com?') && decodeURIComponent(hrefs[0]).includes('Name: Sarah Reed\nPhone: 07700 111222'), JSON.stringify(hrefs));
+    await lp.goto(copied.slice(0, copied.length - 60)); await lp.waitForTimeout(300);
+    ok('pack 12d: a link cut short says so instead of showing half a pack', /This link is incomplete/.test(await lp.textContent('main')));
+    await lc.close();
+    // templates sheet and Settings
+    await q.goto(BASE + '/index.html#pack'); await q.waitForTimeout(250); await q.click('.pk-tpl'); await q.waitForTimeout(100);
+    ok('pack: Change › lists the templates, the default marked, with New template and Branding', (await q.textContent('.pk-trow b')) === 'Standard pack · in use' && (await q.textContent('.pk-def')) === 'Default' && (await q.locator('.pk-wide:has-text("New template")').count()) === 1 && (await q.locator('.pk-wide:has-text("Branding")').count()) === 1);
+    await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(60); await q.click('#gear'); await q.waitForTimeout(80);
+    ok('pack: Settings has a Deal pack row (PRO) for a sourcer', (await q.locator('.st9-link:has(b:text-matches("^Deal pack"))').count()) === 1);
+    // a second deal gets its own pack; the first deal's pack comes back from Saved
+    await q.click('#settings-sheet .bs-done').catch(() => {}); await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250);
+    q.removeAllListeners('dialog'); q.on('dialog', d => d.type() === 'prompt' ? d.accept('7 Kent Street') : d.accept());
+    await q.click('.pin-save'); await q.waitForTimeout(150); await q.click('#settings-sheet .st9-link:has-text("Make a deal pack")'); await q.waitForTimeout(300);
+    ok('pack: a second saved deal starts its own pack from the default template (no details or photos from the first)', (await q.url()).endsWith('#pack') && (await q.inputValue('.pk-field:has(span:text-is("Street address")) input')) === '7 Kent Street' && (await q.inputValue('.pk-field:has(span:text-is("Town")) input')) === '' && !(await q.locator('.pk-slot.cover img').count()) && (await q.textContent('.pk-go')) === 'Preview the pack · 5 pages');
+    await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250);
+    await q.click('.rep10[aria-label="Deal pack for 12 Albert Road"]'); await q.waitForTimeout(300);
+    ok('pack: the first deal’s Deal pack button brings its pack back, photo and all', (await q.inputValue('.pk-field:has(span:text-is("Town")) input')) === 'Margate' && (await q.locator('.pk-slot.cover img').count()) === 1 && (await q.textContent('.pk-go')) === 'Preview the pack · 4 pages');
+    for (const w of [360, 430]) for (const scheme of ['dark', 'light']) {
+      await q.setViewportSize({ width: w, height: 800 }); await q.emulateMedia({ colorScheme: scheme });
+      for (const hsh of ['#pack', '#pack-preview', '#pack-setup']) { await q.goto(BASE + '/index.html' + hsh); await q.waitForTimeout(200);
+        ok('pack: no sideways scrolling on ' + hsh + ' at ' + w + 'px, ' + scheme, (await q.evaluate(() => document.documentElement.scrollWidth)) <= w); }
+    }
+    await c.close();
+    ({ c, q } = await fresh({ onboarded: true, persona: 'invest', pack: { look: 'classic', order: [], off: {}, hide: true, fee: 0, terms: '', prop: {}, client: '', note: '' } }));
+    await q.goto(BASE + '/index.html#pack'); await q.waitForTimeout(300);
+    ok('pack: not a sourcer: the deal pack is not there (address goes to the Calculator; no Deal pack buttons)', (await q.url()).endsWith('#calculators') && !(await q.locator('.pk12').count()));
     await c.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));

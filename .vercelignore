@@ -10,4 +10,5 @@ test-tax-targets.js
 test-other-costs.js
 test-browser.js
 test-prefs.js
+test-dealpack.js
 .vercel/

@@ -1058,8 +1058,24 @@
   function saveDeal() {
     var name = prompt('Name this deal (e.g. the address)'); if (!name) return;
     var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, letting: brrLet, bridge: bridgeOn, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
-    if (clientReportsOn()) { if (confirm('Saved. Make a client report for this deal now?')) openReport('deal'); return; }
+    if (clientReportsOn()) { savedNext(list[0]); return; }
     alert('Saved. Find it under Saved.');
+  }
+  // Sourcers, after Save: make a deal pack (design 12a), a client report, or carry on.
+  function savedNext(d) {
+    openSheet(function (sheet) {
+      sheetHead(sheet, 'Saved', 'Done');
+      sheet.appendChild(h('p', 'bs-intro', '“' + d.name + '” is in Saved. What next?'));
+      var card = h('div', 'st9-card');
+      var row = function (title, sub, go, tag) {
+        var b = h('button', 'st9-row st9-link'), tt = h('span', 'st9-txt'); b.type = 'button';
+        tt.appendChild(h('b', '', title)); if (tag) tt.firstChild.appendChild(tag); tt.appendChild(h('small', '', sub)); b.appendChild(tt); b.appendChild(h('span', 'st9-chev', '›'));
+        b.onclick = function () { closeSettings(); go(); }; card.appendChild(b);
+      };
+      row('Make a deal pack', 'A branded PDF and a link your client can reserve from', function () { Pack.start(d.id); }, Pack.pro('in'));
+      row('Client report', 'This deal through every strategy', function () { openReport('deal'); });
+      sheet.appendChild(card);
+    });
   }
   function dealData(d) { return d.v === 2 ? d.data : Calc.migrate(d.calc || 'flip', d.data); }
   function relTime(ms) {
@@ -1122,6 +1138,8 @@
             var rp = h('button', 'note-btn rep10', 'Client report'); rp.type = 'button'; rp.setAttribute('aria-label', 'Client report for ' + d.name);
             rp.onclick = function () { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; openReport('deal'); };
             nr.appendChild(rp);
+            var dp = h('button', 'note-btn rep10', 'Deal pack'); dp.type = 'button'; dp.setAttribute('aria-label', 'Deal pack for ' + d.name);
+            dp.onclick = function () { Pack.start(d.id); }; nr.appendChild(dp);
           }
         }
       };
@@ -1625,11 +1643,12 @@
   }
   // The privacy policy. The same words are on the standalone privacy page; keep the two the same (test-app.js checks).
   // It describes only what this app does: no account, no server of its own, no tracking.
-  var PRIVACY = { updated: '5 October 2026', sections: [
+  var PRIVACY = { updated: '7 October 2026', sections: [
     ['What stays on your phone', 'Your deal figures, targets, stamp duty settings, saved deals and notes are stored only on this phone, in your browser. They are not sent to us.'],
     ['What we don’t collect', 'No account, no name or email address, no advertising or tracking cookies, no analytics. We never sell or share data.'],
     ['Loading the app', 'The app’s files are delivered by our hosting provider. Like any website, it may briefly log your IP address and device type to keep the service running and secure.'],
     ['Sharing a report', 'When you download or share a PDF report, your phone creates it on the phone and you choose where it goes.'],
+    ['Deal packs (for sourcers)', 'A deal pack’s branding, logo, templates and photos are kept on this phone. A deal pack link carries the pack’s words and figures inside the link itself (never the photos or logo), so anyone who has the link can read them; nothing is stored on a server. When a client reserves, their own phone sends you a text, WhatsApp message or email; we never see it.'],
     ['Your choices', 'Clear everything at any time by clearing this site’s data in your browser settings, or by uninstalling the app.'],
     ['Contact', '[CONTACT EMAIL TO BE ADDED BEFORE LAUNCH]']] };
 
@@ -1661,7 +1680,11 @@
       tt.appendChild(h('b', '', title)); if (sub) tt.appendChild(h('small', '', sub)); b.appendChild(tt);
       b.appendChild(h('span', mark ? 'st9-mark' : 'st9-chev', mark || '›')); b.onclick = go; c.appendChild(b);
     };
-    if (clientReportsOn()) link(card(), 'Report branding', 'Your name on every client report', openBranding);   // sourcers: straight under About you
+    if (clientReportsOn()) {                                                              // sourcers: straight under About you
+      var src = card(); link(src, 'Report branding', 'Your name on every client report', openBranding);
+      link(src, 'Deal pack', Pack.hasTemplates() ? 'Templates and branding' : 'Set up your branded pack', function () { if (Pack.hasTemplates()) Pack.openTemplates(false); else { closeSettings(); location.hash = '#pack-setup'; } });
+      src.lastChild.querySelector('b').appendChild(Pack.pro('in'));
+    }
     label('Appearance');
     var look = card();
     [['dark', 'Dark', 'Deep green, light ink.'], ['light', 'Light', 'Cream paper, dark ink.'], ['system', 'Match my phone', 'Follows your phone’s setting.']].forEach(function (t) {
@@ -1705,26 +1728,35 @@
     var navigated = hash !== prevHashSeen; prevHashSeen = hash;
     if (c) { calcKey = c.key; store(STRAT_KEY, calcKey); }
     else if (navigated && (hash === '' || hash === '#calculators')) openPreferred();   // no calculator in the address: your letting type's
+    var PACK_VIEWS = { '#pack': 'pack', '#pack-setup': 'packsetup', '#pack-brand': 'packbrand', '#pack-preview': 'packprev' };
+    if (PACK_VIEWS[hash] && !clientReportsOn()) { location.hash = '#calculators'; return; }     // the deal pack is for sourcers
     var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#compare' ? 'compare' : hash === '#saved-compare' ? 'scompare'
-      : hash === '#usual' ? 'usual' : hash === '#report' ? 'report' : 'home';
+      : hash === '#usual' ? 'usual' : hash === '#report' ? 'report' : PACK_VIEWS[hash] || 'home';
+    var packView = /^pack/.test(view), setupView = view === 'packsetup' || view === 'packbrand';
     $('v-home').hidden = view !== 'home'; $('v-saved').hidden = view !== 'saved';
-    $('v-compare').hidden = view !== 'compare'; $('v-scompare').hidden = view !== 'scompare'; $('v-report').hidden = view !== 'report'; $('v-usual').hidden = view !== 'usual';
+    $('v-compare').hidden = view !== 'compare'; $('v-scompare').hidden = view !== 'scompare'; $('v-report').hidden = view !== 'report'; $('v-usual').hidden = view !== 'usual'; $('v-pack').hidden = !packView;
     if (view === 'compare') renderCompare();
     if (view === 'scompare') renderSavedCompare();
     if (view === 'report') renderReport();
     if (view === 'usual') renderUsual();
-    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual');            // usual figures: the Calculator's look
+    if (packView) Pack.render(view, $('v-pack'));
+    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || packView);  // usual figures, deal pack: the Calculator's look
+    document.body.classList.toggle('pk-setup', setupView);
     var overlayView = view === 'compare' || view === 'scompare' || view === 'report';
-    $('tabs').hidden = overlayView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
-    document.body.classList.toggle('has-tabs', !overlayView);
+    $('tabs').hidden = overlayView || setupView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
+    document.body.classList.toggle('has-tabs', !overlayView && !setupView);
     document.body.classList.toggle('has-bar', view === 'home');
-    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual'); $('t-saved').setAttribute('aria-selected', view === 'saved');
+    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
     $('title').textContent = view === 'scompare' ? 'Compare saved deals' : view === 'report' ? 'Client report' : view === 'compare' ? 'Every strategy' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
     if (view === 'home') renderCalculator();
     window.scrollTo(0, 0);
   }
+  var Pack = PackUI({ h: h, load: load, store: store, money: money, goBack: goBack, redraw: redraw, openSheet: openSheet, sheetHead: sheetHead, closeSettings: closeSettings,
+    getDeals: getDeals, saveDeals: function (list) { store(DEALS, list); }, targets: function () { return Calc.targets(); },
+    ledger: function () { return Calc.ledger(eff(deal), bridgeOn); },
+    loadDeal: function (d) { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; if (typeof d.bridge === 'boolean') { bridgeOn = d.bridge; store(BRIDGE_KEY, bridgeOn); } } });
   $('back').onclick = goBack;
   $('t-home').onclick = function () { location.hash = '#calculators'; };
   $('t-saved').onclick = function () { location.hash = '#saved'; };

@@ -14,7 +14,7 @@ const tabs = [...html.matchAll(/role="tab" id="([^"]+)"/g)].map(m => m[1]);
 ok('two tabs: Calculator then Saved', tabs.join(',') === 't-home,t-saved', tabs.join(','));
 ok('the tab bar has two columns, one per tab', /\.tabs\{[^}]*grid-template-columns:repeat\(2,1fr\)/.test(html));
 ok('the Calculator tab starts selected and its screen starts shown', /id="t-home" aria-selected="true"/.test(html) && /<div id="v-home"><\/div>/.test(html));
-ok('an empty address opens the Calculator', /: hash === '#report' \? 'report' : 'home';/.test(app));
+ok('an empty address opens the Calculator', /: hash === '#report' \? 'report' : PACK_VIEWS\[hash\] \|\| 'home';/.test(app));
 ok('the page title is BRR Calculator', /<title>BRR Calculator<\/title>/.test(html) && /<h1 id="title">BRR Calculator<\/h1>/.test(html));
 ok('the header falls back to BRR Calculator', /: view === 'compare' \? 'Every strategy' : 'BRR Calculator';/.test(app));
 ok('the manifest names the app BRR Calculator', manifest.name === 'BRR Calculator' && manifest.short_name && manifest.short_name.length <= 12 && manifest.display === 'standalone');
@@ -26,7 +26,7 @@ ok('icons for installing: 192, 512 and a maskable 512 (Android shapes)', ['192x1
 ok('an iPhone home-screen icon (180) and a 32px tab icon are linked', /rel="apple-touch-icon" href="apple-touch-icon.png"/.test(html) && pngSize('apple-touch-icon.png') === '180x180' && /rel="icon" href="favicon-32.png"/.test(html) && pngSize('favicon-32.png') === '32x32');
 ok('the home-screen name is BRR Calc / BRR Calculator', manifest.short_name === 'BRR Calc' && /apple-mobile-web-app-title" content="BRR Calculator"/.test(html));
 const scripts = [...html.matchAll(/<script src="([^"]+)">/g)].map(m => m[1]);
-ok('the page loads calc.js, pdf.js, prefs.js and app.js only', scripts.join(',') === 'calc.js,pdf.js,prefs.js,app.js', scripts.join(','));
+ok('the page loads calc.js, pdf.js, prefs.js, dealpack.js, packui.js and app.js only', scripts.join(',') === 'calc.js,pdf.js,prefs.js,dealpack.js,packui.js,app.js', scripts.join(','));
 
 // Nothing that only served the deal feed is left behind.
 const feed = ['deals.json', 'history/', 'Geo.', 'geo.js', 'postcodes.io', '#property', '#day/', 'v-today', 'v-property', 't-today', 'renderToday',
