@@ -304,6 +304,27 @@ first restyle)
   "Photos are off in this pack · Turn on" under Your photos while the Photos section is off.
   (Ashley's request named the Deal Analyser's files: pack.js / pack.html / test-pack.js / #pk-print / packPreview are
   dealpack.js / p.html / test-dealpack.js / #pack-print / packui.js renderPreview + printPack here.)
+- FIXES (8 Oct 2026, hand-off design_handoff_deal_pack_fixes; written for the Deal Analyser, applied here):
+  STRATEGY from the saved deal only, no picker (DealPack.strategyOf({view, letting}); stored on the draft as p.strat):
+  main screen with letting none (or a "Flip / BRR to BTL" deal) = flip; letting btl / hmo / sa = BRR to that exit;
+  btl / hmo / sabtl screens = let; r2rhmo / r2rsa = r2r; old hmobrr / sabrr = BRR HMO / SA; Max price = BRR → BTL;
+  bridging or unknown = flip. Figures: figsFromLedger(L, exit) for flip ('none') and BRR, figsFromCalc(calc, {v, s}) for
+  let / r2r (figs.kind). data() by kind: flip leads with "Profit if sold after the works" (figures page: sale price, less
+  total cost, margin, return on money in; Rent figures off by default on a new flip pack); brr with cash left in /
+  pulled out (refinance rows); let with "Monthly profit", fourth figure "Return on money in", costs from the deposit
+  (not the price), figures page mortgage at X% / income / costs / monthly / annual / money in; r2r with "Monthly
+  profit", up-front costs only, figures page rent you pay / income / running costs / monthly / money back. Exits: the
+  saved strategy first; only BRR shows the flip too. Cover tag in plain words (STRAT tags, e.g. "Flip · buy, refurb,
+  sell"). Builder: "From your saved deal" + "Saved as {name}" (mint 600 11.5px), rows for that kind, Edit in calculator
+  opens the screen it was saved from (ctx.openStrategy).
+  PHOTOS IN SETUP: 5 steps (look, sections, PHOTOS, branding, save; branding-only starts at step 4). Step 3 "Add your
+  photos": 190px cover spot, 3 x 2 gallery (96px), dashed; Back · Skip for now · Next; amber "The Photos gallery section is
+  off, so only the cover is used. · Turn on" when it is off. Shared photoSlots() with the builder; photos per deal id
+  (packPhotos:<id>); from Settings (no deal) the step only explains. Preview / setup show an empty cover as a dashed
+  "Your cover photo goes here" (P.placeholder); the PDF and link show a plain pale box.
+  ADDRESS: the pack's property details come from the saved deal: DealPack.splitAddress(name) ("36 Kellet Avenue, Leyland
+  PR25 5TE" -> address / town / postcode) plus any beds / type / epc / sqm kept on it; a pack made before is re-split; the
+  draft is per deal (never another deal's details); the Margate example only when setup is opened from Settings.
 - SETUP PREVIEW (third 14c hand-off): "Preview pack" beside "Step n of 4" on every step and "Preview the full pack · N pages"
   on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
   live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the

@@ -1643,7 +1643,13 @@
   }
   var Pack = PackUI({ h: h, load: load, store: store, money: money, goBack: goBack, redraw: redraw, openSheet: openSheet, sheetHead: sheetHead, closeSettings: closeSettings,
     getDeals: getDeals, saveDeals: function (list) { store(DEALS, list); }, targets: function () { return Calc.targets(); },
-    ledger: function () { return Calc.ledger(eff(deal), bridgeOn); },
+    ledger: function () { return Calc.ledger(eff(deal), bridgeOn); }, currentLet: function () { return brrLet; },
+    calcOf: function (id) { var c = Calc.find(id), s = Calc.stateFor(c, eff(deal)); return { v: c.compute(s).v, s: s }; },
+    openStrategy: function (st) {                                       // "Edit in calculator ›": the screen the deal was saved from
+      var to = st.kind === 'flip' || st.kind === 'brr' ? '#c/brr' : '#c/' + st.calc;
+      if (to === '#c/brr') setLet(st.kind === 'flip' ? 'none' : st.exit);
+      if (location.hash === to) route(); else location.hash = to;
+    },
     loadDeal: function (d) { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; if (typeof d.bridge === 'boolean') { bridgeOn = d.bridge; store(BRIDGE_KEY, bridgeOn); } } });
   $('back').onclick = goBack;
   $('t-home').onclick = function () { location.hash = '#calculators'; };

@@ -37,13 +37,57 @@
   function initials(b) { return String((b && (b.company || b.name)) || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('') || '?'; }
   function dateText(d) { d = d || new Date(); return d.getDate() + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getMonth()] + ' ' + d.getFullYear(); }
 
-  // The figures the pack shows, from the calculator's ledger (Calc.ledger(deal, bridging)): BRR → BTL and the flip.
-  function figsFromLedger(L) {
-    var b = L.exits.btl, v = b.v, f = L.exits.none.v, ps = L.ps;
-    return { price: n(ps.purchasePrice), endValue: n(ps.endValue), refurb: n(ps.refurb), legal: n(ps.legal), other: n(ps.otherUpfront), sdlt: n(b.own.sdlt),
-      totalIn: n(v.totalIn), ltv: n(L.ltv), depositPct: n(ps.depositPct), deposit: n(b.own.deposit), newMortgage: n(v.newMortgage), cashLeft: n(v.cashLeft),
-      monthly: n(v.monthly), roi: v.roi, margin: f.margin, rent: n(b.state.monthlyRent), bridgeCost: n(L.bridgeCost) };
+  // ---- which strategy a pack is (deal pack fixes, 8 Oct 2026): decided by the saved deal only, no picker ----
+  // saved: { view, letting } as Saved keeps them (view = the screen it was saved from; letting = the main screen's exit).
+  var STRAT = {
+    flip: { kind: 'flip', exit: 'none', name: 'Flip', tag: 'Flip · buy, refurb, sell' },
+    btl: { kind: 'brr', exit: 'btl', name: 'BRR → BTL', tag: 'BRR → BTL · buy, refurb, refinance, let' },
+    hmo: { kind: 'brr', exit: 'hmo', name: 'BRR → HMO', tag: 'BRR → HMO · buy, refurb, refinance, let by the room' },
+    sa: { kind: 'brr', exit: 'sa', name: 'BRR → SA', tag: 'BRR → SA · buy, refurb, refinance, nightly lets' },
+    'c:btl': { kind: 'let', calc: 'btl', name: 'BTL', tag: 'BTL · buy and let' },
+    'c:hmo': { kind: 'let', calc: 'hmo', name: 'HMO BTL', tag: 'HMO BTL · buy and let by the room' },
+    'c:sabtl': { kind: 'let', calc: 'sabtl', name: 'SA BTL', tag: 'SA BTL · buy and run as nightly lets' },
+    'c:r2rhmo': { kind: 'r2r', calc: 'r2rhmo', name: 'R2R HMO', tag: 'R2R HMO · rent, then let by the room' },
+    'c:r2rsa': { kind: 'r2r', calc: 'r2rsa', name: 'R2R SA', tag: 'R2R SA · rent, then run as nightly lets' }
+  };
+  function strategyOf(saved) {
+    saved = saved || {};
+    var view = saved.view || (saved.calc === 'flip' ? 'brr' : saved.calc) || 'brr', key;
+    if (view === 'brr' || view === 'flip') key = STRAT.hasOwnProperty(saved.letting) && saved.letting !== 'flip' ? saved.letting : 'flip';
+    else if (view === 'hmobrr') key = 'hmo';
+    else if (view === 'sabrr') key = 'sa';
+    else if (view === 'recycle') key = 'btl';                                 // Max price: buying to refinance and let
+    else key = STRAT.hasOwnProperty('c:' + view) ? 'c:' + view : 'flip';       // bridging or anything unknown: a flip
+    return Object.assign({ key: key }, STRAT[key]);
   }
+
+  // The figures the pack shows. From the main screen's ledger (Calc.ledger(deal, bridging)): a flip (exit 'none') or a
+  // BRR exit ('btl' | 'hmo' | 'sa'; 'btl' when none is given).
+  function figsFromLedger(L, exit) {
+    exit = exit || 'btl';
+    var flip = exit === 'none', X = L.exits[flip ? 'btl' : exit] || L.exits.btl, v = X.v, f = L.exits.none.v, ps = L.ps, st = flip ? STRAT.flip : STRAT[exit] || STRAT.btl;
+    return { kind: st.kind, key: flip ? 'flip' : STRAT[exit] ? exit : 'btl', exitName: st.name, price: n(ps.purchasePrice), endValue: n(ps.endValue), refurb: n(ps.refurb), legal: n(ps.legal), other: n(ps.otherUpfront),
+      furnishing: flip ? 0 : n(X.furnishing), sdlt: n(X.own.sdlt), totalIn: n(flip ? f.totalIn : v.totalIn), ltv: n(L.ltv), depositPct: n(ps.depositPct), deposit: n(X.own.deposit),
+      newMortgage: n(v.newMortgage), cashLeft: n(v.cashLeft), monthly: n(v.monthly), roi: v.roi, profit: n(f.profit), margin: f.margin, flipRoi: f.flipRoi,
+      rent: n(exit === 'hmo' || exit === 'sa' ? v.income : X.state.monthlyRent), bridgeCost: n(L.bridgeCost) };
+  }
+  // From one of the other calculators (BTL, HMO BTL, SA BTL, R2R HMO, R2R SA): r = { v: compute().v, s: its state }.
+  function figsFromCalc(calcId, r) {
+    var st = STRAT['c:' + calcId] || STRAT['c:btl'], v = r.v || {}, s = r.s || {}, rate = n(s.mortgageRate);
+    return { kind: st.kind, key: STRAT['c:' + calcId] ? 'c:' + calcId : 'c:btl', exitName: st.name, price: n(s.purchasePrice), endValue: 0, refurb: n(s.refurb), legal: n(s.legal), other: n(s.otherUpfront), furnishing: n(s.furnishing),
+      upfront: n(s.upfront), rentPaid: n(s.rentPaid), sdlt: n(v.sdlt), totalIn: n(v.totalIn), depositPct: n(s.depositPct), deposit: n(v.deposit), mortgage: n(v.mortgage), rate: rate,
+      interest: v.interest != null ? n(v.interest) : n(v.mortgage) * rate / 1200, income: n(v.income), expenses: n(v.expenses), monthly: n(v.monthly), annual: n(v.annual),
+      roi: v.roi, breakeven: v.breakeven, rent: n(v.income), bridgeCost: 0 };
+  }
+  // A saved deal's name as an address: "36 Kellet Avenue, Leyland PR25 5TE" -> address, town and postcode.
+  function splitAddress(name) {
+    var s = String(name || '').trim().replace(/\s+/g, ' '), pc = '', m = /,?\s*\b([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})$/i.exec(s);
+    if (m) { pc = m[1].toUpperCase().replace(/^(\S+?)(\d[A-Z]{2})$/, '$1 $2'); s = s.slice(0, m.index).trim().replace(/,$/, '').trim(); }
+    var i = s.lastIndexOf(',');
+    return i < 0 ? { address: s, town: '', postcode: pc } : { address: s.slice(0, i).trim(), town: s.slice(i + 1).trim(), postcode: pc };
+  }
+  function months(b) { return typeof b === 'number' && isFinite(b) ? (Math.round(b * 10) / 10) + ' months' : 'Not at this profit'; }
+
   // Which sections are in, in order. cfg: { order, off }.
   function sectionsOn(cfg) {
     var order = (cfg && cfg.order && cfg.order.length ? cfg.order : ORDER).filter(function (k) { return SECS.hasOwnProperty(k); });
@@ -58,35 +102,57 @@
     return pages;
   }
   // Everything a page or the link needs, in words and figures. o: { figs, prop, brand, client, hide, fee, terms, note, date,
-  // link, flipTarget, monthlyTarget, exitName }.
+  // link, flipTarget, monthlyTarget }. figs.kind ('flip' | 'brr' | 'let' | 'r2r') decides the headline, the fourth key
+  // figure, the figures page and the exits (the saved strategy first; only a BRR pack shows the flip as well).
   function data(o) {
-    var F = o.figs || {}, pr = o.prop || {}, B = o.brand || {}, hide = !!o.hide, out = F.cashLeft <= 0;
+    var F = o.figs || {}, K = F.kind || 'brr', st = STRAT[F.key] || (K === 'flip' ? STRAT.flip : STRAT.btl);
+    var pr = o.prop || {}, B = o.brand || {}, hide = !!o.hide, out = F.cashLeft <= 0;
     var town = String(pr.town || '').trim(), pc = String(pr.postcode || '').trim().toUpperCase(), outward = pc.split(/\s+/)[0] || '';
     var kind = (pr.beds ? pr.beds + '-bed ' : '') + (String(pr.type || '').trim() || 'property');
     var district = (town + ' ' + outward).trim() || 'Location on request';
     var address = String(pr.address || '').trim();
     var Kind = kind.charAt(0).toUpperCase() + kind.slice(1), title = hide || !address ? Kind + (town ? ', ' + town : '') : address;
-    var sqm = n(String(pr.sqm || '').replace(/[^0-9.]/g, '')), yld = F.endValue ? F.rent * 12 / F.endValue : 0;
+    var sqm = n(String(pr.sqm || '').replace(/[^0-9.]/g, ''));
     var flipT = n(o.flipTarget) || 25, monthT = o.monthlyTarget == null ? 500 : n(o.monthlyTarget);
-    var marginPct = typeof F.margin === 'number' ? Math.round(F.margin * 1000) / 10 : null;
-    var link = o.link || '';
+    var marginPct = typeof F.margin === 'number' ? Math.round(F.margin * 1000) / 10 : null, link = o.link || '';
+    var flipColor = n(F.profit) <= 0 ? INK.red : marginPct == null ? INK.ink : marginPct >= flipT ? INK.good : marginPct >= Math.max(0, flipT - 5) ? INK.amber : INK.red;
+    var monthColor = F.monthly >= monthT ? INK.good : INK.red, row = function (l, v) { return { label: l, val: v }; }, plain = function (l, v) { return { label: l, val: money(v), color: INK.ink }; };
+    var exFlip = { name: 'Flip', head: money(F.profit) + ' profit', detail: 'Sell at ' + money(F.endValue) + ' after the works. ' + pct(F.margin) + ' margin on the sale price, ' + pct(F.flipRoi) + ' return on money in.', color: flipColor };
+    var exBrr = { name: F.exitName || 'BRR → BTL', head: money(F.monthly) + '/mo', detail: 'Rent ' + money(F.rent) + ' a month. ' + (out ? money(-F.cashLeft) + ' comes back at refinance.' : money(F.cashLeft) + ' left in, ' + pct(F.roi) + ' return on it.'), color: monthColor };
+    var exLet = { name: F.exitName, head: money(F.monthly) + '/mo', detail: (K === 'r2r' ? 'Income ' + money(F.income) + ' a month, less ' + money(F.rentPaid) + ' rent and ' + money(F.expenses - F.rentPaid) + ' running costs. Money back in ' + months(F.breakeven) + '.'
+      : 'Income ' + money(F.income) + ' a month, costs ' + money(F.expenses) + '. ' + pct(F.roi) + ' return on ' + money(F.totalIn) + ' in.'), color: monthColor };
+    // the up-front costs: buying (price or deposit), stamp duty, works and fees; rent to rent: what goes in before the first rent
+    var costRows = K === 'r2r' ? [['Deposit / up-front rent', F.upfront], ['Refurbishment', F.refurb], ['Furnishing', F.furnishing], ['Other costs', F.other]].filter(function (r, i) { return i < 2 || r[1]; })
+      : [[K === 'let' ? 'Deposit (' + F.depositPct + '% of ' + money(F.price) + ')' : 'Purchase price', K === 'let' ? F.deposit : F.price], ['Stamp duty', F.sdlt], ['Refurbishment', F.refurb], ['Legal costs', F.legal]]
+        .concat(F.furnishing ? [['Furnishing', F.furnishing]] : []).concat(F.other ? [['Other costs', F.other]] : []).concat(F.bridgeCost ? [['Bridging cost', F.bridgeCost]] : []);
+    var stats = K === 'flip' ? [plain('Purchase price', F.price), plain('Value after works', F.endValue), plain('Refurb', F.refurb), { label: 'Profit if sold', val: money(F.profit), color: flipColor }]
+      : K === 'brr' ? [plain('Purchase price', F.price), plain('Value after works', F.endValue), plain('Refurb', F.refurb), { label: out ? 'Pulled out at refinance' : 'Left in after refinance', val: money(Math.abs(F.cashLeft)), color: out ? INK.good : INK.amber }]
+      : K === 'let' ? [plain('Purchase price', F.price), plain('Money in', F.totalIn), { label: 'Monthly profit', val: money(F.monthly), color: monthColor }, { label: 'Return on money in', val: pct(F.roi), color: INK.ink }]
+      : [plain('Rent you pay', F.rentPaid), plain('Money in', F.totalIn), { label: 'Monthly profit', val: money(F.monthly), color: monthColor }, { label: 'Money back in', val: months(F.breakeven), color: INK.ink }];
+    var after = K === 'flip' ? [row('Sale price after works', money(F.endValue)), row('Less total cost', '−' + money(F.totalIn)), row('Margin on sale price', pct(F.margin)), row('Return on money in', pct(F.flipRoi))]
+      : K === 'brr' ? [row('Value after works', money(F.endValue)), row('Refinance at ' + F.ltv + '%', money(F.newMortgage)), row('Deposit at purchase (' + F.depositPct + '%)', money(F.deposit))]
+      : K === 'let' ? [row('Mortgage at ' + F.rate + '% (interest only)', money(F.interest) + '/mo'), row('Monthly income', money(F.income)), row('Monthly costs', money(F.expenses)), row('Monthly profit', money(F.monthly)), row('Annual profit', money(F.annual)), row('Money in', money(F.totalIn))]
+      : [row('Rent you pay', money(F.rentPaid) + '/mo'), row('Income', money(F.income) + '/mo'), row('Running costs', money(F.expenses - F.rentPaid) + '/mo'), row('Monthly profit', money(F.monthly)), row('Money back in', months(F.breakeven))];
+    var yBase = K === 'let' ? F.price : F.endValue, yld = yBase ? F.rent * 12 / yBase : 0;
     return {
+      kind: K, strategy: st.name,
       title: title, sub: hide ? district + ' · exact address once reserved' : ([town, pc].filter(Boolean).join(' ') ? [[town, pc].filter(Boolean).join(' '), kind] : [Kind]).join(' · '),
-      short: hide ? district : (address || district), district: district, eyebrow: 'Calculator · ' + (o.exitName || 'BRR → BTL'),
+      short: hide ? district : (address || district), district: district, eyebrow: st.tag,
       client: String(o.client || '').trim() || 'you', date: o.date || dateText(), note: String(o.note || '').trim(),
-      stats: [{ label: 'Purchase price', val: money(F.price), color: INK.ink }, { label: 'Value after works', val: money(F.endValue), color: INK.ink },
-        { label: 'Refurb', val: money(F.refurb), color: INK.ink }, { label: out ? 'Pulled out at refinance' : 'Left in after refinance', val: money(Math.abs(F.cashLeft)), color: out ? INK.good : INK.amber }],
-      costs: [['Purchase price', F.price], ['Stamp duty', F.sdlt], ['Refurbishment', F.refurb], ['Legal costs', F.legal]].concat(F.other ? [['Other costs', F.other]] : [])
-        .concat(F.bridgeCost ? [['Bridging cost', F.bridgeCost]] : []).map(function (r) { return { label: r[0], val: money(r[1]), strong: false }; })
-        .concat([{ label: 'Total cost', val: money(F.totalIn), strong: true }]).concat(n(o.fee) ? [{ label: 'Plus sourcing fee', val: money(o.fee), strong: false }] : []),
-      after: [{ label: 'Value after works', val: money(F.endValue) }, { label: 'Refinance at ' + F.ltv + '%', val: money(F.newMortgage) }, { label: 'Deposit at purchase (' + F.depositPct + '%)', val: money(F.deposit) }],
-      keyLabel: out ? 'Cash pulled out at refinance' : 'Cash left in after refinance', keyVal: money(Math.abs(F.cashLeft)),
-      exits: [{ name: 'Flip', head: pct(F.margin) + ' margin', detail: 'Sell at ' + money(F.endValue) + ' after the works.', color: marginPct == null ? INK.ink : marginPct >= flipT ? INK.good : marginPct >= Math.max(0, flipT - 5) ? INK.amber : INK.red },
-        { name: 'BRR → BTL', head: money(F.monthly) + '/mo', detail: 'Rent ' + money(F.rent) + ' a month. ' + (out ? money(-F.cashLeft) + ' comes back at refinance.' : money(F.cashLeft) + ' left in, ' + pct(F.roi) + ' return on it.'), color: F.monthly >= monthT ? INK.good : INK.red }],
-      evidence: [{ label: 'Monthly rent', big: money(F.rent) + ' a month', detail: money(F.rent * 12) + ' a year.' }, { label: 'Gross yield on value', big: (yld * 100).toFixed(1) + '%', detail: 'Annual rent ÷ value after works.' }],
+      stats: stats,
+      costs: costRows.map(function (r) { return { label: r[0], val: money(r[1]), strong: false }; })
+        .concat([{ label: K === 'let' || K === 'r2r' ? 'Money in' : 'Total cost', val: money(F.totalIn), strong: true }]).concat(n(o.fee) ? [{ label: 'Plus sourcing fee', val: money(o.fee), strong: false }] : []),
+      after: after,
+      keyLabel: K === 'flip' ? 'Profit if sold after the works' : K === 'brr' ? (out ? 'Cash pulled out at refinance' : 'Cash left in after refinance') : 'Monthly profit',
+      keyVal: K === 'flip' ? money(F.profit) : K === 'brr' ? money(Math.abs(F.cashLeft)) : money(F.monthly),
+      exits: K === 'flip' ? [exFlip] : K === 'brr' ? [exBrr, exFlip] : [exLet],
+      evidence: K === 'r2r' ? [{ label: 'Monthly income', big: money(F.income) + ' a month', detail: money(F.income * 12) + ' a year.' }, { label: 'Over the rent you pay', big: money(F.income - F.rentPaid) + ' a month', detail: 'Income less the ' + money(F.rentPaid) + ' rent.' }]
+        : [{ label: K === 'brr' && F.exitName === 'BRR → BTL' ? 'Monthly rent' : 'Monthly income', big: money(F.rent) + ' a month', detail: money(F.rent * 12) + ' a year.' },
+          { label: K === 'let' ? 'Gross yield on price' : 'Gross yield on value', big: (yld * 100).toFixed(1) + '%', detail: K === 'let' ? 'Annual income ÷ purchase price.' : 'Annual rent ÷ value after works.' }],
       evidenceSrc: 'Figures as worked out on ' + (o.date || dateText()) + '.',
       epc: [{ val: String(pr.epc || '').trim() || 'Not provided', label: 'EPC rating' }, { val: sqm ? sqm + ' sqm' : 'Not provided', label: 'Floor area' },
-        { val: pr.beds ? pr.beds + '-bed' : '–', label: String(pr.type || '').trim() || 'Property' }, { val: sqm ? money(F.endValue / sqm) : '–', label: 'Value per sqm after works' }],
+        { val: pr.beds ? pr.beds + '-bed' : '–', label: String(pr.type || '').trim() || 'Property' },
+        K === 'r2r' ? { val: '–', label: 'Value per sqm' } : K === 'let' ? { val: sqm ? money(F.price / sqm) : '–', label: 'Price per sqm' } : { val: sqm ? money(F.endValue / sqm) : '–', label: 'Value per sqm after works' }],
       epcNote: 'Entered by ' + (B.name || B.company || 'the sourcer') + '.',
       areaNote: hide || !address ? 'Exact address shared once you reserve.' : [address, town, pc].filter(Boolean).join(', '),
       fee: money(o.fee), terms: String(o.terms == null ? DEFAULT_TERMS : o.terms),
@@ -108,14 +174,16 @@
     return '<span style="flex:none;width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';display:flex;align-items:center;justify-content:center;font:' + font + ";color:" + ink + ';background:' + bg + '">' + esc(initials(B)) + '</span>';
   }
   // Every pack picture loads at once (loading="eager"): the print must never start before a photo is there.
-  function photo(src, label) {
+  // An empty cover: a plain pale box in the PDF and the link; in the app's preview (P.placeholder) a dashed "goes here".
+  function photo(src, label, ph, dark) {
+    if (!src && ph) return '<span style="position:absolute;inset:12px;display:flex;align-items:center;justify-content:center;border:1.5px dashed ' + (dark ? 'rgba(255,255,255,.45)' : '#c9c1b4') + ';border-radius:10px;font:600 12px \'Geist\';color:' + (dark ? 'rgba(255,255,255,.7)' : '#8a8378') + '">Your cover photo goes here</span>';
     return src ? '<img src="' + esc(src) + '" alt="" loading="eager" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">'
       : '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 11px \'Geist\';color:#a49d92">' + esc(label || '') + '</span>';
   }
   function statsGrid(d, cell) { return d.stats.map(cell).join(''); }
   function cover(lk, d, B, color, P) {
-    var c = P && P.cover;
-    if (lk === 'editorial') return '<div style="position:absolute;inset:0;background:#2b2722">' + photo(c, '') + '</div>' +
+    var c = P && P.cover, ph = !!(P && P.placeholder);
+    if (lk === 'editorial') return '<div style="position:absolute;inset:0;background:#2b2722">' + photo(c, '', ph, lk === 'editorial') + '</div>' +
       '<div style="position:absolute;left:0;right:0;bottom:0;height:520px;background:linear-gradient(to top,rgba(20,17,14,.92) 0%,rgba(20,17,14,.75) 45%,rgba(20,17,14,0) 100%)"></div>' +
       '<div style="position:relative;display:flex;align-items:center;gap:10px;padding:28px 40px">' + chip(B, color, 36, '50%', "700 13px 'Geist'", '#ffffff', color) +
       '<span style="font:600 13px \'Geist\';color:#ffffff;text-shadow:0 1px 6px rgba(0,0,0,.5)">' + esc(B.company) + '</span></div><div style="flex:1"></div>' +
@@ -129,7 +197,7 @@
       '<span style="font:700 10.5px \'Geist\';letter-spacing:.14em;text-transform:uppercase;padding:5px 10px;border-radius:999px;border:1.5px solid rgba(255,255,255,.6)">Deal pack</span></div>' +
       '<div style="font:800 34px/1.05 \'Geist\';letter-spacing:-.035em;margin-top:30px">' + esc(d.title) + '</div><div style="font-size:13px;opacity:.85;margin-top:6px">' + esc(d.sub) + '</div>' +
       '<div style="margin-top:24px;font:600 12.5px \'Geist\';opacity:.85">' + esc(d.keyLabel) + '</div><div style="font:800 64px/1 \'Geist\';letter-spacing:-.05em;margin-top:4px">' + esc(d.keyVal) + '</div></div>' +
-      '<div style="position:relative;flex:1;min-height:0;background:#f1ede4">' + photo(c, '') + '</div>' +
+      '<div style="position:relative;flex:1;min-height:0;background:#f1ede4">' + photo(c, '', ph, lk === 'editorial') + '</div>' +
       '<div style="flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#1d1b18;color:#ffffff">' +
       statsGrid(d, function (s) { return '<div style="padding:14px 16px;border-right:1px solid rgba(255,255,255,.12)"><div style="font:800 17px \'Geist\';letter-spacing:-.02em">' + esc(s.val) + '</div><div style="font-size:10px;opacity:.7;margin-top:2px">' + esc(s.label) + '</div></div>'; }) + '</div>';
     if (lk === 'memo') return '<div style="display:flex;align-items:center;gap:10px;padding:32px 44px 0">' + chip(B, color, 30, '6px', "700 11px 'Geist'", color, '#ffffff') +
@@ -145,7 +213,7 @@
     return '<div style="display:flex;align-items:center;gap:12px;padding:22px 36px 16px">' + chip(B, color, 40, '10px', "700 15px 'Geist'", color, '#ffffff') +
       '<span style="flex:1;min-width:0"><span style="display:block;font:700 15px \'Geist\'">' + esc(B.company) + '</span><span style="display:block;font-size:11.5px;color:#5b554e">' + esc([B.name, B.phone].filter(Boolean).join(' · ')) + '</span></span>' +
       '<span style="font:600 10.5px \'Geist\';letter-spacing:.14em;text-transform:uppercase;color:#5b554e">Deal pack</span></div>' +
-      '<div style="position:relative;height:400px;margin:0 36px;border-radius:14px;overflow:hidden;background:#f1ede4">' + photo(c, '') + '</div>' +
+      '<div style="position:relative;height:400px;margin:0 36px;border-radius:14px;overflow:hidden;background:#f1ede4">' + photo(c, '', ph, lk === 'editorial') + '</div>' +
       '<div style="padding:22px 36px 0;display:flex;flex-direction:column;gap:4px"><div style="font:600 11px \'Geist\';letter-spacing:.14em;text-transform:uppercase;color:' + color + '">' + esc(d.eyebrow) + '</div>' +
       '<div style="font:400 40px/1.05 \'Instrument Serif\',Georgia,serif">' + esc(d.title) + '</div><div style="font-size:13px;color:#5b554e">' + esc(d.sub) + '</div></div>' +
       '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:18px 36px 0">' +
@@ -236,7 +304,7 @@
     return !!(P.cover && lookName !== 'memo') || (sectionsOn(cfg).indexOf('photos') >= 0 && (P.photos || []).some(Boolean));
   }
 
-  var api = { pdfHasPhotos: pdfHasPhotos, encode: encode, decode: decode, DEFAULT_FEE: DEFAULT_FEE, SECS: SECS, ORDER: ORDER, LOOKS: LOOKS, LOOK_LIST: LOOK_LIST, SWATCHES: SWATCHES, DEFAULT_TERMS: DEFAULT_TERMS, esc: esc, money: money, initials: initials, dateText: dateText,
+  var api = { STRAT: STRAT, strategyOf: strategyOf, figsFromCalc: figsFromCalc, splitAddress: splitAddress, pdfHasPhotos: pdfHasPhotos, encode: encode, decode: decode, DEFAULT_FEE: DEFAULT_FEE, SECS: SECS, ORDER: ORDER, LOOKS: LOOKS, LOOK_LIST: LOOK_LIST, SWATCHES: SWATCHES, DEFAULT_TERMS: DEFAULT_TERMS, esc: esc, money: money, initials: initials, dateText: dateText,
     figsFromLedger: figsFromLedger, sectionsOn: sectionsOn, paginate: paginate, data: data, pageHTML: pageHTML, block: block, look: look, colourOk: colourOk, linkPayload: linkPayload, reserveMessage: reserveMessage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.DealPack = api;
 })(this);

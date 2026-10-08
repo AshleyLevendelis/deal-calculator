@@ -26,8 +26,8 @@ ok('... the total is the calculator’s total money in', d.costs.filter(function
 ok('after works: value, refinance at 75%, deposit at 25%', d.after.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Value after works £230,000|Refinance at 75% £172,500|Deposit at purchase (25%) £31,250');
 ok('rent figures: a month, a year and the gross yield on value', d.evidence[0].big === '£1,000 a month' && d.evidence[0].detail === '£12,000 a year.' && d.evidence[1].big === '5.2%');
 ok('EPC and size: rating, floor area, beds, value per sqm', d.epc.map(function (e) { return e.val; }).join('|') === 'D|85 sqm|3-bed|£2,706');
-ok('flip at 29.2% is green; BRR → BTL at £81 a month is red (under £500)', d.exits[0].head === '29.2% margin' && d.exits[0].color === '#2f8a5b' && d.exits[1].head === '£81/mo' && d.exits[1].color === '#c0392b', JSON.stringify(d.exits));
-ok('flip colours follow the target: 32% target makes 29.2% amber, 36% makes it red', DP.data(Object.assign({}, base, { flipTarget: 32 })).exits[0].color === '#b7791f' && DP.data(Object.assign({}, base, { flipTarget: 36 })).exits[0].color === '#c0392b');
+ok('BRR pack: BRR → BTL first (£81 a month, red: under £500), then the flip (£67,250 profit, 29.2% margin, green)', d.exits[1].head === '£67,250 profit' && d.exits[1].detail.indexOf('29.2% margin') > 0 && d.exits[1].color === '#2f8a5b' && d.exits[0].head === '£81/mo' && d.exits[0].color === '#c0392b', JSON.stringify(d.exits));
+ok('flip colours follow the target: 32% target makes 29.2% amber, 36% makes it red', DP.data(Object.assign({}, base, { flipTarget: 32 })).exits[1].color === '#b7791f' && DP.data(Object.assign({}, base, { flipTarget: 36 })).exits[1].color === '#c0392b');
 ok('no verdict or score anywhere in the words', !/verdict|score|good deal|strong|weak|borderline|hits \d of/i.test(JSON.stringify(d, function (k, v) { return k === 'strong' ? undefined : v; })));
 ok('nothing typed: plain words, no stray dashes', DP.data({ figs: F }).sub === 'Property' && DP.data({ figs: F }).epc[2].val === '–');
 
@@ -35,7 +35,7 @@ ok('nothing typed: plain words, no stray dashes', DP.data({ figs: F }).sub === '
 var Lb = Calc.ledger(Object.assign({ otherUpfront: 1000 }, deal), true), Fb = DP.figsFromLedger(Lb), db = DP.data(Object.assign({}, base, { figs: Fb }));
 ok('other costs and the bridge get their own lines and the total is the calculator’s', db.costs.map(function (r) { return r.label; }).join('|') === 'Purchase price|Stamp duty|Refurbishment|Legal costs|Other costs|Bridging cost|Total cost|Plus sourcing fee' && db.costs[6].val === DP.money(Lb.exits.btl.v.totalIn), db.costs[6].val + ' vs ' + Lb.exits.btl.v.totalIn);
 ok('cash left in (bridged) is amber and says left in', db.stats[3].label === 'Left in after refinance' && db.stats[3].color === '#b7791f' && db.keyLabel === 'Cash left in after refinance');
-var edge = function (m, t) { return DP.data(Object.assign({}, base, { figs: Object.assign({}, F, { margin: m }), flipTarget: t })).exits[0].color; };
+var edge = function (m, t) { return DP.data(Object.assign({}, base, { figs: Object.assign({}, F, { margin: m }), flipTarget: t })).exits[1].color; };
 ok('flip colour at the edges: exactly the target is green, just under is amber, 5 points under is still amber, below that red', edge(0.25, 25) === '#2f8a5b' && edge(0.2495, 25) === '#2f8a5b' && edge(0.2494, 25) === '#b7791f' && edge(0.20, 25) === '#b7791f' && edge(0.1994, 25) === '#c0392b');
 var zero = DP.data(Object.assign({}, base, { figs: Object.assign({}, F, { cashLeft: 0 }) })), one = DP.data(Object.assign({}, base, { figs: Object.assign({}, F, { cashLeft: 1 }) }));
 ok('cash left exactly £0 counts as all pulled out (green); £1 left in is amber', zero.stats[3].color === '#2f8a5b' && one.stats[3].color === '#b7791f' && one.stats[3].label === 'Left in after refinance');
@@ -85,6 +85,45 @@ var rm = DP.reserveMessage(pay, { name: 'Sarah Reed', phone: '07700 111222', ema
 ok('reserve message: name and phone, to the sourcer by text, WhatsApp or email', rm.ok && /^Hello Jo, I would like to reserve 3-bed terraced house, Margate \(pack prepared for Sarah Reed\)\.\nName: Sarah Reed\nPhone: 07700 111222$/.test(rm.body) && rm.sms.indexOf('sms:07700900123?&body=') === 0 && rm.whatsapp.indexOf('https://wa.me/447700900123?text=') === 0 && rm.email.indexOf('mailto:jo@example.com?subject=') === 0, rm.body);
 ok('... needs a name and a phone', !DP.reserveMessage(pay, { name: 'Sarah', phone: ' ' }).ok && !DP.reserveMessage(pay, { name: '', phone: '0770' }).ok);
 ok('... a +44 number goes to WhatsApp as it is', DP.reserveMessage(Object.assign({}, pay, { b: Object.assign({}, pay.b, { phone: '+44 7700 900123' }) }), { name: 'a', phone: 'b' }).whatsapp.indexOf('https://wa.me/447700900123') === 0);
+
+// ---- each strategy leads with its own figures (deal pack fixes, 8 Oct 2026) ----
+var S = function (sv) { return DP.strategyOf(sv).key; };
+ok('strategy from the saved deal: main screen with no letting (or Flip) = flip; with BTL / HMO / SA = that BRR exit', S({ view: 'brr', letting: 'none' }) === 'flip' && S({ view: 'brr' }) === 'flip' && S({ calc: 'flip' }) === 'flip' && S({ view: 'brr', letting: 'btl' }) === 'btl' && S({ view: 'brr', letting: 'hmo' }) === 'hmo' && S({ view: 'flip', letting: 'sa' }) === 'sa');
+ok('strategy: any other calculator is that calculator', S({ view: 'btl', calc: 'btl' }) === 'c:btl' && S({ view: 'hmo' }) === 'c:hmo' && S({ view: 'sabtl' }) === 'c:sabtl' && S({ view: 'r2rhmo' }) === 'c:r2rhmo' && S({ view: 'r2rsa' }) === 'c:r2rsa' && S({ view: 'hmobrr' }) === 'hmo' && S({ view: 'sabrr' }) === 'sa');
+ok('strategy: Max price is a BRR → BTL; bridging or anything unknown is a flip', S({ view: 'recycle' }) === 'btl' && S({ view: 'bridging' }) === 'flip' && S({ view: 'nope' }) === 'flip');
+var DK = function (figs) { return DP.data(Object.assign({}, base, { figs: figs })); };
+// flip
+var Ff = DP.figsFromLedger(L, 'none'), fl = DK(Ff), Lf = L.exits.none.v;
+ok('flip: headline "Profit if sold after the works" = the flip profit £67,250', Ff.kind === 'flip' && fl.keyLabel === 'Profit if sold after the works' && fl.keyVal === '£67,250' && Lf.profit === 67250);
+ok('flip: fourth key figure is the profit if sold (green at 29.2%)', fl.stats[3].label === 'Profit if sold' && fl.stats[3].val === '£67,250' && fl.stats[3].color === '#2f8a5b');
+ok('flip: figures page: sale price, less total cost, margin, return on money in; no refinance or deposit rows', fl.after.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Sale price after works £230,000|Less total cost −£162,750|Margin on sale price 29.2%|Return on money in 41.3%' && JSON.stringify(fl.after).indexOf('Refinance') < 0 && JSON.stringify(fl.after).indexOf('Deposit') < 0, fl.after.map(function (r) { return r.label + ' ' + r.val; }).join('|'));
+ok('flip: no refinance anywhere in the key figures; only the flip in exits; plain-words cover tag', JSON.stringify([fl.stats, fl.keyLabel]).indexOf('refinance') < 0 && fl.exits.length === 1 && fl.exits[0].name === 'Flip' && fl.eyebrow === 'Flip · buy, refurb, sell');
+ok('flip: a loss shows red', DK(Object.assign({}, Ff, { profit: -500, margin: -0.01 })).stats[3].color === '#c0392b');
+// BRR → HMO
+var Fh = DP.figsFromLedger(L, 'hmo'), bh = DK(Fh), Xh = L.exits.hmo;
+ok('BRR → HMO: headline cash left / pulled out at refinance, from the HMO exit', Fh.kind === 'brr' && bh.keyVal === DP.money(Math.abs(Xh.v.cashLeft)) && /refinance$/.test(bh.keyLabel) && bh.eyebrow === 'BRR → HMO · buy, refurb, refinance, let by the room');
+ok('BRR → HMO: exits are BRR → HMO then the flip; income is the room income', bh.exits.map(function (x) { return x.name; }).join() === 'BRR → HMO,Flip' && bh.exits[0].head === DP.money(Xh.v.monthly) + '/mo' && Fh.rent === Xh.v.income && bh.evidence[0].label === 'Monthly income');
+ok('BRR → HMO: furnishing is a cost line when there is any, and the total is that exit’s money in', (!Xh.furnishing || bh.costs.some(function (r) { return r.label === 'Furnishing'; })) && bh.costs.filter(function (r) { return r.strong; })[0].val === DP.money(Xh.v.totalIn));
+// let (HMO BTL from its own calculator)
+var hc = Calc.find('hmo'), hs = Calc.stateFor(hc, {}), hv = hc.compute(hs).v, Fl = DP.figsFromCalc('hmo', { v: hv, s: hs }), lt = DK(Fl);
+ok('let (HMO BTL): headline "Monthly profit" £624, not a refinance', Fl.kind === 'let' && lt.keyLabel === 'Monthly profit' && lt.keyVal === '£624' && JSON.stringify(lt).indexOf('refinance') < 0, lt.keyVal);
+ok('let: fourth key figure is the return on money in (25.8%)', lt.stats[3].label === 'Return on money in' && lt.stats[3].val === '25.8%' && lt.stats[2].label === 'Monthly profit' && lt.stats[2].color === '#2f8a5b');
+ok('let: figures page: mortgage at 5%, monthly income, monthly costs, monthly profit, annual profit, money in', lt.after.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Mortgage at 5% (interest only) £281/mo|Monthly income £1,620|Monthly costs £996|Monthly profit £624|Annual profit £7,485|Money in £29,000', lt.after.map(function (r) { return r.label + ' ' + r.val; }).join('|'));
+ok('let: costs: the deposit (not the whole price), stamp duty, refurb, legal; money in £29,000', lt.costs.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Deposit (25% of £90,000) £22,500|Stamp duty £4,500|Refurbishment £0|Legal costs £2,000|Money in £29,000|Plus sourcing fee £3,000');
+ok('let: only its own strategy in exits; tag in plain words', lt.exits.length === 1 && lt.exits[0].name === 'HMO BTL' && lt.eyebrow === 'HMO BTL · buy and let by the room');
+// rent to rent
+var rc = Calc.find('r2rhmo'), rs = Calc.stateFor(rc, {}), rv = rc.compute(rs).v, Fr = DP.figsFromCalc('r2rhmo', { v: rv, s: rs }), rr = DK(Fr);
+ok('r2r: headline monthly profit £700; fourth figure money back in 10.2 months', Fr.kind === 'r2r' && rr.keyLabel === 'Monthly profit' && rr.keyVal === '£700' && rr.stats[3].label === 'Money back in' && rr.stats[3].val === '10.2 months');
+ok('r2r: costs are the up-front ones: deposit / up-front rent, refurb (no purchase, no stamp duty); money in £7,132', rr.costs.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Deposit / up-front rent £2,132|Refurbishment £5,000|Money in £7,132|Plus sourcing fee £3,000');
+ok('r2r: figures page: rent you pay, income, running costs, monthly profit, money back', rr.after.map(function (r) { return r.label + ' ' + r.val; }).join('|') === 'Rent you pay £1,700/mo|Income £3,000/mo|Running costs £600/mo|Monthly profit £700|Money back in 10.2 months', rr.after.map(function (r) { return r.label + ' ' + r.val; }).join('|'));
+ok('r2r: tag and exits', rr.eyebrow === 'R2R HMO · rent, then let by the room' && rr.exits.length === 1 && rr.exits[0].name === 'R2R HMO');
+ok('every kind draws all its pages without a verdict, NaN or undefined', [fl, bh, lt, rr].every(function (dd) { return DP.paginate(DP.sectionsOn({})).every(function (p) { var hh = DP.pageHTML(p, 'classic', brand, dd, {}); return !/NaN|undefined|verdict|Good deal/.test(hh); }); }));
+// the address from a saved deal's name
+var sa = DP.splitAddress;
+ok('address split: "36 Kellet Avenue, Leyland PR25 5TE"', JSON.stringify(sa('36 Kellet Avenue, Leyland PR25 5TE')) === JSON.stringify({ address: '36 Kellet Avenue', town: 'Leyland', postcode: 'PR25 5TE' }));
+ok('address split: no postcode, no comma, a squashed postcode, a comma before the postcode', JSON.stringify(sa('12 Albert Road, Margate')) === JSON.stringify({ address: '12 Albert Road', town: 'Margate', postcode: '' }) && JSON.stringify(sa('Test house')) === JSON.stringify({ address: 'Test house', town: '', postcode: '' }) && sa('1 High St, Hull hu12ab').postcode === 'HU1 2AB' && JSON.stringify(sa('Flat 2, 5 Lane, York, YO1 7HH')) === JSON.stringify({ address: 'Flat 2, 5 Lane', town: 'York', postcode: 'YO1 7HH' }));
+// an empty cover: dashed "goes here" only in the app's preview
+ok('empty cover: "Your cover photo goes here" in the preview, a plain box in the PDF', ['classic', 'editorial', 'bold'].every(function (l) { return DP.pageHTML(pg[0], l, brand, d, { placeholder: true }).indexOf('Your cover photo goes here') > 0 && DP.pageHTML(pg[0], l, brand, d, {}).indexOf('Your cover photo goes here') < 0; }) && DP.pageHTML(pg[0], 'classic', brand, d, { placeholder: true, cover: 'data:image/jpeg;base64,C' }).indexOf('goes here') < 0);
 
 Promise.all([DP.encode(pay), DP.encode(pay, true)]).then(function (codes) {
   ok('the squeezed code starts with z and is shorter than the plain one', codes[0].charAt(0) === 'z' && codes[1].charAt(0) === 'j' && codes[0].length < codes[1].length, codes[0].length + ' vs ' + codes[1].length);
