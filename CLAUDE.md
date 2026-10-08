@@ -333,6 +333,12 @@ first restyle)
   value 700 28px in the brand colour), then the 4 tiles. Fee: terms only if any (PDF and link). Setup step 5 starts with
   the name "Standard pack" (Save works at once). Checked: no page overflows in any look for flip / BRR / R2R with every
   section, photos, a long note, other costs and bridging.
+- LOOK IN THE PREVIEW (v2 section F, 8 Oct 2026): 12b's fixed bar has "Look" / "This pack only · template unchanged" and a
+  Classic / Editorial / Bold / Memo switch (44px) above PDF / Copy link / Share. A tap sets p.look on the pack (and its
+  saved deal) only, never the template, redraws the pages in place keeping the scroll, and forgets the cached link so the
+  next link carries the new look. p.html sets body class look-<look>: section headings as on that look's PDF pages
+  (Classic brand-colour caps, Editorial serif, Bold white on brand, Memo monospace). .pk-pages bottom padding 100px:
+  ~24px clear of the taller bar (test-browser checks 8-60px).
 - SETUP PREVIEW (third 14c hand-off): "Preview pack" beside "Step n of 4" on every step and "Preview the full pack · N pages"
   on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
   live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the

@@ -606,6 +606,20 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack 12b: the sections in the chosen order, with page numbers', (await q.$$eval('.pk-page .dp-block', bs => bs.map(b => b.dataset.sec).join())) === 'summary,figures,exits,evidence,next,fee' && (await q.$$eval('.pk-page .dp-num', ns => ns.map(n => n.textContent).join())) === '1 / 4,2 / 4,3 / 4,4 / 4');
     ok('pack 12b: PDF, Copy link and Share', (await q.$$eval('.pk-act', bs => bs.map(b => b.innerText.replace(/\s+/g, ' ').trim()).join('|'))) === '↓ PDF|⧉ Copy link|↗ Share');
     // the PDF: the print view holds only the pages, one A4 sheet each
+    ok('pack 12b: a Look switch above the buttons: "Look", "This pack only · template unchanged", four looks, Bold chosen, 44px', (await q.textContent('.pk-look-h span')) === 'Look' && (await q.textContent('.pk-look-h small')) === 'This pack only · template unchanged' && (await q.$$eval('.pk-look button', bs => bs.map(b => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join())) === 'Classic,Editorial,Bold*,Memo' && (await q.$eval('.pk-look button', e => e.getBoundingClientRect().height)) >= 44);
+    await q.evaluate(() => window.scrollTo(0, 600)); await q.waitForTimeout(80); const y0 = await q.evaluate(() => window.scrollY);
+    await q.click('.pk-look button:text-is("Memo")'); await q.waitForTimeout(150);
+    ok('pack 12b: tapping Memo redraws the pages in Memo where you were (scroll kept)', (await q.$$eval('.pk-page .dp-page', ps => ps.every(p => p.dataset.look === 'memo'))) && (await q.evaluate(() => window.scrollY)) === y0 && y0 > 0 && (await q.getAttribute('.pk-look button:text-is("Memo")', 'aria-pressed')) === 'true');
+    ok('pack 12b: ... saved on this pack (and its saved deal) only; the template stays Bold', (await q.evaluate(() => { const p = JSON.parse(localStorage.getItem('deal-analyser:pack')); const t = JSON.parse(localStorage.getItem('deal-analyser:packTemplates')); const d = JSON.parse(localStorage.getItem('deal-analyser:deals')).find(x => x.id === p.savedId); return p.look === 'memo' && d.pack.look === 'memo' && t.list[0].look === 'bold'; })));
+    const gap = await q.evaluate(() => { scrollTo(0, 1e6); const pg = [...document.querySelectorAll('.pk-page')].pop().getBoundingClientRect().bottom, bar = document.querySelector('.pk-acts').getBoundingClientRect().top; return bar - pg; });
+    ok('pack 12b: the last page clears the taller bar, with a small gap (not a big empty space)', gap >= 8 && gap <= 60, gap);
+    await q.click('.pk-act:has-text("Copy link")'); await q.waitForTimeout(300);
+    const memoLink = copied;
+    const mc = await b.newContext({ viewport: { width: 390, height: 800 }, serviceWorkers: 'block' }), mp = await mc.newPage();
+    await mp.goto(memoLink); await mp.waitForTimeout(400);
+    ok('pack link: carries the pack’s look, and the page follows it (Memo headings)', (await mp.evaluate(() => document.body.className)) === 'look-memo' && (await mp.$eval('.card h2', e => getComputedStyle(e).fontFamily)).includes('monospace'));
+    await mc.close();
+    await q.click('.pk-look button:text-is("Bold")'); await q.waitForTimeout(150);
     ok('pack 12b: the note says photos and the logo go in the PDF only', (await q.textContent('.pk-acts-note')) === 'Photos and your logo go in the PDF only. Send the PDF as well as the link.');
     // Print waits for every photo: decoding is slowed to 500ms here, and print must not start before it ends
     await q.evaluate(() => {

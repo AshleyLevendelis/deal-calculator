@@ -25,6 +25,13 @@ h1{font:400 32px/1.05 'Instrument Serif',Georgia,serif;margin:6px 0 4px}
 .stat b{display:block;font:700 19px 'Geist';letter-spacing:-.02em}.stat span{display:block;font-size:11.5px;color:var(--mute);margin-top:2px}
 .card{background:var(--card);border:1px solid var(--rule);border-radius:20px;padding:16px 18px;margin:0 0 12px}
 .card h2{margin:0 0 10px;font:700 11.5px 'Geist';letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+/* the pack's look (chosen per pack): section headings as on its PDF pages */
+.look-editorial .card h2{font:400 24px/1.1 'Instrument Serif',Georgia,serif;letter-spacing:0;text-transform:none;color:var(--ink)}
+.look-editorial h1{font-size:36px}
+.look-bold .card h2{display:inline-block;font:800 12px 'Geist';letter-spacing:.04em;color:#fff;background:var(--brand);padding:5px 10px;border-radius:6px}
+.look-bold h1{font:800 28px/1.1 'Geist';letter-spacing:-.03em}
+.look-memo .card h2{font:500 11px ui-monospace,monospace;letter-spacing:.08em;color:var(--faint)}
+.look-memo h1{font:600 26px/1.15 'Geist';letter-spacing:-.02em}
 .quote{font:400 19px/1.35 'Instrument Serif',Georgia,serif;color:#3d3933;margin:0}
 .row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--rule);font-size:13.5px;color:#3d3933}.row:first-of-type{border-top:0}
 .row b{white-space:nowrap}.row.strong{font-weight:700}
@@ -72,6 +79,7 @@ h1{font:400 32px/1.05 'Instrument Serif',Georgia,serif;margin:6px 0 4px}
   function draw(p) {
     var d = p.d, b = p.b, color = DP.colourOk(b.color);
     document.documentElement.style.setProperty('--brand', color);
+    if (/^(classic|editorial|bold|memo)$/.test(p.look || '')) document.body.className = 'look-' + p.look;
     document.title = d.title + (b.company ? ' · ' + b.company : '');
     var html = '<div class="top"><span class="chip">' + esc(DP.initials(b)) + '</span><span><b>' + esc(b.company || b.name) + '</b><small>For ' + esc(d.client) + '</small></span></div>' +
       '<div class="eyebrow">' + esc(d.eyebrow) + '</div><h1>' + esc(d.title) + '</h1><div class="sub">' + esc(d.sub) + '</div>' +

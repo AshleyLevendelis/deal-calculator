@@ -337,7 +337,8 @@
       var list = h('div', 'pk-pages'); box.appendChild(list);
       var scale = Math.min(0.62, (Math.min(window.innerWidth, 480) - 32) / 600);
       var shown = Object.assign({ placeholder: true }, P);                 // an empty cover reads "Your cover photo goes here" here only
-      pages.forEach(function (pg) { list.appendChild(thumb(DP.pageHTML(pg, p.look, B, d, shown), scale, 'pk-page')); });
+      var drawPages = function () { list.innerHTML = ''; pages.forEach(function (pg) { list.appendChild(thumb(DP.pageHTML(pg, p.look, B, d, shown), scale, 'pk-page')); }); };
+      drawPages();
       var bar = h('div', 'pk-acts'), row = h('div', 'pk-acts-row'), note = h('p', 'pk-acts-note', 'Photos and your logo go in the PDF only. Send the PDF as well as the link.');
       var link = null, getLink = function () { return link ? Promise.resolve(link) : linkFor(p, B).then(function (u) { link = u; return u; }); };
       var pdfL = h('span', '', 'PDF'), pdf = btn('pk-act', null, function () {
@@ -363,6 +364,19 @@
         });
       });
       share.appendChild(h('span', 'pk-act-ic', '↗')); share.appendChild(h('span', '', 'Share'));
+      // Look (v2 F, 8 Oct 2026): change this pack's look here. Saved on the pack only, never the template; the pages redraw
+      // in place (scroll kept) and the PDF and the link use it.
+      var lh = h('div', 'pk-look-h'); lh.appendChild(h('span', '', 'Look')); lh.appendChild(h('small', '', 'This pack only · template unchanged'));
+      var ls = h('div', 'pk-look'); ls.setAttribute('role', 'group'); ls.setAttribute('aria-label', 'Look');
+      DP.LOOK_LIST.forEach(function (l) {
+        var b = btn('', l[1], function () {
+          if (p.look === l[0]) return;
+          var y = window.scrollY; p.look = l[0]; savePack(p); link = null; drawPages(); window.scrollTo(0, y);
+          [].forEach.call(ls.children, function (x) { x.setAttribute('aria-pressed', x === b); });
+        });
+        b.setAttribute('aria-pressed', p.look === l[0]); ls.appendChild(b);
+      });
+      bar.appendChild(lh); bar.appendChild(ls);
       row.appendChild(pdf); row.appendChild(copy); row.appendChild(share); bar.appendChild(row); bar.appendChild(note); box.appendChild(bar);
     }
     // Every picture in box loaded (decode, or its load event where decode is missing or fails), or 3 seconds, whichever first.
