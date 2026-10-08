@@ -74,6 +74,13 @@ ok('looks: four, each with the hand-off values', DP.LOOK_LIST.length === 4 && DP
 // The link: words and figures only (no photos, no logo), read back exactly
 var pay = DP.linkPayload(d, { off: { epc: true } }, Object.assign({ logo: 'data:image/png;base64,LOGO' }, brand), 'bold');
 ok('the link carries no photos or logo, and the sections chosen', JSON.stringify(pay).indexOf('data:image') < 0 && pay.on.indexOf('epc') < 0 && pay.on.length === 8 && pay.look === 'bold');
+ok('the link says there are photos only when told to (hasPhotos), and never carries them', pay.hasPhotos === false && DP.linkPayload(d, {}, brand, 'classic', true).hasPhotos === true && JSON.stringify(DP.linkPayload(d, {}, brand, 'classic', true)).indexOf('data:image') < 0);
+ok('the PDF has photos: a cover (not on Memo, which has none) or a gallery photo with the Photos section in', DP.pdfHasPhotos({ cover: 'c' }, {}, 'classic') && !DP.pdfHasPhotos({ cover: 'c' }, {}, 'memo') && DP.pdfHasPhotos({ photos: ['', 'g'] }, {}, 'memo') && !DP.pdfHasPhotos({ photos: ['', 'g'] }, { off: { photos: true } }, 'classic') && !DP.pdfHasPhotos({ photos: ['', ''] }, {}, 'classic') && !DP.pdfHasPhotos({}, {}, 'bold'));
+var gal = DP.pageHTML(DP.paginate(['photos'])[1], 'classic', Object.assign({ logo: 'data:image/png;base64,LG' }, brand), d, { photos: ['data:image/jpeg;base64,P1', 'data:image/jpeg;base64,P2'] });
+var imgs = function (html) { return html.match(/<img [^>]*>/g) || []; };
+ok('every photo in the gallery, and the logo, loads at once (loading="eager")', imgs(gal).length === 3 && imgs(gal).every(function (t) { return t.indexOf('loading="eager"') > 0; }));
+ok('the cover photo loads at once in every look that has one', ['classic', 'editorial', 'bold'].every(function (l) { var t = imgs(DP.pageHTML(pg[0], l, brand, d, { cover: 'data:image/jpeg;base64,C' })); return t.length === 1 && t[0].indexOf('loading="eager"') > 0; }));
+ok('Memo’s subtitle says it has no cover photo', DP.LOOK_LIST[3][2] === 'Figure-led, no cover photo');
 var rm = DP.reserveMessage(pay, { name: 'Sarah Reed', phone: '07700 111222', email: '' });
 ok('reserve message: name and phone, to the sourcer by text, WhatsApp or email', rm.ok && /^Hello Jo, I would like to reserve 3-bed terraced house, Margate \(pack prepared for Sarah Reed\)\.\nName: Sarah Reed\nPhone: 07700 111222$/.test(rm.body) && rm.sms.indexOf('sms:07700900123?&body=') === 0 && rm.whatsapp.indexOf('https://wa.me/447700900123?text=') === 0 && rm.email.indexOf('mailto:jo@example.com?subject=') === 0, rm.body);
 ok('... needs a name and a phone', !DP.reserveMessage(pay, { name: 'Sarah', phone: ' ' }).ok && !DP.reserveMessage(pay, { name: '', phone: '0770' }).ok);

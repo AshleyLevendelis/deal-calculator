@@ -542,6 +542,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack 14c preview: no sideways scrolling', (await q.evaluate(() => document.documentElement.scrollWidth)) <= 390 && (await q.$eval('.pk14-pv .pk-page', e => e.getBoundingClientRect().right)) <= 390);
     await q.click('.pk14-done'); await q.waitForTimeout(100);
     ok('pack 14c preview: Done returns to the same step, with the look picked there', !(await q.isVisible('.pk14-pv')) && (await q.textContent('.pk14-h')) === 'Pick a look' && (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Memo');
+    ok('pack 14c: Memo’s subtitle says it has no cover photo', (await q.textContent('.pk14-look:has(.pk14-lrow b:text-is("Memo")) .pk14-lrow small')) === 'Figure-led, no cover photo');
     await q.click('.pk14-look:has(b:text-is("Bold"))'); await q.waitForTimeout(60);
     ok('pack 14c: tapping a look chooses it; the footer names it', (await q.textContent('.pk14-look[aria-pressed=true] .pk14-lrow b')) === 'Bold' && (await q.textContent('.pk14-fl')) === 'Bold');
     await q.click('.pk14-next'); await q.waitForTimeout(60);
@@ -567,6 +568,11 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack 12a: sections: cover, the nine in order with EPC out, disclaimer; 5 pages', (await q.locator('.pk-sec').count()) === 11 && (await q.getAttribute('.pk-tick-b[aria-label="EPC and size"]', 'aria-checked')) === 'false' && (await q.textContent('.pk-go')) === 'Preview the pack · 5 pages');
     await q.click('.pk-tick-b[aria-label="Photos gallery"]'); await q.click('.pk-tick-b[aria-label="Area map"]'); await q.waitForTimeout(60);
     ok('pack 12a: taking two more out: 4 pages', (await q.textContent('.pk-go')) === 'Preview the pack · 4 pages' && (await q.textContent('.pk-h small:text-matches("pages")')) === '4 pages');
+    ok('pack 12a: Photos off: "Photos are off in this pack · Turn on" under Your photos', await q.isVisible('.pk-phoff') && (await q.textContent('.pk-phoff span')) === 'Photos are off in this pack' && (await q.textContent('.pk-phoff button')) === 'Turn on' && (await q.evaluate(() => { const o = document.querySelector('.pk-phoff'); return o.previousElementSibling.textContent.startsWith('Your photos') && o.nextElementSibling.classList.contains('pk-photos'); })));
+    await q.click('.pk-phoff button'); await q.waitForTimeout(80);
+    ok('pack 12a: Turn on ticks Photos back in and the line goes', !(await q.isVisible('.pk-phoff')) && (await q.getAttribute('.pk-tick-b[aria-label="Photos gallery"]', 'aria-checked')) === 'true' && (await q.textContent('.pk-go')) === 'Preview the pack · 5 pages');
+    await q.click('.pk-tick-b[aria-label="Photos gallery"]'); await q.waitForTimeout(80);
+    ok('pack 12a: ticking Photos off again brings the line back', await q.isVisible('.pk-phoff') && (await q.textContent('.pk-go')) === 'Preview the pack · 4 pages');
     await q.click('.pk-mv[aria-label="Move up Next steps"]'); await q.waitForTimeout(60);
     ok('pack 12a: ↑ moves a section up; the first can’t go up, the last can’t go down', (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:pack')).order.slice(-2).join())) === 'next,fee' && await q.isDisabled('.pk-mv[aria-label="Move up Deal summary"]') && await q.isDisabled('.pk-mv[aria-label="Move down Your fee and terms"]'));
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
@@ -583,9 +589,26 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack 12b: the sections in the chosen order, with page numbers', (await q.$$eval('.pk-page .dp-block', bs => bs.map(b => b.dataset.sec).join())) === 'summary,figures,exits,evidence,next,fee' && (await q.$$eval('.pk-page .dp-num', ns => ns.map(n => n.textContent).join())) === '1 / 4,2 / 4,3 / 4,4 / 4');
     ok('pack 12b: PDF, Copy link and Share', (await q.$$eval('.pk-act', bs => bs.map(b => b.innerText.replace(/\s+/g, ' ').trim()).join('|'))) === '↓ PDF|⧉ Copy link|↗ Share');
     // the PDF: the print view holds only the pages, one A4 sheet each
-    await q.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
-    await q.click('.pk-act:has-text("PDF")'); await q.waitForTimeout(200);
-    ok('pack PDF: Print is opened with the four pages ready', (await q.evaluate(() => window.__printed)) === 1 && (await q.locator('#pack-print .pk-print-page').count()) === 4);
+    ok('pack 12b: the note says photos and the logo go in the PDF only', (await q.textContent('.pk-acts-note')) === 'Photos and your logo go in the PDF only. Send the PDF as well as the link.');
+    // Print waits for every photo: decoding is slowed to 500ms here, and print must not start before it ends
+    await q.evaluate(() => {
+      window.print = () => { window.__printed = (window.__printed || 0) + 1; window.__allLoaded = [...document.querySelectorAll('#pack-print img')].every(i => i.complete && i.naturalWidth > 0); };
+      const real = HTMLImageElement.prototype.decode; window.__realDecode = real;
+      HTMLImageElement.prototype.decode = function () { return new Promise(ok => setTimeout(ok, 500)).then(() => real.call(this)); };
+    });
+    await q.click('.pk-act:has-text("PDF")'); await q.waitForTimeout(150);
+    ok('pack PDF: while the photos load the button says "Preparing PDF…" and print has not started', (await q.textContent('.pk-act >> nth=0')).includes('Preparing PDF…') && !(await q.evaluate(() => window.__printed)) && await q.isDisabled('.pk-act >> nth=0'));
+    await q.waitForTimeout(700);
+    ok('pack PDF: then print opens once, every photo in the pages already loaded, and the button says PDF again', (await q.evaluate(() => window.__printed)) === 1 && (await q.evaluate(() => window.__allLoaded)) === true && (await q.locator('#pack-print img').count()) >= 1 && (await q.textContent('.pk-act >> nth=0')).trim().endsWith('PDF') && !(await q.isDisabled('.pk-act >> nth=0')));
+    ok('pack PDF: every picture in the print is loading="eager"', await q.$$eval('#pack-print img', is => is.length > 0 && is.every(i => i.getAttribute('loading') === 'eager')));
+    // a photo that never finishes: print still opens, after 3 seconds
+    await q.evaluate(() => { window.__printed = 0; HTMLImageElement.prototype.decode = () => new Promise(() => {}); });
+    await q.click('.pk-act:has-text("PDF")'); await q.waitForTimeout(2500);
+    const notYet = await q.evaluate(() => window.__printed);
+    await q.waitForTimeout(800);
+    ok('pack PDF: a photo that never loads does not block it: print opens after 3 seconds', notYet === 0 && (await q.evaluate(() => window.__printed)) === 1);
+    await q.evaluate(() => { HTMLImageElement.prototype.decode = window.__realDecode; });
+    ok('pack PDF: Print is opened with the four pages ready', (await q.locator('#pack-print .pk-print-page').count()) === 4);
     await q.emulateMedia({ media: 'print' });
     ok('pack PDF: in print only the pages show', (await q.evaluate(() => getComputedStyle(document.querySelector('main')).display)) === 'none' && (await q.evaluate(() => getComputedStyle(document.getElementById('pack-print')).display)) === 'block');
     const pdf = await q.pdf({ preferCSSPageSize: true, printBackground: true });
@@ -596,13 +619,17 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('pack link: one address holding the whole pack (no server), shorter than 2,500 characters', /\/p\.html#z[A-Za-z0-9_-]+$/.test(copied) && copied.length < 2500, copied.length);
     const lc = await b.newContext({ viewport: { width: 360, height: 780 }, serviceWorkers: 'block' }), lp = await lc.newPage(); lp.on('pageerror', e => errs.push('link: ' + e.message));
     await lp.goto(copied); await lp.waitForTimeout(400);
-    ok('pack 12d: the client sees the pack in the sourcer’s colour, the same sections, no address', (await lp.textContent('h1')) === '3-bed terraced house, Margate' && (await lp.$$eval('.card', cs => cs.map(x => x.dataset.sec).join())) === 'summary,figures,exits,evidence,next,fee' && !(await lp.content()).includes('Albert Road') && (await lp.$eval('.reserve', e => getComputedStyle(e).backgroundColor)) === 'rgb(30, 58, 95)');
+    ok('pack 12d: the client sees the pack in the sourcer’s colour, the same sections, no address', (await lp.textContent('h1')) === '3-bed terraced house, Margate' && (await lp.$$eval('.card', cs => cs.map(x => x.dataset.sec).join())) === 'photos,summary,figures,exits,evidence,next,fee' && !(await lp.content()).includes('Albert Road') && (await lp.$eval('.reserve', e => getComputedStyle(e).backgroundColor)) === 'rgb(30, 58, 95)');
+    ok('pack 12d: the PDF has a cover photo, so a Photos card says to ask for the PDF (the gallery is off, so it comes first)', (await lp.textContent('.card[data-sec=photos] h2')) === 'Photos' && (await lp.textContent('.card[data-sec=photos] p')) === 'Photos are in the PDF. Ask Palmer Property Sourcing to send it.' && !(await lp.locator('img').count()));
     ok('pack 12d: no sideways scrolling at 360px; Call and Reserve 44px+', (await lp.evaluate(() => document.documentElement.scrollWidth)) <= 360 && (await lp.$eval('.call', e => e.getBoundingClientRect().height)) >= 44 && (await lp.getAttribute('.call', 'href')) === 'tel:07700900123');
     await lp.click('.reserve'); await lp.waitForTimeout(100);
     ok('pack 12d: Reserve asks for name, phone and email; can’t send until name and phone are in', (await lp.locator('.sheet input').count()) === 3 && (await lp.locator('.sends a.off').count()) === 3);
     await lp.fill('input[data-k=name]', 'Sarah Reed'); await lp.fill('input[data-k=phone]', '07700 111222'); await lp.waitForTimeout(60);
     const hrefs = await lp.$$eval('.sends a', as => as.map(a => a.getAttribute('href')));
     ok('pack 12d: ... then text, WhatsApp or email to the sourcer, with the client’s details written in', hrefs.length === 3 && hrefs[0].startsWith('sms:07700900123?&body=') && hrefs[1].startsWith('https://wa.me/447700900123?text=') && hrefs[2].startsWith('mailto:ash@example.com?') && decodeURIComponent(hrefs[0]).includes('Name: Sarah Reed\nPhone: 07700 111222'), JSON.stringify(hrefs));
+    const noPh = await lp.evaluate(async (base) => { const P = DealPack.linkPayload(DealPack.data({ figs: { price: 100000, endValue: 160000, refurb: 20000, legal: 1500, other: 0, sdlt: 5000, totalIn: 126500, ltv: 75, depositPct: 25, deposit: 25000, newMortgage: 120000, cashLeft: 6500, monthly: 300, roi: 0.5, margin: 0.2, rent: 900, bridgeCost: 0 }, prop: { town: 'Hull' } }), {}, { company: 'Acme' }, 'classic', false); return base + '#' + await DealPack.encode(P); }, copied.split('#')[0]).catch(() => null);
+    if (noPh) { await lp.goto(noPh); await lp.waitForTimeout(600); }      // a new hash: the page reloads itself
+    ok('pack 12d: no photos in the PDF: no Photos card, even with the gallery section in', !!noPh && (await lp.locator('.card').count()) === 8 && !(await lp.locator('.card[data-sec=photos]').count()));
     await lp.goto(copied.slice(0, copied.length - 60)); await lp.waitForTimeout(300);
     ok('pack 12d: a link cut short says so instead of showing half a pack', /This link is incomplete/.test(await lp.textContent('main')));
     await lc.close();

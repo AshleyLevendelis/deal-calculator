@@ -184,12 +184,12 @@
     // ---- 12a the builder ----
     function renderBuilder(box) {
       var p = pack(); if (!p) { location.hash = '#calculators'; return; }
-      var B = brand(), L = X.ledger(), F = DP.figsFromLedger(L), t = tplById(p.tid), hint = null, refreshCount = function () {};
+      var B = brand(), L = X.ledger(), F = DP.figsFromLedger(L), t = tplById(p.tid), hint = null, refreshCount = function () {}, showPhOff = function () {};
       box.innerHTML = ''; box.className = 'pk12';
       var pin = h('div', 'pin pk-pin'), ph = h('div', 'pin-head'), back = btn('pin-back', null, X.goBack); back.setAttribute('aria-label', 'Back');
       back.appendChild(h('span', 'chev', '‹')); var bt = h('span', 'pk-ttl'); bt.appendChild(h('span', 'pin-title', 'Deal pack')); bt.appendChild(h('small', '', 'From your calculator · BRR → BTL')); back.appendChild(bt);
       ph.appendChild(back); ph.appendChild(pro()); pin.appendChild(ph); box.appendChild(pin);
-      var save = function () { savePack(p); refreshCount(); if (hint) hint(); };
+      var save = function () { savePack(p); refreshCount(); if (hint) hint(); showPhOff(); };
       // template
       var tr = btn('pk-tpl', null, function () { openTemplates(true); }), tt = h('span', 'pk-tpl-t');
       tt.appendChild(h('small', '', 'Template')); tt.appendChild(h('b', '', t ? t.name : 'No template')); tr.appendChild(tt); tr.appendChild(h('span', 'pk-more', 'Change ›')); box.appendChild(tr);
@@ -240,7 +240,13 @@
       drawSecs();
       // photos
       sh('Your photos', h('small', '', 'Cover + up to 6'));
+      // When the Photos section is ticked off, say so here (only the cover goes in), with a way to turn it back on.
+      var phOff = h('div', 'pk-phoff'); phOff.appendChild(h('span', '', 'Photos are off in this pack'));
+      phOff.appendChild(btn('pk-more', 'Turn on', function () { p.off.photos = false; save(); drawSecs(); }));
+      box.appendChild(phOff);
       var phc = h('section', 'pk-card pk-photos'); box.appendChild(phc);
+      showPhOff = function () { phOff.hidden = !p.off.photos; };
+      showPhOff();
       var drawPhotos = function () {
         phc.innerHTML = ''; var P = photos(p);
         var slot = function (src, label, cls, put) {
@@ -283,7 +289,7 @@
     // ---- 12b preview: the pages, then PDF / Copy link / Share ----
     function linkFor(p, B) {
       var base = location.href.split('#')[0].replace(/[^/]*$/, '');
-      return DP.encode(DP.linkPayload(packData(p, B), p, B, p.look)).then(function (code) { return base + 'p.html#' + code; });
+      return DP.encode(DP.linkPayload(packData(p, B), p, B, p.look, DP.pdfHasPhotos(photos(p), p, p.look))).then(function (code) { return base + 'p.html#' + code; });
     }
     function renderPreview(box) {
       var p = pack(); if (!p) { location.hash = '#calculators'; return; }
@@ -294,9 +300,14 @@
       var list = h('div', 'pk-pages'); box.appendChild(list);
       var scale = Math.min(0.62, (Math.min(window.innerWidth, 480) - 32) / 600);
       pages.forEach(function (pg) { list.appendChild(thumb(DP.pageHTML(pg, p.look, B, d, P), scale, 'pk-page')); });
-      var bar = h('div', 'pk-acts'), row = h('div', 'pk-acts-row'), note = h('p', 'pk-acts-note', 'The link carries the words and figures, not the photos or your logo.');
+      var bar = h('div', 'pk-acts'), row = h('div', 'pk-acts-row'), note = h('p', 'pk-acts-note', 'Photos and your logo go in the PDF only. Send the PDF as well as the link.');
       var link = null, getLink = function () { return link ? Promise.resolve(link) : linkFor(p, B).then(function (u) { link = u; return u; }); };
-      var pdf = btn('pk-act', null, function () { printPack(pages, p.look, B, d, P); }); pdf.appendChild(h('span', 'pk-act-ic', '↓')); pdf.appendChild(h('span', '', 'PDF'));
+      var pdfL = h('span', '', 'PDF'), pdf = btn('pk-act', null, function () {
+        if (pdf.disabled) return;
+        pdf.disabled = true; pdfL.textContent = 'Preparing PDF…';
+        printPack(pages, p.look, B, d, P, function () { pdf.disabled = false; pdfL.textContent = 'PDF'; });
+      });
+      pdf.appendChild(h('span', 'pk-act-ic', '↓')); pdf.appendChild(pdfL);
       var copy = btn('pk-act', null, function () {
         getLink().then(function (u) {
           var done = function () { cl.textContent = 'Copied'; setTimeout(function () { cl.textContent = 'Copy link'; }, 1800); };
@@ -316,8 +327,17 @@
       share.appendChild(h('span', 'pk-act-ic', '↗')); share.appendChild(h('span', '', 'Share'));
       row.appendChild(pdf); row.appendChild(copy); row.appendChild(share); bar.appendChild(row); bar.appendChild(note); box.appendChild(bar);
     }
-    // The PDF: the browser's own print to PDF, one A4 page a sheet, every page at full size.
-    function printPack(pages, look, B, d, P) {
+    // Every picture in box loaded (decode, or its load event where decode is missing or fails), or 3 seconds, whichever first.
+    function imagesReady(box) {
+      var one = function (img) {
+        var loaded = new Promise(function (ok) { if (img.complete && img.naturalWidth) ok(); else { img.addEventListener('load', ok); img.addEventListener('error', ok); } });
+        return img.decode ? img.decode().catch(function () { return loaded; }) : loaded;
+      };
+      return Promise.race([Promise.all(Array.prototype.map.call(box.querySelectorAll('img'), one)), new Promise(function (ok) { setTimeout(ok, 3000); })]);
+    }
+    // The PDF: the browser's own print to PDF, one A4 page a sheet, every page at full size. Print starts only once every
+    // photo and the logo are loaded (they were missing from the PDF when print ran too soon).
+    function printPack(pages, look, B, d, P, ready) {
       var old = $('pack-print'); if (old) old.remove();
       var pr = h('div'); pr.id = 'pack-print';
       pr.innerHTML = pages.map(function (pg) { return '<div class="pk-print-page">' + DP.pageHTML(pg, look, B, d, P) + '</div>'; }).join('');
@@ -325,7 +345,7 @@
       var title = document.title; document.title = (B.company ? B.company + ' · ' : '') + d.title;
       var done = function () { document.title = title; var x = $('pack-print'); if (x) x.remove(); window.removeEventListener('afterprint', done); };
       window.addEventListener('afterprint', done);
-      setTimeout(function () { window.print(); }, 60);
+      imagesReady(pr).then(function () { if (ready) ready(); window.print(); });
     }
 
     // ---- templates: Settings → Deal pack, and the builder's Change › ----

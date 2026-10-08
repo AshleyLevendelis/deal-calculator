@@ -294,6 +294,16 @@ first restyle)
   and terms, branding, fixed Preview), preview 12b (#pack-preview: the pages, PDF / Copy link / Share), templates sheet.
 - PDF = the browser's print: #pack-print holds full-size pages, @page A4 margin 0, each page zoomed 1.3229 to fill A4
   (checked: 6 pages with every section, 2 with two, in all four looks).
+- PHOTOS (8 Oct 2026, Ashley: photos were missing from the PDF): printPack waits for every <img> in #pack-print
+  (imagesReady: img.decode(), falling back to the load event, at most 3 seconds) before window.print(); the PDF button
+  says "Preparing PDF…" meanwhile (no fixed delay any more). Every pack image (cover, gallery, logo) is loading="eager".
+  The link payload carries hasPhotos (DealPack.pdfHasPhotos: a cover on any look but Memo, or a gallery photo with the
+  Photos section in); p.html then shows a "Photos" card ("Photos are in the PDF. Ask {company} to send it.") in the
+  gallery's place, or first when the gallery is off, and no Photos card when the PDF has none. 12b note: "Photos and your
+  logo go in the PDF only. Send the PDF as well as the link." Memo's subtitle: "Figure-led, no cover photo". Builder:
+  "Photos are off in this pack · Turn on" under Your photos while the Photos section is off.
+  (Ashley's request named the Deal Analyser's files: pack.js / pack.html / test-pack.js / #pk-print / packPreview are
+  dealpack.js / p.html / test-dealpack.js / #pack-print / packui.js renderPreview + printPack here.)
 - SETUP PREVIEW (third 14c hand-off): "Preview pack" beside "Step n of 4" on every step and "Preview the full pack · N pages"
   on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
   live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the

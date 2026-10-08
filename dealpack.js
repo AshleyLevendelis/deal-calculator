@@ -16,7 +16,7 @@
   };
   var ORDER = Object.keys(SECS);
   var LOOK_LIST = [['classic', 'Classic', 'Photo, serif title, clean'], ['editorial', 'Editorial', 'Full-bleed photo, magazine feel'],
-    ['bold', 'Bold', 'Your colour, big headline number'], ['memo', 'Memo', 'Figure-led, no-nonsense']];
+    ['bold', 'Bold', 'Your colour, big headline number'], ['memo', 'Memo', 'Figure-led, no cover photo']];
   // The values from the hand-off's Deal Pack Page (null = the brand colour).
   var LOOKS = {
     classic: { hdrBg: '#ffffff', hdrInk: '#1d1b18', hdrMute: '#5b554e', chipBg: null, chipInk: '#ffffff', ruleH: '3px', shFont: "700 11.5px 'Geist'", shLs: '.12em', shCase: 'uppercase', shInk: null, shBg: 'transparent', shPad: '0', quote: "400 17px/1.4 'Instrument Serif',Georgia,serif", footRule: '#ece8df', footInk: '#77716a', footBg: '#ffffff' },
@@ -104,11 +104,12 @@
     return t;
   }
   function chip(B, color, size, radius, font, bg, ink) {
-    if (B.logo) return '<span style="flex:none;width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="' + esc(B.logo) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain"></span>';
+    if (B.logo) return '<span style="flex:none;width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden"><img src="' + esc(B.logo) + '" alt="" loading="eager" style="max-width:100%;max-height:100%;object-fit:contain"></span>';
     return '<span style="flex:none;width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + ';display:flex;align-items:center;justify-content:center;font:' + font + ";color:" + ink + ';background:' + bg + '">' + esc(initials(B)) + '</span>';
   }
+  // Every pack picture loads at once (loading="eager"): the print must never start before a photo is there.
   function photo(src, label) {
-    return src ? '<img src="' + esc(src) + '" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">'
+    return src ? '<img src="' + esc(src) + '" alt="" loading="eager" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">'
       : '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 11px \'Geist\';color:#a49d92">' + esc(label || '') + '</span>';
   }
   function statsGrid(d, cell) { return d.stats.map(cell).join(''); }
@@ -195,8 +196,9 @@
   }
 
   // ---- the link: the pack's words and figures in the address itself (no server). Photos and the logo stay on the phone.
-  function linkPayload(d, cfg, B, lookName) {
-    return { v: 1, look: lookName, on: sectionsOn(cfg), d: { title: d.title, sub: d.sub, short: d.short, district: d.district, eyebrow: d.eyebrow, client: d.client, date: d.date, note: d.note,
+  // hasPhotos: the PDF has photos the link cannot carry (the link page then says to ask for the PDF).
+  function linkPayload(d, cfg, B, lookName, hasPhotos) {
+    return { v: 1, look: lookName, on: sectionsOn(cfg), hasPhotos: !!hasPhotos, d: { title: d.title, sub: d.sub, short: d.short, district: d.district, eyebrow: d.eyebrow, client: d.client, date: d.date, note: d.note,
       stats: d.stats, costs: d.costs, after: d.after, keyLabel: d.keyLabel, keyVal: d.keyVal, exits: d.exits, evidence: d.evidence, evidenceSrc: d.evidenceSrc, epc: d.epc, epcNote: d.epcNote,
       areaNote: d.areaNote, fee: d.fee, terms: d.terms, steps: d.steps }, b: { company: B.company || '', name: B.name || '', phone: B.phone || '', email: B.email || '', web: B.web || '', color: colourOk(B.color) } };
   }
@@ -228,7 +230,13 @@
     } catch (e) { return Promise.reject(e); }
   }
 
-  var api = { encode: encode, decode: decode, DEFAULT_FEE: DEFAULT_FEE, SECS: SECS, ORDER: ORDER, LOOKS: LOOKS, LOOK_LIST: LOOK_LIST, SWATCHES: SWATCHES, DEFAULT_TERMS: DEFAULT_TERMS, esc: esc, money: money, initials: initials, dateText: dateText,
+  // Does the PDF carry any photo? The cover (every look but Memo) and the gallery when its section is in.
+  function pdfHasPhotos(P, cfg, lookName) {
+    P = P || {};
+    return !!(P.cover && lookName !== 'memo') || (sectionsOn(cfg).indexOf('photos') >= 0 && (P.photos || []).some(Boolean));
+  }
+
+  var api = { pdfHasPhotos: pdfHasPhotos, encode: encode, decode: decode, DEFAULT_FEE: DEFAULT_FEE, SECS: SECS, ORDER: ORDER, LOOKS: LOOKS, LOOK_LIST: LOOK_LIST, SWATCHES: SWATCHES, DEFAULT_TERMS: DEFAULT_TERMS, esc: esc, money: money, initials: initials, dateText: dateText,
     figsFromLedger: figsFromLedger, sectionsOn: sectionsOn, paginate: paginate, data: data, pageHTML: pageHTML, block: block, look: look, colourOk: colourOk, linkPayload: linkPayload, reserveMessage: reserveMessage };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.DealPack = api;
 })(this);

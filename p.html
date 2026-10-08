@@ -85,11 +85,15 @@ h1{font:400 32px/1.05 'Instrument Serif',Georgia,serif;margin:6px 0 4px}
       evidence: function () { return '<div class="pair">' + d.evidence.map(function (e) { return '<div class="panel"><span>' + esc(e.label) + '</span><b>' + esc(e.big) + '</b><small>' + esc(e.detail) + '</small></div>'; }).join('') + '</div><p class="note">' + esc(d.evidenceSrc) + '</p>'; },
       epc: function () { return '<div class="pair">' + d.epc.map(function (e) { return '<div class="panel"><b style="margin:0">' + esc(e.val) + '</b><small>' + esc(e.label) + '</small></div>'; }).join('') + '</div><p class="note">' + esc(d.epcNote) + '</p>'; },
       area: function () { return '<div class="area"><span>' + esc(d.district) + '</span></div><p class="note">' + esc(d.areaNote) + '</p>'; },
-      photos: function () { return '<p class="note" style="margin:0">Photos are in the PDF pack. Ask ' + esc(b.name || b.company || 'the sender') + ' for it.</p>'; },
+      photos: function () { return '<p class="note" style="margin:0">Photos are in the PDF. Ask ' + esc(b.company || b.name || 'the sender') + ' to send it.</p>'; },
       fee: function () { return '<div class="fee"><span>Sourcing fee</span><b>' + esc(d.fee) + '</b></div><p class="terms">' + esc(d.terms) + '</p>'; },
       next: function () { return d.steps.map(function (s) { return '<div class="step"><i>' + s.n + '</i><span>' + esc(s.text) + '</span></div>'; }).join(''); }
     };
-    (p.on || []).forEach(function (k) { if (cards[k]) html += '<section class="card" data-sec="' + k + '"><h2>' + esc(DP.SECS[k][0]) + '</h2>' + cards[k]() + '</section>'; });
+    // Photos cannot travel in a link: when the sender's PDF has some, a Photos card says to ask for it (in the gallery's
+    // place, or first when the gallery is off). No photos in the PDF: no Photos card at all.
+    var on = (p.on || []).filter(function (k) { return k !== 'photos' || p.hasPhotos; });
+    if (p.hasPhotos && on.indexOf('photos') < 0) on.unshift('photos');
+    on.forEach(function (k) { if (cards[k]) html += '<section class="card" data-sec="' + k + '"><h2>' + (k === 'photos' ? 'Photos' : esc(DP.SECS[k][0])) + '</h2>' + cards[k]() + '</section>'; });
     html += '<p class="foot">Estimates only, not financial, tax or legal advice. Figures based on information available on ' + esc(d.date) + '. ' +
       esc([[b.name, b.company].filter(Boolean).join(', '), b.phone, b.email, b.web].filter(Boolean).join(' · ')) + '</p>';
     m.innerHTML = html;

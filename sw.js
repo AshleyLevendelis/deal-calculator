@@ -1,4 +1,4 @@
-var C = 'deal-calculator-v20', F = ['./', 'index.html', 'privacy.html', 'calc.js', 'pdf.js', 'prefs.js', 'dealpack.js', 'packui.js', 'p.html', 'app.js', 'manifest.webmanifest', 'favicon-32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png',
+var C = 'deal-calculator-v21', F = ['./', 'index.html', 'privacy.html', 'calc.js', 'pdf.js', 'prefs.js', 'dealpack.js', 'packui.js', 'p.html', 'app.js', 'manifest.webmanifest', 'favicon-32.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png',
   'fonts/Geist-Variable.woff2', 'fonts/InstrumentSerif-Regular.woff2', 'fonts/InstrumentSerif-Italic.woff2'];
 self.addEventListener('install', function (e) { e.waitUntil(caches.open(C).then(function (c) { return c.addAll(F); })); });
 self.addEventListener('activate', function (e) { e.waitUntil(caches.keys().then(function (k) { return Promise.all(k.filter(function (x) { return x !== C; }).map(function (x) { return caches.delete(x); })); })); });
