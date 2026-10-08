@@ -94,10 +94,16 @@
     ORDER.forEach(function (k) { if (order.indexOf(k) < 0) order.push(k); });                       // a template from before keeps every section
     return order.filter(function (k) { return !(cfg && cfg.off && cfg.off[k]); });
   }
-  // Cover on its own page, then two sections a page; every page numbered.
+  // Cover on its own page, then the sections in order, filled onto pages by weight (v2, 8 Oct 2026: a page holds 6 units,
+  // so short sections share a page and nothing leaves half a page empty); every page numbered.
+  var WEIGHT = { summary: 2, figures: 3, exits: 2, evidence: 2, epc: 1, area: 2, photos: 3, fee: 2, next: 2 }, PAGE_UNITS = 6;
   function paginate(on) {
-    var pages = [{ cover: true, blocks: [] }];
-    for (var i = 0; i < on.length; i += 2) pages.push({ cover: false, blocks: on.slice(i, i + 2) });
+    var pages = [{ cover: true, blocks: [] }], cur = null, used = 0;
+    on.forEach(function (k) {
+      var w = WEIGHT[k] || 2;
+      if (!cur || used + w > PAGE_UNITS) { cur = { cover: false, blocks: [] }; pages.push(cur); used = 0; }
+      cur.blocks.push(k); used += w;
+    });
     pages.forEach(function (p, i) { p.num = i + 1; p.total = pages.length; });
     return pages;
   }
@@ -223,24 +229,26 @@
   function row(l, v, strong) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #ece8df;font-size:12px;color:#3d3933;font-weight:' + (strong ? 700 : 400) + '"><span>' + esc(l) + '</span><span style="white-space:nowrap">' + esc(v) + '</span></div>'; }
   function block(k, d, B, t, color, P) {
     var h = '';
-    if (k === 'summary') h = (d.note ? '<div style="font:' + t.quote + ';color:#3d3933">“' + esc(d.note) + '”</div>' : '') +
-      '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px">' + d.stats.map(function (s) { return '<div style="border:1px solid #ece8df;border-radius:10px;padding:9px 11px"><div style="font:700 15px \'Geist\';color:' + s.color + '">' + esc(s.val) + '</div><div style="font-size:10px;color:#5b554e;margin-top:2px">' + esc(s.label) + '</div></div>'; }).join('') + '</div>';
+    // the note (only when there is one), the key figure on a panel, then the four figures
+    if (k === 'summary') h = (String(d.note || '').trim() ? '<div style="font:' + t.quote + ';color:#3d3933;margin-bottom:12px">“' + esc(d.note) + '”</div>' : '') +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;background:#f6f3ec;border-radius:12px;padding:12px 14px"><span style="font:600 12px \'Geist\';color:#5b554e">' + esc(d.keyLabel) + '</span><span style="font:700 28px/1 \'Geist\';letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:' + color + '">' + esc(d.keyVal) + '</span></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px">' + d.stats.map(function (s) { return '<div style="border:1px solid #ece8df;border-radius:10px;padding:9px 11px"><div style="font:700 15px \'Geist\';color:' + s.color + '">' + esc(s.val) + '</div><div style="font-size:10px;color:#5b554e;margin-top:2px">' + esc(s.label) + '</div></div>'; }).join('') + '</div>';
     if (k === 'figures') h = '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px"><div>' + d.costs.map(function (r) { return row(r.label, r.val, r.strong); }).join('') + '</div><div>' +
       d.after.map(function (r) { return row(r.label, r.val); }).join('') + '<div style="margin-top:8px;background:#f6f3ec;border-radius:10px;padding:10px 12px"><div style="font:600 11px \'Geist\';color:#5b554e">' + esc(d.keyLabel) + '</div><div style="font:700 24px/1.1 \'Geist\';letter-spacing:-.03em;color:' + color + '">' + esc(d.keyVal) + '</div></div></div></div>';
-    if (k === 'exits') h = d.exits.map(function (x) { return '<div style="display:grid;grid-template-columns:120px 110px minmax(0,1fr);gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid #ece8df"><b style="font:700 13px \'Geist\'">' + esc(x.name) + '</b><span style="font:700 15px \'Geist\';color:' + x.color + '">' + esc(x.head) + '</span><span style="font-size:11.5px;color:#5b554e;line-height:1.4">' + esc(x.detail) + '</span></div>'; }).join('');
+    if (k === 'exits') h = d.exits.map(function (x) { return '<div style="display:grid;grid-template-columns:100px 130px minmax(0,1fr);gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid #ece8df"><b style="font:700 13px \'Geist\'">' + esc(x.name) + '</b><span style="font:700 15px \'Geist\';color:' + x.color + '">' + esc(x.head) + '</span><span style="font-size:11.5px;color:#5b554e;line-height:1.4">' + esc(x.detail) + '</span></div>'; }).join('');
     if (k === 'evidence') h = '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">' + d.evidence.map(function (e) { return '<div style="background:#f6f3ec;border-radius:12px;padding:12px 14px"><div style="font:600 11.5px \'Geist\';color:#5b554e">' + esc(e.label) + '</div><div style="font:700 24px/1.15 \'Geist\';letter-spacing:-.03em;margin-top:2px">' + esc(e.big) + '</div><div style="font-size:11.5px;color:#5b554e;margin-top:4px;line-height:1.4">' + esc(e.detail) + '</div></div>'; }).join('') +
       '</div><div style="font-size:10.5px;color:#77716a;margin-top:8px">' + esc(d.evidenceSrc) + '</div>';
     if (k === 'epc') h = '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">' + d.epc.map(function (e) { return '<div style="border:1px solid #ece8df;border-radius:10px;padding:10px 11px"><div style="font:700 16px \'Geist\';letter-spacing:-.01em">' + esc(e.val) + '</div><div style="font-size:10.5px;color:#5b554e;margin-top:2px">' + esc(e.label) + '</div></div>'; }).join('') +
       '</div><div style="font-size:10.5px;color:#77716a;margin-top:8px">' + esc(d.epcNote) + '</div>';
-    if (k === 'area') h = '<div style="flex:1;min-height:150px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#f1ede4 0 8px,#f8f5ef 8px 16px)"><span style="font:500 11px ui-monospace,monospace;color:#77716a;background:#ffffff;padding:4px 8px;border-radius:6px">' + esc(d.district) + '</span></div>' +
+    if (k === 'area') h = '<div style="height:170px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(45deg,#f1ede4 0 8px,#f8f5ef 8px 16px)"><span style="font:500 11px ui-monospace,monospace;color:#77716a;background:#ffffff;padding:4px 8px;border-radius:6px">' + esc(d.district) + '</span></div>' +
       '<div style="font-size:11.5px;color:#5b554e;margin-top:8px">' + esc(d.areaNote) + '</div>';
     if (k === 'photos') {
       var ph = ((P && P.photos) || []).filter(Boolean).slice(0, 6);
-      h = ph.length ? '<div style="flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;min-height:200px">' + ph.map(function (s) { return '<div style="position:relative;border-radius:10px;overflow:hidden;background:#f1ede4">' + photo(s) + '</div>'; }).join('') + '</div>'
+      h = ph.length ? '<div style="height:290px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:8px">' + ph.map(function (s) { return '<div style="position:relative;border-radius:10px;overflow:hidden;background:#f1ede4">' + photo(s) + '</div>'; }).join('') + '</div>'
         : '<div style="font-size:12.5px;color:#5b554e">More photos on request.</div>';
     }
     if (k === 'fee') h = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid #ece8df;border-bottom:1px solid #ece8df"><span style="font:600 13px \'Geist\'">Sourcing fee</span><span style="font:700 22px \'Geist\';letter-spacing:-.02em;color:' + color + '">' + esc(d.fee) + '</span></div>' +
-      '<div style="font-size:12px;line-height:1.55;color:#3d3933;margin-top:10px;white-space:pre-line">' + esc(d.terms) + '</div>';
+      (String(d.terms || '').trim() ? '<div style="font-size:12px;line-height:1.55;color:#3d3933;margin-top:10px;white-space:pre-line">' + esc(d.terms) + '</div>' : '');
     if (k === 'next') h = d.steps.map(function (s) { return '<div style="display:flex;gap:12px;align-items:flex-start;padding:7px 0"><span style="flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 11.5px \'Geist\';color:#ffffff;background:' + color + '">' + s.n + '</span><span style="font-size:12.5px;line-height:1.45;color:#3d3933;padding-top:2px">' + esc(s.text) + '</span></div>'; }).join('') +
       '<div style="margin-top:8px;border-radius:10px;padding:10px 12px;border:1.5px dashed ' + color + ';font:600 12px \'Geist\'">' + (d.link ? 'Reserve online with the link sent with this pack' + (d.contact ? ', or contact <span style="color:' + color + '">' + esc(d.contact) + '</span>' : '') : 'Contact: <span style="color:' + color + '">' + esc(d.contact || B.company || '') + '</span>') + '</div>';
     return h;
@@ -253,7 +261,7 @@
       '<span style="flex:1;font:700 12.5px \'Geist\';color:' + t.hdrInk + '">' + esc(B.company) + '</span><span style="font-size:11px;color:' + t.hdrMute + '">' + esc(d.short) + '</span></div>' +
       '<div style="height:' + t.ruleH + ';margin:0 36px;background:' + color + '"></div><div style="flex:1;display:flex;flex-direction:column;padding:6px 36px 0;min-height:0">' +
       page.blocks.map(function (k, j) {
-        return '<div class="dp-block" data-sec="' + k + '" style="flex:1;display:flex;flex-direction:column;padding:16px 0 12px;border-top:' + (j ? '1px solid #ece8df' : '0') + ';min-height:0">' +
+        return '<div class="dp-block" data-sec="' + k + '" style="flex:none;display:flex;flex-direction:column;padding:16px 0 14px;border-top:' + (j ? '1px solid #ece8df' : '0') + '">' +
           '<div style="align-self:flex-start;margin-bottom:12px;font:' + t.shFont + ';letter-spacing:' + t.shLs + ';text-transform:' + t.shCase + ';color:' + t.shInk + ';background:' + t.shBg + ';padding:' + t.shPad + ';border-radius:6px">' + esc(SECS[k][0]) + '</div>' +
           block(k, d, B, t, color, P) + '</div>';
       }).join('') + '</div>';

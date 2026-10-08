@@ -47,14 +47,16 @@ ok('all nine sections by default, in the design’s order', DP.sectionsOn({}).jo
 ok('switched-off sections leave; a re-ordered list keeps its order', DP.sectionsOn({ order: ['next', 'summary', 'fee'], off: { fee: true } }).join() === 'next,summary,figures,exits,evidence,epc,area,photos');
 ok('unknown names in a template are dropped', DP.sectionsOn({ order: ['summary', 'bogus'] }).indexOf('bogus') < 0);
 var pg = DP.paginate(DP.sectionsOn({}));
-ok('cover, then two sections a page: 9 sections = 6 pages', pg.length === 6 && pg[0].cover && pg[1].blocks.join() === 'summary,figures' && pg[5].blocks.join() === 'next' && pg.every(function (p, i) { return p.num === i + 1 && p.total === 6; }));
-ok('two sections = 2 pages; none = the cover alone', DP.paginate(['summary', 'fee']).length === 2 && DP.paginate([]).length === 1);
+ok('pages filled by weight (6 units a page): all 9 sections = the cover plus 4 pages', pg.length === 5 && pg[0].cover && pg.slice(1).map(function (p) { return p.blocks.join(); }).join(' / ') === 'summary,figures / exits,evidence,epc / area,photos / fee,next' && pg.every(function (p, i) { return p.num === i + 1 && p.total === 5; }), pg.slice(1).map(function (p) { return p.blocks.join(); }).join(' / '));
+ok('only the summary and figures: the cover plus 1 page; a page never holds more than 6 units', DP.paginate(['summary', 'figures']).length === 2 && DP.paginate(['photos', 'figures', 'summary', 'epc']).slice(1).map(function (p) { return p.blocks.join(); }).join(' / ') === 'photos,figures / summary,epc');
+ok('the order is kept as chosen, even when a later short section would fit an earlier page', DP.paginate(['figures', 'photos', 'epc']).slice(1).map(function (p) { return p.blocks.join(); }).join(' / ') === 'figures,photos / epc');
+ok('two short sections share one page; none = the cover alone', DP.paginate(['summary', 'fee']).length === 2 && DP.paginate([]).length === 1);
 
 // The page HTML, in every look
 DP.LOOK_LIST.forEach(function (l) {
   pg.forEach(function (p) {
     var html = DP.pageHTML(p, l[0], brand, d, {});
-    ok(l[0] + ' page ' + p.num + ': footer disclaimer, company and email, and n / total', html.indexOf('Estimates only, not financial, tax or legal advice') > 0 && html.indexOf('Acme Sourcing · jo@example.com') > 0 && html.indexOf(p.num + ' / 6') > 0);
+    ok(l[0] + ' page ' + p.num + ': footer disclaimer, company and email, and n / total', html.indexOf('Estimates only, not financial, tax or legal advice') > 0 && html.indexOf('Acme Sourcing · jo@example.com') > 0 && html.indexOf(p.num + ' / 5') > 0);
     ok(l[0] + ' page ' + p.num + ': no street address when hidden', html.indexOf('Albert Road') < 0);
     if (!p.cover) ok(l[0] + ' page ' + p.num + ': its two sections with their headings', p.blocks.every(function (k) { return html.indexOf('data-sec="' + k + '"') > 0 && html.indexOf(DP.SECS[k][0]) > 0; }));
   });
@@ -125,6 +127,13 @@ ok('address split: no postcode, no comma, a squashed postcode, a comma before th
 // an empty cover: dashed "goes here" only in the app's preview
 ok('empty cover: "Your cover photo goes here" in the preview, a plain box in the PDF', ['classic', 'editorial', 'bold'].every(function (l) { return DP.pageHTML(pg[0], l, brand, d, { placeholder: true }).indexOf('Your cover photo goes here') > 0 && DP.pageHTML(pg[0], l, brand, d, {}).indexOf('Your cover photo goes here') < 0; }) && DP.pageHTML(pg[0], 'classic', brand, d, { placeholder: true, cover: 'data:image/jpeg;base64,C' }).indexOf('goes here') < 0);
 
+// ---- v2 page layout (8 Oct 2026) ----
+var sumPage = function (dd) { return DP.pageHTML(DP.paginate(['summary'])[1], 'classic', brand, dd, {}); };
+ok('summary: the note, then the key figure on a panel (label left, value 28px in the brand colour), then the four figures', (function () { var hh = sumPage(d); var a = hh.indexOf('“Bought well under value.”'), b = hh.indexOf('Cash pulled out at refinance'), c2 = hh.indexOf('font:700 28px/1'), e = hh.indexOf('Purchase price'); return a > 0 && a < b && b < c2 && c2 < e && hh.indexOf('background:#f6f3ec;border-radius:12px') > 0 && /font:700 28px\/1[^"]*color:#1e3a5f">£9,750</.test(hh); })());
+ok('an empty or blank note leaves out the quote (no empty “”)', ['', '   '].every(function (nt) { return sumPage(DP.data(Object.assign({}, base, { note: nt }))).indexOf('“') < 0; }));
+ok('fee: the terms only when there are some', DP.pageHTML(DP.paginate(['fee'])[1], 'classic', brand, DP.data(Object.assign({}, base, { terms: '  ' })), {}).indexOf('white-space:pre-line') < 0 && DP.pageHTML(DP.paginate(['fee'])[1], 'classic', brand, d, {}).indexOf('white-space:pre-line') > 0);
+var allHtml = DP.paginate(DP.sectionsOn({})).map(function (p) { return DP.pageHTML(p, 'classic', brand, d, { photos: ['data:image/jpeg;base64,P1'] }); }).join('');
+ok('sections keep their natural height (no stretching); area map 170px, photo grid 290px, exits columns 100 / 130 / rest', (allHtml.match(/class="dp-block"[^>]*flex:none/g) || []).length === 9 && allHtml.indexOf('class="dp-block" data-sec="summary" style="flex:1') < 0 && allHtml.indexOf('height:170px;border-radius:12px') > 0 && allHtml.indexOf('height:290px;display:grid') > 0 && allHtml.indexOf('grid-template-columns:100px 130px minmax(0,1fr)') > 0);
 Promise.all([DP.encode(pay), DP.encode(pay, true)]).then(function (codes) {
   ok('the squeezed code starts with z and is shorter than the plain one', codes[0].charAt(0) === 'z' && codes[1].charAt(0) === 'j' && codes[0].length < codes[1].length, codes[0].length + ' vs ' + codes[1].length);
   ok('the code is safe in an address (no + / =)', /^[A-Za-z0-9_-]+$/.test(codes[0]) && /^[A-Za-z0-9_-]+$/.test(codes[1]));

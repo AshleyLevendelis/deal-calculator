@@ -63,7 +63,7 @@
     }
 
     // ---- 14c setup: pick a look, what goes in, branding, save as a template ----
-    function setupFrom() { var p = pack(), t = defTpl(); return Object.assign(cfgOf(p || t || blankCfg()), { step: 0, name: '', saved: false }); }
+    function setupFrom() { var p = pack(), t = defTpl(); return Object.assign(cfgOf(p || t || blankCfg()), { step: 0, name: 'Standard pack', saved: false }); }   // v2: Save works straight away
     function renderSetup(box, brandOnly) {
       if (!S || S.brandOnly !== brandOnly) { S = setupFrom(); S.brandOnly = brandOnly; if (brandOnly) S.step = 3; }
       box.innerHTML = ''; box.className = 'pk14';

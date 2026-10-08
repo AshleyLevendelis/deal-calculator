@@ -325,6 +325,14 @@ first restyle)
   ADDRESS: the pack's property details come from the saved deal: DealPack.splitAddress(name) ("36 Kellet Avenue, Leyland
   PR25 5TE" -> address / town / postcode) plus any beds / type / epc / sqm kept on it; a pack made before is re-split; the
   draft is per deal (never another deal's details); the Margate example only when setup is opened from Settings.
+- V2 (8 Oct 2026, hand-off design_handoff_deal_pack_v2, replaces the fixes hand-off; A-C were already built):
+  PAGES by weight, not 2 a page: DealPack.paginate fills pages of 6 units in the chosen order (summary 2, figures 3,
+  exits 2, rent 2, EPC 1, area 2, photos 3, fee 2, next 2); all 9 = cover + 4 pages, summary + figures = cover + 1.
+  Blocks keep their natural height (flex:none); area map 170px, photo grid 290px, exits columns 100 / 130 / rest.
+  Summary: the note only if there is one (no empty quotes), then a key-figure panel (#f6f3ec, radius 12; label left,
+  value 700 28px in the brand colour), then the 4 tiles. Fee: terms only if any (PDF and link). Setup step 5 starts with
+  the name "Standard pack" (Save works at once). Checked: no page overflows in any look for flip / BRR / R2R with every
+  section, photos, a long note, other costs and bridging.
 - SETUP PREVIEW (third 14c hand-off): "Preview pack" beside "Step n of 4" on every step and "Preview the full pack · N pages"
   on step 4 open a full-screen preview (real pages, Done, a Classic / Editorial / Bold / Memo switch that changes the look
   live; Done returns to the same step). Figures: the deal's when setup was opened from a deal (Pack.start), else the

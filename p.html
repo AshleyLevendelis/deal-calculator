@@ -86,7 +86,7 @@ h1{font:400 32px/1.05 'Instrument Serif',Georgia,serif;margin:6px 0 4px}
       epc: function () { return '<div class="pair">' + d.epc.map(function (e) { return '<div class="panel"><b style="margin:0">' + esc(e.val) + '</b><small>' + esc(e.label) + '</small></div>'; }).join('') + '</div><p class="note">' + esc(d.epcNote) + '</p>'; },
       area: function () { return '<div class="area"><span>' + esc(d.district) + '</span></div><p class="note">' + esc(d.areaNote) + '</p>'; },
       photos: function () { return '<p class="note" style="margin:0">Photos are in the PDF. Ask ' + esc(b.company || b.name || 'the sender') + ' to send it.</p>'; },
-      fee: function () { return '<div class="fee"><span>Sourcing fee</span><b>' + esc(d.fee) + '</b></div><p class="terms">' + esc(d.terms) + '</p>'; },
+      fee: function () { return '<div class="fee"><span>Sourcing fee</span><b>' + esc(d.fee) + '</b></div>' + (String(d.terms || '').trim() ? '<p class="terms">' + esc(d.terms) + '</p>' : ''); },
       next: function () { return d.steps.map(function (s) { return '<div class="step"><i>' + s.n + '</i><span>' + esc(s.text) + '</span></div>'; }).join(''); }
     };
     // Photos cannot travel in a link: when the sender's PDF has some, a Photos card says to ask for it (in the gallery's
