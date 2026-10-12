@@ -617,8 +617,8 @@
   //   { exit, calcId, state, v, furnishing, recyclePrice, own: { deposit, sdlt, legal, refurb, other, furnishing, bridge, total, mortgage, totalIn } }.
   function ledger(deal, bridgeOn) {
     var fc = find('flip'), ps = stateFor(fc, deal), pv = fc.compute(ps).v;
-    var bridge = null, cost = 0;
-    if (bridgeOn) { var bc = find('bridging'); bridge = bc.compute(stateFor(bc, deal)).v; cost = n(bridge.totalCost); }
+    var bridge = null, cost = 0, bridgeState = null;
+    if (bridgeOn) { var bc = find('bridging'); bridgeState = stateFor(bc, deal); bridge = bc.compute(bridgeState).v; cost = n(bridge.totalCost); }
     var E = n(ps.endValue), ltv = n(ps.ltv), legal = n(ps.legal), refurb = n(ps.refurb), other = n(ps.otherUpfront), P0 = n(ps.purchasePrice);
     // The four deal figures and the two lender figures are one set, shown once; every exit is worked out on them.
     var shared = { purchasePrice: ps.purchasePrice, refurb: ps.refurb, legal: ps.legal, otherUpfront: ps.otherUpfront, endValue: ps.endValue, ltv: ps.ltv, depositPct: ps.depositPct };
@@ -643,11 +643,14 @@
         v.profit = raw.profit - cost; v.margin = E ? v.profit / E : null; v.flipRoi = v.totalIn ? v.profit / v.totalIn : null;
       }
       var dep = P0 * n(ps.depositPct) / 100, sdlt = stampDuty(P0), total = dep + sdlt + legal + refurb + other + furn + cost;
-      return { exit: key, calcId: calcId, state: s, v: v, furnishing: furn,
+      // The flip price (11 Oct 2026): on the Flip exit the price card offers the most you can pay for your flip target
+      // margin (the recycle price is a refinancing figure, and at it a flip's margin is just 100% less the lender's %).
+      var fp = key === 'none' && E > 0 ? priceForBudget(E * (1 - TG.flip / 100) - refurb - legal - other - cost) : null;
+      return { exit: key, calcId: calcId, state: s, v: v, furnishing: furn, flipPrice: fp,
         recyclePrice: furn || cost ? priceForBudget(E * ltv / 100 - refurb - legal - other - furn - cost) : recyclePrice(ps),
         own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, other: other, furnishing: furn, bridge: cost, total: total, mortgage: P0 - dep, totalIn: total + (P0 - dep) } };
     }
-    return { ps: ps, ltv: ltv, bridgeCost: cost, bridge: bridge, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
+    return { ps: ps, ltv: ltv, bridgeCost: cost, bridge: bridge, bridgeState: bridgeState, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
   }
 
   // Is a listing an auction? Traditional and modern-method auctions both count, and so does anything with an auction date.
@@ -734,6 +737,41 @@
     parts.forEach(function (p) { p.share = sum > 0 ? p.value / sum : 0; });
     return parts;
   }
+  // Where the money comes from (11 Oct 2026, Ashley: "exactly what I pay from my money and what I borrow"). L: a ledger,
+  // key: the exit. Everything paid to buy and do it up, less the loan you actually get, is your own money.
+  //   Mortgage: the loan is the price less the deposit.
+  //   Bridging: the loan is what the bridge pays out (its net advance: the loan less the fees taken off it); its legal fee
+  //   and, when interest is paid monthly, that interest come from you; rolled-up interest and the exit fee are repaid
+  //   at the end with the loan, from the refinance or the sale.
+  // Returns { rows: [[label, value]], total, loan: { kind, label, amount, gross, fees, repay }, own, over }.
+  function funding(L, key) {
+    var X = L.exits[key] || L.exits.none, o = X.own, P0 = n(L.ps.purchasePrice), rows = [['Purchase price', P0], ['Stamp duty', n(o.sdlt)], ['Legal costs', n(o.legal)], ['Refurb costs', n(o.refurb)]];
+    if (o.furnishing > 0) rows.push(['Furnishing', n(o.furnishing)]); if (o.other > 0) rows.push(['Other costs', n(o.other)]);
+    var loan;
+    if (L.bridge && L.bridgeState) {
+      var b = L.bridge, bs = L.bridgeState, monthly = bs.interestType === 'monthly' ? n(b.totalInterest) : 0;
+      if (n(bs.bridgeLegal) > 0) rows.push(['Bridging legal fees', n(bs.bridgeLegal)]);
+      if (monthly > 0) rows.push(['Bridging interest, paid monthly', monthly]);
+      loan = { kind: 'bridge', label: 'Bridging loan', amount: Math.max(0, n(b.netAdvance)), gross: n(b.grossLoan), fees: n(b.arrangement) + n(b.valuation) + n(b.broker), repay: n(b.redemption) };
+    } else loan = { kind: 'mortgage', label: 'Mortgage', amount: Math.max(0, P0 - n(o.deposit)), gross: Math.max(0, P0 - n(o.deposit)), fees: 0, repay: null };
+    var total = rows.reduce(function (t, r) { return t + r[1]; }, 0), own = total - loan.amount;
+    return { rows: rows, total: total, loan: loan, own: Math.max(0, own), over: Math.max(0, -own) };
+  }
+  // Buying a home to live in (11 Oct 2026): the money you need and what you borrow. o: { price, depositPct, region, buyer
+  // ('ftb' first-time buyer | 'main' moving home | 'add' a second home), legal, survey, fees (mortgage arrangement /
+  // broker), other, rate (% a year), term (years) }. A repayment mortgage: monthly = loan x r / (1 - (1 + r)^-months).
+  function homeBuy(o) {
+    o = o || {};
+    var price = Math.max(0, n(o.price)), depPct = Math.min(100, Math.max(0, n(o.depositPct))), deposit = price * depPct / 100;
+    var sdlt = propertyTax(price, o.region || 'eng', o.buyer || 'main'), legal = n(o.legal), survey = n(o.survey), fees = n(o.fees), other = n(o.other);
+    var loan = price - deposit, months = Math.round(Math.max(0, n(o.term)) * 12), r = n(o.rate) / 1200;
+    var monthly = !(loan > 0) || !months ? 0 : r > 0 ? loan * r / (1 - Math.pow(1 + r, -months)) : loan / months;
+    var parts = [['deposit', 'Deposit', deposit], ['sdlt', 'Stamp duty', sdlt], ['legal', 'Legal costs', legal], ['survey', 'Survey', survey], ['fees', 'Mortgage fees', fees], ['other', 'Other costs', other]]
+      .map(function (p) { return { key: p[0], label: p[1], value: Math.max(0, p[2]) }; });
+    var own = parts.reduce(function (t, p) { return t + p.value; }, 0);
+    return { price: price, deposit: deposit, sdlt: sdlt, parts: parts, own: own, loan: Math.max(0, loan), ltv: price ? loan / price * 100 : 0, months: months,
+      monthly: monthly, totalRepaid: monthly * months, interest: Math.max(0, monthly * months - Math.max(0, loan)), total: price + sdlt + legal + survey + fees + other };
+  }
   function dealEntered(ps) { return Number(ps && ps.endValue) > 0 && Number(ps && ps.purchasePrice) > 0; }
   function dealVerdict(exit, v, ps) {
     v = v || {};
@@ -758,7 +796,7 @@
       line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
 
-  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, r2rVerdict: r2rVerdict, ownParts: ownParts, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
+  var api = { propertyTax: propertyTax, setTax: setTax, taxSetting: taxSetting, taxLabel: taxLabel, TAX_RATES: TAX_RATES, setTargets: setTargets, targets: targets, defaultTargets: defaultTargets, targetsSummary: targetsSummary, letTargets: letTargets, PAYBACK_GOOD: PAYBACK_GOOD, PAYBACK_OK: PAYBACK_OK, dealVerdict: dealVerdict, r2rVerdict: r2rVerdict, ownParts: ownParts, funding: funding, homeBuy: homeBuy, dealEntered: dealEntered, feedOrder: feedOrder, isAuction: isAuction, maybeAuction: maybeAuction, reducedLabel: reducedLabel, valueNote: valueNote, saleMatches: saleMatches, ledger: ledger, monthlyProfitVerdict: monthlyProfitVerdict, MONTHLY_PROFIT_TARGET: MONTHLY_PROFIT_TARGET, paybackVerdict: paybackVerdict, priceForBudget: priceForBudget, recyclePrice: recyclePrice, saleLabel: saleLabel, simplePlan: simplePlan, BRR_LETTING: BRR_LETTING, withUsual: withUsual, cashLeftAtPrice: cashLeftAtPrice, cashKind: cashKind, analyse: analyse, stampDuty: stampDuty, calcs: CALCS, tools: TOOLS, find: find, defaults: defaults, stateFor: stateFor, migrate: migrate, compareAll: compareAll, compareDeals: compareDeals, rank: rank, flipVerdict: flipVerdict, flipOkFrom: flipOkFrom, cashRoiVerdict: cashRoiVerdict, CASH_ROI_TARGET: CASH_ROI_TARGET, FLIP_TARGET: FLIP_TARGET, FLIP_OK: FLIP_OK, fieldRegistry: fieldRegistry, bridgingEffect: bridgingEffect };
   setTargets(DEFAULT_TARGETS);
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(this);

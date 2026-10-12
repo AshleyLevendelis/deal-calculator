@@ -370,6 +370,32 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .pin-back::after{content:"";position:absolute;inset:-8px -6px}
 .pin-back .chev{font:600 22px/1 var(--font-ui);color:var(--ink)}
 .pin-bar .b.cost{background:var(--red)}
+.pin-bar .a.fcost{background:var(--dash)}
+.lg-chips.one{grid-template-columns:1fr}
+.fund11-mt.one{grid-template-columns:1fr}
+.fund11-oh{align-items:flex-end}
+.fund11-loan{text-align:right;min-width:0}
+.fund11-loanv{display:block;font:700 20px/1.1 var(--font-ui);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:#9db8f2;margin-top:2px}
+.fund11-seg.k-own{background:var(--mint)}.fund11-seg.k-loan{background:#9db8f2}
+.fund11-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
+.fund11-foot .fund11-cap{flex:1;margin:0}
+.fund11-row.f-sum,.fund11-row.f-own{border-top:1px solid var(--line)}
+.fund11-row.f-sum span,.fund11-row.f-sum b{color:var(--ink);font-weight:700}
+.fund11-row.f-less b{color:#9db8f2}
+.fund11-row.f-own span{color:var(--ink);font-weight:700}.fund11-row.f-own b{color:var(--mint);font-size:16px}
+.hb .pin-row{align-items:flex-end}
+.hb-loan{color:#9db8f2}
+.hb .u9-val input{width:84px}.hb #hb-price{width:118px}
+.hb-bar{margin-top:10px}
+.hb-cap{font-size:12px;line-height:1.4;color:var(--mute);margin-top:6px}
+.hb-who{padding:10px 16px 12px}
+.hb-who .ab10-q+.ab10-q{margin-top:10px}
+.hb-sd{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--dash);font:600 14px var(--font-ui);color:var(--ink)}
+.hb-sd b{font:700 20px var(--font-ui);font-variant-numeric:tabular-nums}
+.hb-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
+.hb-mt{margin:12px 0 4px}
+.hb-bd{padding:6px 16px 12px}
+.fund11-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
 .r2r-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
 .r2r-tile{min-height:70px;padding:10px 6px}body.ledger #v-home .r2r-tile.on,.r2r-tile.on{border-color:var(--mint)}
 .r2r-sub{display:block;font:500 11px var(--font-ui);color:var(--faint);margin-top:1px}
@@ -794,6 +820,7 @@ body.pk-setup header{display:none}
   <div id="v-calc" hidden></div>
   <div id="v-scompare" hidden></div>
   <div id="v-usual" hidden></div>
+  <div id="v-buy" hidden></div>
   <div id="v-pack" hidden></div>
   <div id="v-saved" hidden>
     <div id="deals"></div>

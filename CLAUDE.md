@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -271,6 +271,34 @@ first restyle)
 - The "Your own money in" and "Paying for it" fold-outs and the standalone Lender pays / Deposit row are gone; "More
   detail" now holds only the letting figures (lets only; the flip has no More detail). The Results view's own money card
   is unchanged.
+
+## Flip price, your money vs the loan, buying a home (11 Oct 2026, Ashley's own request; tested in test-money.js)
+- WHY: on Flip, "Set price" set the RECYCLE price (a refinancing figure); at 90% LTV that always gives a 10% flip (the
+  margin at the recycle price = 100% less the lender's %), so it read as "Thin flip" right after Set price. The maths was right.
+- FLIP PRICE: ledger exits.none.flipPrice = priceForBudget(end value x (1 - flip target) - refurb - legal - other -
+  bridge cost): the most you can pay for your flip target margin (follows deal-analyser:targets.flip). On the Flip exit
+  the price card says "Flip price · Pay this or less for a 25% margin when you sell", the marker and snap use it
+  ("✓ Snapped to the flip price"). Lets keep the Recycle price exactly as before.
+- NO LENDER ON A FLIP: the pinned bar is the sale price (grey cost, green profit or red loss) with "Sale price £X" /
+  "Cost £Y"; end value's sub line "What you sell it for after the works"; How you'll pay has only the Deposit tile (no
+  Lender pays, which is the refinance %), and the mortgage tile reads "While you own it" (no after-the-refinance tile).
+- YOUR MONEY VS THE LOAN: Calc.funding(L, exit): rows of every cost (price, stamp duty, legal, refurb, furnishing, other;
+  bridging legal fee and monthly-paid interest when bridging), the total to pay, less the loan, = your own money.
+  Mortgage: loan = price - deposit (own money unchanged from before). BRIDGING (changed): loan = what the bridge pays out
+  (net advance = gross less arrangement / valuation / broker fees); rolled-up interest and the exit fee are repaid at the
+  end from the refinance or sale (shown as a note). Before, own money with a bridge assumed a mortgage deposit plus the
+  bridge's cost ("If the bridge covers the deposit, this is lower"). Never negative (a bigger loan shows "more than you
+  need"). The How you'll pay card shows Your own money in + Mortgage / Bridging loan, a two-part bar (mint / #9db8f2),
+  "Total to pay £X: £A from you, £B from the …", and Breakdown = those rows (fundingRows in app.js). The Results own
+  money card uses the same rows ("£A yours · £B borrowed"). Calc.ownParts stays (tested) but the card no longer uses it.
+- BUYING A HOME TO LIVE IN (#home, renderHome; link "Buying a home to live in? What you’d pay →" under the Calculator):
+  its own figures (deal-analyser:home, never the investment deal): price, deposit %, I am (first-time buyer / moving
+  home / second home), where (England & NI / Scotland / Wales; starts from the stamp duty setting), legal, survey,
+  mortgage fees, other, rate, term. Calc.homeBuy: stamp duty by place and buyer (propertyTax), your own money = deposit +
+  every cost, borrowed = price - deposit, a REPAYMENT mortgage (loan x r / (1 - (1+r)^-months)), total interest. Pinned
+  "Money you need" with the mortgage beside it and the same two-part bar; the breakdown adds up. Starting figures are
+  examples (£250,000, 10%, £1,500 / £500 / £999, 4.5%, 25 years); "Start again" clears them. Not a spreadsheet
+  calculator (Ashley's request), so the yellow-cell rule does not apply to it.
 
 ## Deal pack (designs 12a / 12b / 12d / 14c / 15, 7 Oct 2026; hand-off design_handoff_deal_pack)
 - SOURCERS ONLY (Ashley's choice; the design says Pro but there are no payments or accounts, so it is shown with a PRO

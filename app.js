@@ -317,18 +317,29 @@
   try { ledgerView = sessionStorage.getItem(VIEW_KEY) === 'results' ? 'results' : 'figures'; } catch (e) {}
   // "Your own money in": the rows (deposit, stamp duty, legal, other costs, refurb, furnishing, bridging when above 0, the
   // mortgage and the total), a one-line summary and the caption. Drawn in the fold under Figures and the card under Results.
-  function ownMoney(R, rowsEl, sumEl, capEl) {
-    R.push(function (L, X) {
-      var w = X.own, P0 = num(L.ps.purchasePrice);
-      sumEl.textContent = money(w.total) + ' · total in ' + money(w.totalIn);
-      capEl.textContent = w.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
-      var rows = [['Deposit (' + num(L.ps.depositPct) + '% of ' + money(P0) + ')', w.deposit], ['Stamp duty', w.sdlt], ['Legal costs', w.legal]].concat(w.other > 0 ? [['Other costs', w.other]] : []).concat([['Refurb costs', w.refurb]]);
-      if (w.furnishing) rows.push(['Furnishing', w.furnishing]); if (w.bridge) rows.push(['Bridging cost', w.bridge]);
-      rowsEl.innerHTML = '';
-      rows.forEach(function (r) { var s = statRow(r[0]); s.val.textContent = money(r[1]); rowsEl.appendChild(s.row); });
-      var m = statRow('Mortgage covers', 'faint'); m.row.classList.add('solid'); m.val.textContent = money(w.mortgage); rowsEl.appendChild(m.row);
-      var t = statRow('Total money in (deposit, mortgage, stamp duty, legal, refurb' + (w.furnishing ? ', furniture' : '') + (w.bridge ? ', bridging' : '') + ')'); t.row.classList.add('solid'); t.val.textContent = money(w.totalIn); rowsEl.appendChild(t.row);
+  function ownMoney(R, rowsEl, sumEl, capEl, exitKey) {
+    R.push(function (L) {                                               // 11 Oct 2026: the same split as How you'll pay
+      var F = Calc.funding(L, exitKey);
+      sumEl.textContent = money(F.own) + ' yours · ' + money(F.loan.amount) + ' borrowed';
+      capEl.textContent = ''; rowsEl.classList.add('fund11-rows'); fundingRows(rowsEl, F, L);
     });
+  }
+  // Where the money comes from, as rows that add up (Calc.funding): every cost, the total to pay, less the loan, then your
+  // own money; a note on what the loan is and, for a bridge, what is repaid at the end. Used by How you'll pay and Results.
+  function fundingRows(el, F, L) {
+    el.innerHTML = '';
+    var row = function (label, value, cls) { var r = h('div', 'fund11-row' + (cls ? ' ' + cls : '')); r.appendChild(h('span', '', label)); r.appendChild(h('b', 'fig', value)); el.appendChild(r); return r; };
+    F.rows.forEach(function (r) { row(r[0], money(r[1])); });
+    row('Total to pay', money(F.total), 'f-sum');
+    var dep = num(L.ps.depositPct), P0 = num(L.ps.purchasePrice);
+    var loanLab = F.loan.kind === 'bridge' ? 'Bridging loan' + (F.loan.fees > 0 ? ' (' + money(F.loan.gross) + ' less ' + money(F.loan.fees) + ' fees)' : '')
+      : 'Mortgage (' + (100 - dep) + '% of the price)';
+    if (F.loan.amount > 0) row('Less: ' + loanLab, '−' + money(F.loan.amount), 'f-less');
+    row('From your own money', money(F.own), 'f-own');
+    var note = F.loan.kind === 'bridge'
+      ? 'At the end you repay ' + money(F.loan.repay) + ' (the loan with any rolled-up interest and the exit fee) out of the refinance or the sale.' + (F.over > 0 ? ' The loan is ' + money(F.over) + ' more than you need.' : '')
+      : F.loan.amount > 0 ? 'Your money covers the ' + dep + '% deposit (' + money(P0 * dep / 100) + ') and every cost above; the mortgage pays the rest of the price.' : '';
+    if (note) el.appendChild(h('p', 'fund11-note', note));
   }
   // A fold card under "More detail": a header that opens it (only one open at a time) with a one-line summary when closed.
   var openFold = null, folds = [];
@@ -421,7 +432,7 @@
       if (!Calc.dealEntered(L.ps)) {                                   // no end value or no price: nothing to show yet
         eye.textContent = 'No deal entered yet'; hero.textContent = '—'; hero.className = 'pin-fig fig faint';
         sideFig.textContent = '—'; sideFig.className = 'pin-side-fig fig faint'; sideCap.textContent = 'Add end value and price';
-        barA.style.width = '0%'; barB.style.width = '0%'; capL.textContent = 'Lender pays —'; capR.textContent = '';
+        barA.style.width = '0%'; barB.style.width = '0%'; capL.textContent = isLet ? 'Lender pays —' : 'Sale price —'; capR.textContent = '';
         return;
       }
       if (isLet) {
@@ -435,8 +446,15 @@
         var fv = flipCls(v.margin);
         eye.textContent = 'Flip profit'; hero.textContent = minusMoney(Math.round(v.profit)); hero.className = 'pin-fig fig ' + (v.profit < 0 ? 'bad' : fv || '');
         sideFig.textContent = pctText(v.margin); sideFig.className = 'pin-side-fig fig ' + (fv || ''); sideCap.textContent = 'of end value · ' + flipPct() + ' target';
-        capR.textContent = 'In ' + money(tin);
+        // A flip is sold, not refinanced (11 Oct 2026): the bar is the sale price, the cost in grey and the profit green
+        // (or the loss red), and the captions name them. No lender here.
+        var sale = num(L.ps.endValue), top = Math.max(sale, tin) || 1;
+        barA.className = 'a fcost'; barA.style.width = (Math.min(sale, tin) / top * 100).toFixed(1) + '%';
+        barB.className = 'b ' + (sale >= tin ? 'out' : 'cost'); barB.style.width = (Math.abs(sale - tin) / top * 100).toFixed(1) + '%';
+        capL.textContent = 'Sale price ' + money(sale); capR.textContent = 'Cost ' + money(tin);
+        return;
       }
+      barA.className = 'a';
       barA.style.width = (Math.min(loan, tin) / big * 100).toFixed(1) + '%'; barB.style.width = (Math.abs(tin - loan) / big * 100).toFixed(1) + '%';
       barB.className = 'b ' + (tin > loan ? 'in' : 'out');
       capL.textContent = 'Lender pays ' + money(loan);
@@ -493,7 +511,10 @@
       var recBtn = null, recTxt = null;
       if (isPrice) {
         recBtn = h('button', 'rec-btn'); recBtn.type = 'button'; recBtn.appendChild(h('i', 'rec-tick'));
-        var rs = h('span', 'rec-txt'); rs.appendChild(h('span', 'rec-eye', 'Recycle price')); recTxt = h('b', 'rec-amt fig'); rs.appendChild(recTxt); rs.appendChild(h('span', 'rec-note', 'Pay this or less to get every pound back'));
+        // A let shows the recycle price (all your money back at the refinance); a flip shows the flip price (your flip
+        // target margin when you sell). 11 Oct 2026, Ashley: the recycle price on a flip read as a good price for a flip.
+        var rs = h('span', 'rec-txt'); rs.appendChild(h('span', 'rec-eye', isLet ? 'Recycle price' : 'Flip price')); recTxt = h('b', 'rec-amt fig'); rs.appendChild(recTxt);
+        rs.appendChild(h('span', 'rec-note', isLet ? 'Pay this or less to get every pound back' : 'Pay this or less for a ' + flipPct() + ' margin when you sell'));
         var set = h('span', 'rec-set', 'Set price '); set.appendChild(h('span', 'arr', '→')); recBtn.appendChild(rs); recBtn.appendChild(set);
         card.appendChild(recBtn);
         recBtn.onclick = function () { if (recP != null) { setFig(id, recP); sl._snap(recP); } };
@@ -503,16 +524,16 @@
         var snapped = hint == null && snapTo != null;
         sub.classList.toggle('good', snapped);
         sub.textContent = hint != null ? ['Slide your finger down for finer steps', 'Finer: ' + money(cfg.levels[1]) + ' steps', 'Finest: ' + money(cfg.levels[2]) + ' steps'][hint]
-          : snapped ? (isPrice && snapTo === recP ? '✓ Snapped to the recycle price' : '✓ Snapped to the starting figure') : subBase;
+          : snapped ? (isPrice && snapTo === recP ? (isLet ? '✓ Snapped to the recycle price' : '✓ Snapped to the flip price') : '✓ Snapped to the starting figure') : subBase;
       };
       box.appendChild(card);
       R.push(function (L, X) {
         var c = cur(id), d = c - ledgerStart[id];
         win.settle(); box1._sync(); sl._sync();
-        subBase = id === 'endValue' ? 'Lender pays ' + L.ltv + '% = ' + money(num(X.v.newMortgage)) : id === 'otherUpfront' ? 'Survey, valuation, broker: anything else up front' : ''; drawSub();
+        subBase = id === 'endValue' ? (isLet ? 'Lender pays ' + L.ltv + '% = ' + money(num(X.v.newMortgage)) : 'What you sell it for after the works') : id === 'otherUpfront' ? 'Survey, valuation, broker: anything else up front' : ''; drawSub();
         reset.hidden = d === 0; reset.textContent = signedMoney(d) + ' from ' + money(ledgerStart[id]) + ' ↺';
         if (isPrice) {
-          recP = Calc.dealEntered(L.ps) ? X.recyclePrice : null;
+          recP = Calc.dealEntered(L.ps) ? (isLet ? X.recyclePrice : X.flipPrice) : null;
           var p = recP == null ? -1 : (recP - lo()) / ((hi() - lo()) || 1), show = p >= 0 && p <= 1;
           mark.hidden = !show; recBtn.hidden = recP == null;
           if (show) mark.style.left = sl._at(recP);
@@ -520,7 +541,7 @@
           // card is not a button until the price moves again.
           var atRec = recP != null && Math.round(c) === Math.round(recP);
           set.style.visibility = atRec ? 'hidden' : ''; recBtn.disabled = atRec;
-          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', 'Recycle price ' + money(recP) + (atRec ? '. The price is set to it' : '. Set price')); }
+          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', (isLet ? 'Recycle price ' : 'Flip price ') + money(recP) + (atRec ? '. The price is set to it' : '. Set price')); }
         }
       });
     });
@@ -531,7 +552,9 @@
     var fund = h('section', 'lg-card fund11'), swSlot = h('div', 'fund11-sw'), bridgeSlot = h('div', 'fund11-bridge'), ownSlot = h('div', 'fund11-own');
     box.appendChild(fund);
     var chips = h('div', 'lg-chips');
-    [['ltv', 'Lender pays'], ['depositPct', 'Deposit']].forEach(function (c) {
+    // A flip is not refinanced, so it has no "Lender pays" tile (11 Oct 2026); the deposit is still the mortgage's.
+    if (!isLet) chips.classList.add('one');
+    (isLet ? [['ltv', 'Lender pays'], ['depositPct', 'Deposit']] : [['depositPct', 'Deposit']]).forEach(function (c) {
       var id = c[0], chip = h('div', 'lg-chip'), amt = h('div', 'amt'), w = h('div', 'pct');
       var lab = h('label', '', c[1]); lab.setAttribute('for', 'lg-' + id);
       var inp = numBox({ id: 'lg-' + id, decimal: true, label: c[1] + ' percent', get: function () { return Calc.stateFor(FLIP_CALC, eff(deal))[id]; }, show: function (v) { return String(v); },
@@ -549,7 +572,8 @@
     mr.appendChild(rLab); mr.appendChild(rateBox); mr.appendChild(h('span', '', '%'));
     mh.appendChild(h('span', 'fund11-l', 'Mortgage payments')); mh.appendChild(mr); mortSlot.appendChild(mh);
     var mTiles = h('div', 'fund11-mt'), mTile = function (lab, cls) { var t = h('div', 'fund11-mtile'), v = h('b', 'fig' + (cls ? ' ' + cls : '')), s = h('small'); t.appendChild(h('span', '', lab)); t.appendChild(v); t.appendChild(s); mTiles.appendChild(t); return { v: v, s: s }; };
-    var mNow = mTile('Until the refinance'), mAfter = mTile('After the refinance', 'amber'), mYear = h('p', 'fund11-my');
+    var mNow = mTile(isLet ? 'Until the refinance' : 'While you own it'), mAfter = mTile('After the refinance', 'amber'), mYear = h('p', 'fund11-my');
+    if (!isLet) { mAfter.v.parentNode.hidden = true; mYear.hidden = true; mTiles.classList.add('one'); }   // a flip is sold, not refinanced
     mortSlot.appendChild(mTiles); mortSlot.appendChild(mYear);
     var ioMonth = function (m, r) { return m * r / 1200; };            // calc.js interestOnly, worked the same way (no calc.js change)
     var perMonth = function (el, x) { el.textContent = money(x); el.appendChild(h('span', 'mo', ' /mo')); };
@@ -564,22 +588,27 @@
     fund.appendChild(swSlot); fund.appendChild(chips); fund.appendChild(bridgeSlot); fund.appendChild(mortSlot); fund.appendChild(ownSlot);
     // Your own money in: the total, a stacked bar (one colour per kind of cost, zero costs left out), a Breakdown that
     // lists the same rows (open or shut kept for the session) and the caption.
+    // 11 Oct 2026 (Ashley: "exactly what I would pay from my money and what I would have to borrow"): your own money and
+    // the loan side by side, a two-part bar, and a Breakdown that adds up: everything you pay, less the loan, is yours.
     var oh = h('div', 'fund11-oh'), ol = h('div'), oTot = h('b', 'fund11-total fig'), oBtn = h('button', 'fund11-btn'), oBar = h('div', 'fund11-bar'), oRows = h('div', 'fund11-rows'), oCap = h('div', 'fund11-cap');
-    oBtn.type = 'button'; ol.appendChild(h('span', 'fund11-l', 'Your own money in')); ol.appendChild(oTot); oh.appendChild(ol); oh.appendChild(oBtn);
-    ownSlot.appendChild(oh); ownSlot.appendChild(oBar); ownSlot.appendChild(oRows); ownSlot.appendChild(oCap);
+    var lnBox = h('div', 'fund11-loan'), lnLab = h('span', 'fund11-l'), lnVal = h('b', 'fund11-loanv fig'); lnBox.appendChild(lnLab); lnBox.appendChild(lnVal);
+    oBtn.type = 'button'; ol.appendChild(h('span', 'fund11-l', 'Your own money in')); ol.appendChild(oTot); oh.appendChild(ol); oh.appendChild(lnBox);
+    var oFoot = h('div', 'fund11-foot'); oFoot.appendChild(oCap); oFoot.appendChild(oBtn);
+    ownSlot.appendChild(oh); ownSlot.appendChild(oBar); ownSlot.appendChild(oFoot); ownSlot.appendChild(oRows);
     var drawOpen = function () { oRows.hidden = !fundOpen; oBtn.textContent = fundOpen ? 'Hide' : 'Breakdown'; oBtn.setAttribute('aria-expanded', fundOpen); };
     oBtn.onclick = function () { fundOpen = !fundOpen; try { sessionStorage.setItem(FUND_KEY, fundOpen ? '1' : ''); } catch (e) {} drawOpen(); };
     drawOpen();
-    R.push(function (L, X) {
-      var parts = Calc.ownParts(X.own);
-      oTot.textContent = money(X.own.total);
-      oCap.textContent = X.own.bridge ? 'Includes the loan’s cost. If the bridge covers the deposit, this is lower.' : 'Deposit plus costs. The mortgage covers the rest.';
-      oBar.innerHTML = ''; oRows.innerHTML = '';
-      parts.forEach(function (pt) {
-        var seg = h('i', 'fund11-seg k-' + pt.key); seg.style.width = (pt.share * 100).toFixed(2) + '%'; seg.title = pt.label + ' ' + money(pt.value); oBar.appendChild(seg);
-        var row = h('div', 'fund11-row'); row.appendChild(h('i', 'fund11-sq k-' + pt.key)); row.appendChild(h('span', '', pt.label)); row.appendChild(h('b', 'fig', money(pt.value))); oRows.appendChild(row);
+    R.push(function (L) {
+      var F = Calc.funding(L, exit), share = F.own + F.loan.amount || 1;
+      oTot.textContent = money(F.own); lnLab.textContent = F.loan.kind === 'bridge' ? 'Bridging loan' : 'Mortgage'; lnVal.textContent = money(F.loan.amount);
+      oBar.innerHTML = '';
+      [['own', F.own, 'Your own money'], ['loan', F.loan.amount, F.loan.label]].forEach(function (pt) {
+        if (!(pt[1] > 0)) return;
+        var seg = h('i', 'fund11-seg k-' + pt[0]); seg.style.width = (pt[1] / share * 100).toFixed(2) + '%'; seg.title = pt[2] + ' ' + money(pt[1]); oBar.appendChild(seg);
       });
-      oBar.setAttribute('role', 'img'); oBar.setAttribute('aria-label', 'Your own money in: ' + parts.map(function (pt) { return pt.label + ' ' + money(pt.value); }).join(', '));
+      oBar.setAttribute('role', 'img'); oBar.setAttribute('aria-label', 'Your own money ' + money(F.own) + ', ' + F.loan.label.toLowerCase() + ' ' + money(F.loan.amount));
+      oCap.textContent = 'Total to pay ' + money(F.total) + (F.loan.amount > 0 ? ': ' + money(F.own) + ' from you, ' + money(F.loan.amount) + ' from the ' + (F.loan.kind === 'bridge' ? 'bridging loan.' : 'mortgage.') : ', all from you.');
+      fundingRows(oRows, F, L);
     });
 
     // ---- 5. how the chosen exit does ----
@@ -633,7 +662,7 @@
     }
     var oc = h('section', 'lg-card own-card'), ocHead = h('div', 'own-card-head'), ocSum = h('small'), ocRows = h('div'), ocCap = h('div', 'own-cap');
     ocHead.appendChild(h('b', '', 'Your own money in')); ocHead.appendChild(ocSum); oc.appendChild(ocHead); oc.appendChild(ocRows); oc.appendChild(ocCap); resView.appendChild(oc);
-    ownMoney(R, ocRows, ocSum, ocCap);
+    ownMoney(R, ocRows, ocSum, ocCap, exit);
     var back = h('button', 'lg-back', '← Change the figures'); back.type = 'button'; back.onclick = function () { setView('figures', true); }; resView.appendChild(back);
     var pf = { body: bridgeSlot };                                    // the bridge figures sit in the How you'll pay card
     var seg = h('div', 'segmented lg-seg');
@@ -681,6 +710,7 @@
     }
     folds.forEach(function (f) { box.appendChild(f.card); });
     var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); page.appendChild(foot);
+    var hb = h('p', 'lg-foot', 'Buying a home to live in? '), hbl = h('button', 'lg-link', 'What you’d pay →'); hbl.type = 'button'; hbl.onclick = function () { location.hash = '#home'; }; hb.appendChild(hbl); page.appendChild(hb);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; page.appendChild(ul);
     page.appendChild(legalFooter());
     setView(ledgerView, false);
@@ -1378,6 +1408,119 @@
     if (example === undefined) example = Calc.defaults(Calc.find(id === 'otherUpfront' ? 'recycle' : 'btl'))[id];
     return num(example);
   }
+  // ---- Buying a home to live in (#home, 11 Oct 2026, Ashley: "how much money would I need for stamp duty, legal fees,
+  // deposit... exactly what I would pay from my money and what I would have to borrow"). Its own figures, kept apart from
+  // the investment deal (deal-analyser:home), worked out by Calc.homeBuy. Not a spreadsheet calculator: Ashley's request.
+  var HOME_KEY = 'deal-analyser:home';
+  var HOME_START = { price: 250000, depositPct: 10, buyer: 'ftb', legal: 1500, survey: 500, fees: 999, other: 0, rate: 4.5, term: 25 };
+  var HOME_FIELDS = [
+    ['The home', [['price', 'Purchase price', '£', [50000, 1500000, 5000, [5000, 1000, 100]], 'What you agree to pay'],
+      ['depositPct', 'Deposit', '%', [0, 100, 1, [1, 1, 1]], '']]],
+    ['Buying costs', [['legal', 'Legal costs', '£', [0, 5000, 50, [50, 10, 5]], 'Conveyancing and searches'],
+      ['survey', 'Survey', '£', [0, 2000, 50, [50, 10, 5]], 'A survey or valuation on top of the lender’s'],
+      ['fees', 'Mortgage fees', '£', [0, 3000, 50, [50, 10, 5]], 'Arrangement and broker fees paid up front'],
+      ['other', 'Other costs', '£', [0, 10000, 50, [50, 10, 5]], 'Removals and anything else you pay when you buy']]],
+    ['The mortgage', [['rate', 'Interest rate', '%', [0, 10, 0.05, [0.05, 0.01, 0.01]], 'A year, fixed or variable'],
+      ['term', 'Term', 'years', [5, 40, 1, [1, 1, 1]], 'How long you take to pay it back']]]];
+  function homeFigures() { var hm = Object.assign({}, HOME_START, load(HOME_KEY, {})); if (!hm.region) hm.region = Calc.taxSetting().region || 'eng'; return hm; }
+  function renderHome() {
+    var box = $('v-buy'); box.innerHTML = ''; box.className = 'u9 hb';
+    var R = [], hm = homeFigures(), refresh = function () { var r = Calc.homeBuy(hm); R.forEach(function (f) { f(r); }); };
+    var save = function (k, v) { hm[k] = v; store(HOME_KEY, hm); refresh(); };
+    // pinned: the money you need, what you borrow, and a bar of the two
+    var pin = h('div', 'pin u9-pin'), head = h('div', 'pin-head'), back = h('button', 'pin-back'), reset = h('button', 'u9-clear', 'Start again');
+    back.type = 'button'; reset.type = 'button'; back.setAttribute('aria-label', 'Back');
+    back.appendChild(h('span', 'chev', '‹')); back.appendChild(h('span', 'pin-title', 'Buying a home')); back.onclick = goBack;
+    reset.onclick = function () { store(HOME_KEY, {}); renderHome(); };
+    head.appendChild(back); head.appendChild(reset); pin.appendChild(head);
+    pin.appendChild(h('div', 'pin-eye', 'Money you need'));
+    var row = h('div', 'pin-row'), own = h('div', 'pin-fig fig good'), side = h('div', 'pin-side'), loan = h('div', 'pin-side-fig fig hb-loan'), loanCap = h('div', 'pin-side-cap');
+    side.appendChild(loan); side.appendChild(loanCap); row.appendChild(own); row.appendChild(side); pin.appendChild(row);
+    var bar = h('div', 'fund11-bar hb-bar'), bOwn = h('i', 'fund11-seg k-own'), bLoan = h('i', 'fund11-seg k-loan'); bar.appendChild(bOwn); bar.appendChild(bLoan); pin.appendChild(bar);
+    var cap = h('div', 'hb-cap'); pin.appendChild(cap); box.appendChild(pin);
+    R.push(function (r) {
+      own.textContent = money(r.own); loan.textContent = money(r.loan); loanCap.textContent = 'Mortgage · ' + (Math.round(r.ltv * 10) / 10) + '% of the price';
+      var all = r.own + r.loan || 1; bOwn.style.width = (r.own / all * 100).toFixed(2) + '%'; bLoan.style.width = (r.loan / all * 100).toFixed(2) + '%';
+      bar.setAttribute('role', 'img'); bar.setAttribute('aria-label', 'From you ' + money(r.own) + ', borrowed ' + money(r.loan));
+      cap.textContent = 'Total to buy ' + money(r.total) + ': ' + money(r.own) + ' from your own money, ' + money(r.loan) + ' borrowed.';
+    });
+    // who is buying and where (stamp duty depends on both)
+    box.appendChild(h('p', 'lg-h', 'Who’s buying'));
+    var who = h('section', 'u9-card hb-who');
+    var seg = function (label, key, opts) {
+      var q = h('div', 'ab10-q'), sg = h('div', 'ab10-seg n' + opts.length); sg.setAttribute('role', 'group'); sg.setAttribute('aria-label', label);
+      q.appendChild(h('div', 'ab10-l', label));
+      opts.forEach(function (o) {
+        var b = h('button', '', o[1]); b.type = 'button';
+        b.onclick = function () { save(key, o[0]); [].forEach.call(sg.children, function (x) { x.setAttribute('aria-pressed', x === b); }); };
+        b.setAttribute('aria-pressed', hm[key] === o[0]); sg.appendChild(b);
+      });
+      q.appendChild(sg); who.appendChild(q); return q;
+    };
+    seg('I am', 'buyer', [['ftb', 'First-time buyer'], ['main', 'Moving home'], ['add', 'Second home']]);
+    seg('The home is in', 'region', [['eng', 'England & NI'], ['sco', 'Scotland'], ['wal', 'Wales']]);
+    var sdRow = h('div', 'hb-sd'), sdTxt = h('span'), sdVal = h('b', 'fig'); sdRow.appendChild(sdTxt); sdRow.appendChild(sdVal); who.appendChild(sdRow);
+    var sdNote = h('p', 'hb-note'); who.appendChild(sdNote);
+    R.push(function (r) {
+      var t = Calc.taxLabel({ region: hm.region, buyer: hm.buyer });
+      sdTxt.textContent = t.tax === 'SDLT' ? 'Stamp duty' : t.tax === 'LBTT' ? 'LBTT (Scotland’s stamp duty)' : 'LTT (Wales’s stamp duty)'; sdVal.textContent = money(r.sdlt);
+      sdNote.textContent = hm.buyer === 'ftb' && hm.region === 'wal' ? 'Wales has no first-time buyer relief: worked out as a main home.'
+        : hm.buyer === 'add' ? 'A second home pays the higher rates.' : 'Rates as at October 2026. Your conveyancer confirms the final figure.';
+    });
+    box.appendChild(who);
+    // the figures, each typed or slid, as on My usual figures
+    HOME_FIELDS.forEach(function (g) {
+      box.appendChild(h('p', 'lg-h', g[0]));
+      var card = h('section', 'u9-card');
+      g[1].forEach(function (f) {
+        var id = f[0], unit = f[2], rr = f[3], field = h('div', 'u9-field');
+        var show = function (v) { return unit === '£' ? Math.round(v).toLocaleString('en-GB') : String(Number(Number(v).toFixed(2))); };
+        var top = h('div', 'u9-top'), txt = h('span', 'u9-txt'), lab = h('label', '', f[1]); lab.setAttribute('for', 'hb-' + id); txt.appendChild(lab);
+        var help = h('small', '', f[4]); txt.appendChild(help);
+        var val = h('span', 'u9-val'), input = h('input'); input.id = 'hb-' + id; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
+        input.addEventListener('focus', function () { setTimeout(function () { try { input.select(); } catch (e) {} }, 0); });
+        input.addEventListener('input', function () { var raw = input.value.replace(/[^0-9.]/g, ''); save(id, raw === '' ? 0 : Number(raw)); });
+        input.addEventListener('blur', function () { input.value = show(num(hm[id])); });
+        if (unit === '£') val.appendChild(h('span', 'u', '£')); val.appendChild(input); if (unit !== '£') val.appendChild(h('span', 'u', unit === '%' ? '%' : ' ' + unit));
+        top.appendChild(txt); top.appendChild(val); field.appendChild(top);
+        var o = { label: f[1], get: function () { return num(hm[id]); }, set: function (v) { save(id, Number(Number(v).toFixed(2))); }, min: rr[0], max: function () { return Math.max(rr[1], num(hm[id])); },
+          step: rr[2], levels: rr[3], snaps: function () { return [HOME_START[id]]; }, bubble: function (v) { return (unit === '£' ? '£' : '') + show(v) + (unit === '%' ? '%' : unit === 'years' ? ' years' : ''); } };
+        var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'u9n')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'u9n')); field.appendChild(l2);
+        card.appendChild(field);
+        R.push(function (r) {
+          if (document.activeElement !== input) input.value = show(num(hm[id])); sl._sync();
+          if (id === 'depositPct') help.textContent = '= ' + money(r.deposit) + ' of the price';
+        });
+      });
+      // the mortgage card also says what it costs each month and in all
+      if (g[0] === 'The mortgage') {
+        var mt = h('div', 'fund11-mt hb-mt'), tileM = function (lab) { var t = h('div', 'fund11-mtile'), v = h('b', 'fig'), s = h('small'); t.appendChild(h('span', '', lab)); t.appendChild(v); t.appendChild(s); mt.appendChild(t); return { v: v, s: s }; };
+        var tm = tileM('Monthly repayment'), tt = tileM('Total interest'); card.appendChild(mt);
+        var mNote = h('p', 'hb-note'); card.appendChild(mNote);
+        R.push(function (r) {
+          tm.v.textContent = money(r.monthly); tm.v.appendChild(h('span', 'mo', ' /mo')); tm.s.textContent = 'On ' + money(r.loan) + ' over ' + num(hm.term) + ' years';
+          tt.v.textContent = money(r.interest); tt.s.textContent = money(r.totalRepaid) + ' repaid in all';
+          mNote.textContent = 'A repayment mortgage: each payment covers the interest and pays some of the loan off.';
+        });
+      }
+      box.appendChild(card);
+    });
+    // the breakdown that adds up
+    box.appendChild(h('p', 'lg-h', 'What you pay, what you borrow'));
+    var bd = h('section', 'lg-card hb-bd'), rows = h('div', 'fund11-rows'); bd.appendChild(rows); box.appendChild(bd);
+    R.push(function (r) {
+      rows.innerHTML = '';
+      var line = function (label, value, cls) { var x = h('div', 'fund11-row' + (cls ? ' ' + cls : '')); x.appendChild(h('span', '', label)); x.appendChild(h('b', 'fig', value)); rows.appendChild(x); };
+      line('Purchase price', money(r.price));
+      r.parts.forEach(function (p) { if (p.key !== 'deposit' && (p.value > 0 || p.key === 'sdlt')) line(p.label, money(p.value)); });
+      line('Total to buy', money(r.total), 'f-sum');
+      line('Less: Mortgage (' + (Math.round(r.ltv * 10) / 10) + '% of the price)', '−' + money(r.loan), 'f-less');
+      line('From your own money', money(r.own), 'f-own');
+      rows.appendChild(h('p', 'fund11-note', 'Your own money is the ' + num(hm.depositPct) + '% deposit (' + money(r.deposit) + ') plus every cost above the price.'));
+    });
+    box.appendChild(h('p', 'u9-note', 'Starting figures are typical examples: change them to yours. Kept on this phone. Estimates only, not financial or legal advice.'));
+    refresh();
+  }
   function renderUsual() {
     var box = $('v-usual'); box.innerHTML = ''; box.className = 'u9';
     var R = [], refresh = function () { R.forEach(function (f) { f(); }); };
@@ -1621,20 +1764,21 @@
     else if (navigated && (hash === '' || hash === '#calculators')) openPreferred();   // no calculator in the address: your letting type's
     var PACK_VIEWS = { '#pack': 'pack', '#pack-setup': 'packsetup', '#pack-brand': 'packbrand', '#pack-preview': 'packprev' };
     if (PACK_VIEWS[hash] && !clientReportsOn()) { location.hash = '#calculators'; return; }     // the deal pack is for sourcers
-    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#saved-compare' ? 'scompare' : hash === '#usual' ? 'usual' : PACK_VIEWS[hash] || 'home';
+    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#saved-compare' ? 'scompare' : hash === '#usual' ? 'usual' : hash === '#home' ? 'buy' : PACK_VIEWS[hash] || 'home';
     var packView = /^pack/.test(view), setupView = view === 'packsetup' || view === 'packbrand';
     $('v-home').hidden = view !== 'home'; $('v-saved').hidden = view !== 'saved';
-    $('v-scompare').hidden = view !== 'scompare'; $('v-usual').hidden = view !== 'usual'; $('v-pack').hidden = !packView;
+    $('v-scompare').hidden = view !== 'scompare'; $('v-usual').hidden = view !== 'usual'; $('v-buy').hidden = view !== 'buy'; $('v-pack').hidden = !packView;
     if (view === 'scompare') renderSavedCompare();
     if (view === 'usual') renderUsual();
+    if (view === 'buy') renderHome();
     if (packView) Pack.render(view, $('v-pack'));
-    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || packView);  // usual figures, deal pack: the Calculator's look
+    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || view === 'buy' || packView);  // usual figures, deal pack: the Calculator's look
     document.body.classList.toggle('pk-setup', setupView);
     var overlayView = view === 'scompare';
     $('tabs').hidden = overlayView || setupView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
     document.body.classList.toggle('has-tabs', !overlayView && !setupView);
     document.body.classList.toggle('has-bar', view === 'home');
-    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
+    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual' || view === 'buy'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
     $('title').textContent = view === 'scompare' ? 'Compare saved deals' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();

@@ -96,19 +96,24 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await fold('BTL figures').locator('.fold-head').click(); await p.waitForTimeout(40);
   ok('a closed card shows a one-line summary', /^Monthly income £1,000 · Mortgage rate 5%$/.test(await fold('BTL figures').locator('small').textContent()), await fold('BTL figures').locator('small').textContent());
   // How you'll pay (design 11a): the switch, the tiles, the bridge figures and your own money in, in one card
+  // How you'll pay: the switch, the tiles, the bridge figures, and (11 Oct 2026) your own money against the loan
   const parts = () => p.$$eval('.fund11-seg', ss => ss.map(e => e.className.replace('fund11-seg k-', '') + ':' + parseFloat(e.style.width)));
+  const rowsNow = () => p.$$eval('.fund11-own .fund11-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
   ok('11a: How you’ll pay comes straight after the purchase price, with the switch, Lender pays / Deposit and your own money in', await p.evaluate(() => { const hd = [...document.querySelectorAll('.lg-figures .lg-h')].find(x => x.textContent === 'How you’ll pay'), f = document.querySelector('.fund11'); return !!(hd && hd.previousElementSibling.querySelector('#lg-purchasePrice') && hd.nextElementSibling === f && f.querySelector('.lg-seg') && f.querySelector('#lg-ltv') && f.querySelector('#lg-depositPct') && f.querySelector('.fund11-own')); }));
-  ok('11a: your own money in is £85,500, with no bridging figures', (await p.textContent('.fund11-total')) === '£85,500' && !(await p.locator('.fund11 .bridge-grid').count()));
+  ok('own vs loan: your own money £85,500 beside the mortgage £93,750, no bridging figures', (await p.textContent('.fund11-total')) === '£85,500' && (await p.textContent('.fund11-loan .fund11-l')) === 'Mortgage' && (await p.textContent('.fund11-loanv')) === '£93,750' && !(await p.locator('.fund11 .bridge-grid').count()));
   const bar0 = await parts();
-  ok('11a: the bar: deposit, stamp duty, legal, refurb (no £0 costs), adding up to 100%', bar0.map(x => x.split(':')[0]).join() === 'deposit,sdlt,legal,refurb' && Math.abs(bar0.reduce((t, x) => t + Number(x.split(':')[1]), 0) - 100) < 0.05, JSON.stringify(bar0));
+  ok('own vs loan: a two-part bar, yours then borrowed, in proportion (47.7% / 52.3%)', bar0.join() === 'own:47.7,loan:52.3', JSON.stringify(bar0));
+  ok('own vs loan: the caption says it in words', (await p.textContent('.fund11-cap')) === 'Total to pay £179,250: £85,500 from you, £93,750 from the mortgage.');
   ok('11a: the breakdown starts shut', !(await p.isVisible('.fund11-rows')) && (await p.textContent('.fund11-btn')) === 'Breakdown');
   await p.click('.fund11-btn'); await p.waitForTimeout(40);
-  ok('11a: Breakdown lists each cost with its colour; the button says Hide', (await p.$$eval('.fund11-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'))) === 'Deposit £31,250|Stamp duty £6,250|Legal costs £3,000|Refurb costs £45,000' && (await p.textContent('.fund11-btn')) === 'Hide' && (await p.locator('.fund11-row .fund11-sq').count()) === 4);
+  ok('own vs loan: Breakdown adds up: every cost, the total to pay, less the mortgage, your own money; the button says Hide', (await rowsNow()) === 'Purchase price £125,000|Stamp duty £6,250|Legal costs £3,000|Refurb costs £45,000|Total to pay £179,250|Less: Mortgage (75% of the price) −£93,750|From your own money £85,500' && (await p.textContent('.fund11-btn')) === 'Hide' && (await p.textContent('.fund11-own .fund11-note')).startsWith('Your money covers the 25% deposit (£31,250)'), await rowsNow());
   await p.click('.lg-seg button:has-text("Bridging loan")'); await p.waitForTimeout(100);
   const bar1 = await parts(), tot1 = await p.textContent('.fund11-total');
   ok('11a: bridging on: the bridge figures appear in the card, with its cost in amber', (await p.locator('.fund11 .bridge-grid').count()) === 1 && /^£[\d,]+$/.test(await p.textContent('.fund11-cost-v')) && (await p.locator('.fund11-cost .lg-link').count()) === 1);
-  ok('11a: ... the bar gains a Bridging cost part, still adding up to 100%, and the total goes up by that cost', bar1.map(x => x.split(':')[0]).join() === 'deposit,sdlt,legal,refurb,bridge' && Math.abs(bar1.reduce((t, x) => t + Number(x.split(':')[1]), 0) - 100) < 0.05 && Number(tot1.replace(/[£,]/g, '')) - 85500 === Number((await p.textContent('.fund11-cost-v')).replace(/[£,]/g, '')), tot1 + ' ' + JSON.stringify(bar1));
-  ok('11a: the breakdown stays open across the redraw (kept for the session)', await p.isVisible('.fund11-rows') && (await p.textContent('.fund11-row:last-child span')) === 'Bridging cost');
+  ok('own vs loan with a bridge: the loan is what the bridge pays out (£150,000 less £3,350 fees = £146,650); its legal fee is yours; your own money £33,800', tot1 === '£33,800' && (await p.textContent('.fund11-loan .fund11-l')) === 'Bridging loan' && (await p.textContent('.fund11-loanv')) === '£146,650' && (await rowsNow()).includes('Bridging legal fees £1,200|Total to pay £180,450|Less: Bridging loan (£150,000 less £3,350 fees) −£146,650|From your own money £33,800'), tot1 + ' ' + await rowsNow());
+  ok('own vs loan with a bridge: it says what is repaid at the end', /^At the end you repay £[\d,]+ \(the loan with any rolled-up interest and the exit fee\) out of the refinance or the sale\.$/.test(await p.textContent('.fund11-own .fund11-note')));
+  ok('own vs loan with a bridge: the bar is in proportion', bar1[0].startsWith('own:18.') && bar1[1].startsWith('loan:81.'), JSON.stringify(bar1));
+  ok('11a: the breakdown stays open across the redraw (kept for the session)', await p.isVisible('.fund11-rows'));
   ok('11a: the pinned panel says it includes the bridging', /^Includes £[\d,]+ bridging$/.test(await p.textContent('.pin-tag')));
   await p.reload(); await p.waitForTimeout(300);
   ok('11a: the breakdown is still open after a reload (kept for the session)', await p.isVisible('.fund11-rows') && (await p.textContent('.fund11-btn')) === 'Hide');
@@ -245,7 +250,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.fill('#lg-otherUpfront', '1000'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
   if (!(await p.isVisible('.exit-tile.on:has(.nm:text-is("Flip"))'))) { await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80); }
   if (!(await p.isVisible('.fund11-rows'))) { await p.click('.fund11-btn'); await p.waitForTimeout(40); }
-  ok('"Your own money in" lists Other costs £1,000, after Legal costs (and the bar has it)', (await p.$$eval('.fund11-row span', ss => ss.map(x => x.textContent).join('|'))).includes('Legal costs|Refurb costs|Other costs') && (await p.textContent('.fund11-row:has(span:text-is("Other costs")) b')) === '£1,000' && (await p.locator('.fund11-seg.k-other').count()) === 1, await p.$$eval('.fund11-row span', ss => ss.map(x => x.textContent).join('|')));
+  ok('"Your own money in" counts Other costs £1,000: its own row after the refurb, and £1,000 more from you', (await p.$$eval('.fund11-own .fund11-row span', ss => ss.map(x => x.textContent).join('|'))).includes('Legal costs|Refurb costs|Other costs|') && (await p.textContent('.fund11-own .fund11-row:has(span:text-is("Other costs")) b')) === '£1,000', await p.$$eval('.fund11-own .fund11-row span', ss => ss.map(x => x.textContent).join('|')));
   await p.click('.clear-pill'); await p.waitForTimeout(60);
   ok('Clear figures empties any other costs too', (await p.$eval('#lg-otherUpfront', e => e.value)) === '');
   await p.click('.pin-reset'); await p.waitForTimeout(60);
@@ -267,15 +272,14 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('8a: Results shows How BTL does, the 7 tiles, Your own money in and Change the figures; Figures is hidden', (await q.isVisible('.lg-results .lg-h:text-is("How BTL does")')) && (await q.locator('.lg-results .lg-tile').count()) === 7 && (await q.isVisible('.own-card')) && (await q.isVisible('.lg-back')) && !(await q.isVisible('#lg-endValue')));
     ok('8a: switching puts the switch just under the pinned panel', sw.sw >= sw.pin && sw.sw - sw.pin <= 16, JSON.stringify(sw));
     ok('8a: Results tiles are larger (22px figures, 14px padding)', await q.$eval('.lg-results .lg-tile', t => getComputedStyle(t.querySelector('b')).fontSize === '22px' && getComputedStyle(t).paddingTop === '14px'));
-    const ownCard = await q.$$eval('.own-card .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
-    const ownFold = await q.$$eval('.fund11-row', rs => rs.length);
-    ok('8a: the own money card lists deposit, stamp duty, legal, refurb, mortgage and total', /Deposit \(25% of £125,000\) £31,250\|Stamp duty £6,250\|Legal costs £3,000\|Refurb costs £45,000\|Mortgage covers £93,750\|Total money in/.test(ownCard), ownCard);
-    ok('8a: ... with the same total as the How you’ll pay card', (await q.textContent('.own-card-head small')) === '£85,500 · total in £179,250' && ownFold === 4 && (await q.textContent('.fund11-total')) === '£85,500');
+    const ownCard = await q.$$eval('.own-card .fund11-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
+    ok('8a: the Results own money card adds up the same way: costs, total, less the mortgage, your own money', ownCard === 'Purchase price £125,000|Stamp duty £6,250|Legal costs £3,000|Refurb costs £45,000|Total to pay £179,250|Less: Mortgage (75% of the price) −£93,750|From your own money £85,500', ownCard);
+    ok('8a: ... with the same figures as the How you’ll pay card', (await q.textContent('.own-card-head small')) === '£85,500 yours · £93,750 borrowed' && (await q.textContent('.fund11-total')) === '£85,500');
     // a change on Figures shows straight away in Results and the panel
     const before = await q.textContent('.lg-results .lg-tile >> nth=4');
     await q.click('.lg-switch button:text-is("Figures")'); await q.fill('#lg-purchasePrice', '115000'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
     await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(80);
-    ok('8a: a figure changed under Figures shows at once in Results and in the own money card', (await q.textContent('.lg-results .lg-tile >> nth=4')) !== before && (await q.textContent('.own-card-head small')).includes('total in £16'), await q.textContent('.own-card-head small'));
+    ok('8a: a figure changed under Figures shows at once in Results and in the own money card', (await q.textContent('.lg-results .lg-tile >> nth=4')) !== before && (await q.textContent('.own-card-head small')).includes('£86,250 borrowed'), await q.textContent('.own-card-head small'));
     // the exit tiles stay above the switch: changing strategy keeps Results
     await q.click('.exit-tile:has(.nm:text-is("Flip"))'); await q.waitForTimeout(100);
     ok('8a: changing exit keeps Results, now for the flip (3 tiles)', (await pressed()) === 'Figures:false,Results:true' && (await q.locator('.lg-results .lg-tile').count()) === 3 && (await q.textContent('.lg-results .lg-h')) === 'How Flip does');
@@ -502,6 +506,42 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('.lg-seg button:has-text("Bridging loan")'); await q.waitForTimeout(150);
     ok('11a: with bridging, the first tile says Bridge instead', (await mort()).startsWith('Until the refinance Bridge instead Bridge interest is in its cost above|After the refinance £863'));
     ok('11a: the rate box is 44px tall', (await q.$eval('#lg-mortRate11', e => e.getBoundingClientRect().height)) >= 44);
+    await c.close();
+    // ---- 11 Oct 2026: a flip shows the flip price and no lender wording; buying a home to live in ----
+    ({ c, q } = await fresh({ onboarded: true, brrlet: 'none', deal: { endValue: 1100000, refurb: 200000, legal: 3000, purchasePrice: 724545, ltv: 90, depositPct: 10 } }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    ok('flip: the price card offers the flip price £574,545 for a 25% margin (not the recycle price)', (await q.textContent('.rec-eye')) === 'Flip price' && (await q.textContent('.rec-amt')) === '£574,545' && (await q.textContent('.rec-note')) === 'Pay this or less for a 25% margin when you sell');
+    ok('flip: the top bar is the sale price against the cost, with no lender', (await q.textContent('.pin-caps')) === 'Sale price £1,100,000Cost £990,000' && !/Lender pays/.test(await q.textContent('.pin')) && (await q.textContent('#lg-endValue >> xpath=ancestor::section[1] >> .lg-sub')) === 'What you sell it for after the works');
+    ok('flip: How you’ll pay has the deposit only (no “Lender pays” tile) and “While you own it” (no after-the-refinance)', !(await q.locator('#lg-ltv').count()) && (await q.locator('#lg-depositPct').count()) === 1 && (await q.textContent('.fund11-mtile >> nth=0 >> span')) === 'While you own it' && !(await q.isVisible('.fund11-mtile >> nth=1')));
+    await q.click('.rec-btn'); await q.waitForTimeout(150);
+    ok('flip: Set price makes it a 25% flip: price £574,545, margin 25.0%, "✓ Snapped to the flip price"', (await q.inputValue('#lg-purchasePrice')) === '574,545' && (await q.textContent('.pin-side-fig')) === '25.0%' && (await q.textContent('#lg-purchasePrice >> xpath=ancestor::section[1] >> .lg-sub')) === '✓ Snapped to the flip price');
+    await q.click('.exit-tile:has(.nm:text-is("BTL"))'); await q.waitForTimeout(150);
+    await q.click('.exit-tile:has(.nm:text-is("SA"))'); await q.waitForTimeout(150);
+    ok('SA: your own money counts the furnishing too (its own row)', (await q.$$eval('.fund11-own .fund11-row span', ss => ss.map(x => x.textContent).join('|'))).includes('Refurb costs|Furnishing|Total to pay'), await q.$$eval('.fund11-own .fund11-row span', ss => ss.map(x => x.textContent).join('|')));
+    await q.click('.exit-tile:has(.nm:text-is("BTL"))'); await q.waitForTimeout(150);
+    ok('BTL: the recycle price is back, with the lender', (await q.textContent('.rec-eye')) === 'Recycle price' && (await q.textContent('.rec-amt')) === '£724,545' && /^Lender pays/.test(await q.textContent('.pin-caps')) && (await q.locator('#lg-ltv').count()) === 1);
+    await c.close();
+    ({ c, q } = await fresh({ onboarded: true }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    await q.click('.lg-link:text-is("What you’d pay →")'); await q.waitForTimeout(250);
+    const hbOwn = () => q.textContent('.hb .pin-fig'), hbRows = () => q.$$eval('.hb-bd .fund11-row', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'));
+    ok('home: "Buying a home to live in? What you’d pay →" opens it, with the tab bar (Calculator)', (await q.url()).endsWith('#home') && await q.isVisible('#tabs') && (await q.getAttribute('#t-home', 'aria-selected')) === 'true' && (await q.textContent('.hb .pin-title')) === 'Buying a home');
+    ok('home: a £250,000 first home in England: £27,999 of your own money, £225,000 borrowed, no stamp duty', (await hbOwn()) === '£27,999' && (await q.textContent('.hb-loan')) === '£225,000' && (await q.textContent('.hb-sd b')) === '£0');
+    ok('home: the breakdown adds up: price and costs, total, less the mortgage, your own money', (await hbRows()) === 'Purchase price £250,000|Stamp duty £0|Legal costs £1,500|Survey £500|Mortgage fees £999|Total to buy £252,999|Less: Mortgage (90% of the price) −£225,000|From your own money £27,999', await hbRows());
+    ok('home: the monthly repayment £1,251 over 25 years', (await q.textContent('.hb-mt .fund11-mtile >> nth=0 >> b')) === '£1,251 /mo');
+    await q.click('.hb-who button:text-is("Moving home")'); await q.waitForTimeout(80);
+    ok('home: moving home pays £2,500 stamp duty and your own money goes up by it', (await q.textContent('.hb-sd b')) === '£2,500' && (await hbOwn()) === '£30,499');
+    await q.click('.hb-who button:text-is("Scotland")'); await q.waitForTimeout(80);
+    ok('home: in Scotland it is LBTT (£2,100 moving home)', (await q.textContent('.hb-sd span')) === 'LBTT (Scotland’s stamp duty)' && (await q.textContent('.hb-sd b')) === '£2,100');
+    await q.fill('#hb-depositPct', '25'); await q.waitForTimeout(80);
+    ok('home: a 25% deposit: £62,500 deposit, £187,500 borrowed', (await q.textContent('.hb-loan')) === '£187,500' && (await q.textContent('#hb-depositPct >> xpath=ancestor::div[contains(@class,"u9-field")][1] >> small')) === '= £62,500 of the price');
+    await q.reload(); await q.waitForTimeout(300);
+    ok('home: kept on the phone, apart from the investment deal', (await q.textContent('.hb-loan')) === '£187,500' && (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:home')).depositPct)) === 25 && !(await q.evaluate(() => (localStorage.getItem('deal-analyser:deal') || '').includes('depositPct":25'))));
+    await q.click('.u9-clear:text-is("Start again")'); await q.waitForTimeout(80);
+    ok('home: Start again goes back to the starting figures', (await hbOwn()) === '£27,999');
+    const hbSmall = await q.$$eval('.hb button, .hb input', es => es.filter(e => e.offsetParent && !e.classList.contains('u9-clear') && !e.classList.contains('pin-back') && e.getBoundingClientRect().height + (e.classList.contains('nudge') ? 12 : 0) < 44).map(e => e.className + ':' + e.getBoundingClientRect().height));
+    ok('home: tap targets 44px or more (the 38px −/+ have a 6px invisible margin all round)', !hbSmall.length && (await q.$eval('.hb .nudge', e => getComputedStyle(e, '::after').top)) === '-6px', JSON.stringify(hbSmall));
+    for (const w of [360, 430]) { await q.setViewportSize({ width: w, height: 800 }); await q.waitForTimeout(80); ok('home: no sideways scrolling at ' + w + 'px', (await q.evaluate(() => document.documentElement.scrollWidth)) <= w); }
     await c.close();
     // ---- Every strategy (#compare) and the old Client report (#report) removed (7 Oct 2026) ----
     ({ c, q } = await fresh({ onboarded: true, persona: 'source', report: { by: 'Levendelis Property' }, deals: [{ id: 'a1', v: 2, calc: 'flip', view: 'brr', letting: 'btl', name: 'A', data: { endValue: 200000, purchasePrice: 100000 }, savedAt: 1 }, { id: 'b2', v: 2, calc: 'flip', view: 'brr', letting: 'btl', name: 'B', data: { endValue: 250000, purchasePrice: 140000 }, savedAt: 2 }] }));
