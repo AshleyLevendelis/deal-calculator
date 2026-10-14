@@ -51,7 +51,7 @@ ok('flip with no end value: no crash, Loss-making, dash for the margin', (r = V(
 const deal = { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 };
 const off = Calc.ledger(deal, false), on = Calc.ledger(deal, true);
 ok('the example deal: Flip good, BTL 3/4, HMO 3/4, SA 4/4', V('none', off.exits.none.v).title === 'Good flip' && V('btl', off.exits.btl.v).score === 3 && V('hmo', off.exits.hmo.v).score === 3 && V('sa', off.exits.sa.v).score === 4);
-ok('with bridging on, the BTL leaves cash in at a low ROI, so it drops to 0/4', V('btl', on.exits.btl.v).score === 0 && V('btl', on.exits.btl.v).misses.indexOf('All cash recycled') >= 0, JSON.stringify(V('btl', on.exits.btl.v)));
+ok('with bridging on (£10,009 cost), the BTL leaves cash in, so it drops to 2/4 and misses All cash recycled', V('btl', on.exits.btl.v).score === 2 && V('btl', on.exits.btl.v).misses.indexOf('All cash recycled') >= 0 && V('btl', off.exits.btl.v).score === 3, JSON.stringify(V('btl', on.exits.btl.v)));
 ok('the verdict agrees with the colours on screen (monthly, ROI, months back)', ['btl', 'hmo', 'sa'].every(k => [off, on].every(L => {
   const v = L.exits[k].v, x = V(k, v), out = Calc.cashKind(v.cashLeft) !== 'in';
   return x.hits[0] === (Calc.monthlyProfitVerdict(v.monthly) === 'good') && x.hits[1] === (out || Calc.cashRoiVerdict(v.roi) === 'good') && x.hits[2] === (Calc.paybackVerdict(v.breakeven, v.cashLeft) === 'good' || out);

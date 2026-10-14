@@ -45,7 +45,7 @@ ok('it is the up-front "Any other costs", not the monthly running cost ("other")
   ok('own money parts: deposit, stamp duty, legal, refurb, other (no furnishing or bridging at £0)', P0.map(p => p.key).join() === 'deposit,sdlt,legal,refurb,other', P0.map(p => p.key).join());
   ok('... the shares add up to 100%', Math.abs(P0.reduce((t, p) => t + p.share, 0) - 1) < 1e-9);
   ok('... and the parts add up to the total', near(P0.reduce((t, p) => t + p.value, 0), own(false).total));
-  ok('bridging on adds a Bridging cost part, last, and the total goes up by it', P1.map(p => p.key).join() === 'deposit,sdlt,legal,refurb,other,bridge' && near(own(true).total - own(false).total, P1[P1.length - 1].value) && Math.abs(P1.reduce((t, p) => t + p.share, 0) - 1) < 1e-9);
+  ok('bridging on (design 1b): the deposit is the price less the net loan and the bridge fees are a part, last; the parts add up', P1.map(p => p.key).join() === 'deposit,sdlt,legal,refurb,other,bridge' && P1[0].value === Math.max(0, deal.purchasePrice - 97500) && P1[P1.length - 1].value === 2550 && P1[P1.length - 1].label === 'Bridge legal, valuation and broker' && near(P1.reduce((t, p) => t + p.value, 0), own(true).total) && Math.abs(P1.reduce((t, p) => t + p.share, 0) - 1) < 1e-9, JSON.stringify(P1));
   ok('furnishing shows for an SA let', Calc.ownParts(Calc.ledger(deal, false).exits.sa.own).some(p => p.key === 'furnishing'));
   ok('nothing to show: no parts, no division by zero', JSON.stringify(Calc.ownParts({ deposit: 0, sdlt: 0 })) === '[]' && JSON.stringify(Calc.ownParts(null)) === '[]');
   ok('a negative figure is never a part', !Calc.ownParts({ deposit: 100, legal: -5 }).some(p => p.key === 'legal'));

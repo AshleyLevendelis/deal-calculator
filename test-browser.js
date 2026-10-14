@@ -1,7 +1,6 @@
 // Drives the Calculator's main screen (design 6c) in a real browser: the slider's bubble, drag and snap tick, Set price,
 // the arrow keys, Reset, the fold cards (one open at a time), the remembered exit and bridging, the verdict strip, Save in
 // the panel, Clear figures and the empty state, nothing hidden behind the panel or tab bar, and 44px tap targets.
-// Also the Bridging quotes screen (quotes, comparison, max bid, the bands sheet).
 // Needs Playwright with Chromium (installed in Claude's cloud sessions). Run: node test-browser.js
 const http = require('http'), fs = require('fs'), path = require('path');
 let pw; try { pw = require('playwright'); } catch (e) { try { pw = require('/opt/node-tools/node_modules/playwright'); } catch (e2) { console.log('skipped: Playwright is not installed here'); process.exit(0); } }
@@ -108,12 +107,37 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('11a: the breakdown starts shut', !(await p.isVisible('.fund11-rows')) && (await p.textContent('.fund11-btn')) === 'Breakdown');
   await p.click('.fund11-btn'); await p.waitForTimeout(40);
   ok('own vs loan: Breakdown adds up: every cost, the total to pay, less the mortgage, your own money; the button says Hide', (await rowsNow()) === 'Purchase price £125,000|Stamp duty £6,250|Legal costs £3,000|Refurb costs £45,000|Total to pay £179,250|Less: Mortgage (75% of the price) −£93,750|From your own money £85,500' && (await p.textContent('.fund11-btn')) === 'Hide' && (await p.textContent('.fund11-own .fund11-note')).startsWith('Your money covers the 25% deposit (£31,250)'), await rowsNow());
-  await p.click('.lg-seg button:has-text("Bridging loan")'); await p.waitForTimeout(100);
-  const bar1 = await parts(), tot1 = await p.textContent('.fund11-total');
-  ok('11a: bridging on: the bridge figures appear in the card, with its cost in amber', (await p.locator('.fund11 .bridge-grid').count()) === 1 && /^£[\d,]+$/.test(await p.textContent('.fund11-cost-v')) && (await p.locator('.fund11-cost .lg-link').count()) === 1);
-  ok('own vs loan with a bridge: the loan is what the bridge pays out (£150,000 less £3,350 fees = £146,650); its legal fee is yours; your own money £33,800', tot1 === '£33,800' && (await p.textContent('.fund11-loan .fund11-l')) === 'Bridging loan' && (await p.textContent('.fund11-loanv')) === '£146,650' && (await rowsNow()).includes('Bridging legal fees £1,200|Total to pay £180,450|Less: Bridging loan (£150,000 less £3,350 fees) −£146,650|From your own money £33,800'), tot1 + ' ' + await rowsNow());
-  ok('own vs loan with a bridge: it says what is repaid at the end', /^At the end you repay £[\d,]+ \(the loan with any rolled-up interest and the exit fee\) out of the refinance or the sale\.$/.test(await p.textContent('.fund11-own .fund11-note')));
-  ok('own vs loan with a bridge: the bar is in proportion', bar1[0].startsWith('own:18.') && bar1[1].startsWith('loan:81.'), JSON.stringify(bar1));
+  ok('1b: the switch reads Mortgage | Bridging', (await p.$$eval('.fund11 .lg-seg button', bs => bs.map(b => b.textContent).join('|'))) === 'Mortgage|Bridging');
+  await p.click('.lg-seg button:text-is("Bridging")'); await p.waitForTimeout(100);
+  // Design 1b (14 Oct 2026): five figures with sliders, the gross loan worked out, the cost, How it adds up
+  const bIds = ['bridgeNet', 'bridgeRatePct', 'bridgeLegal', 'bridgeValuation', 'bridgeBroker'];
+  ok('1b: bridging on: five rows (net loan, interest, legal, valuation, broker) with the example figures; no Lender pays / Deposit tiles', (await p.$$eval('.b1-row label', ls => ls.map(l => l.textContent).join('|'))) === 'Net loan|Interest|Legal fees|Valuation fee|Broker fee'
+    && (await Promise.all(bIds.map(id => p.inputValue('#lg-' + id)))).join('|') === '97,500|0.85|1,200|350|1,000' && !(await p.locator('#lg-ltv').count()) && !(await p.locator('#lg-depositPct').count()) && (await p.locator('.b1-row .scrub').count()) === 5 && (await p.locator('.b1-row .nudge').count()) === 10);
+  ok('1b: each row says what it is (78% of the price, £829 a month, paid upfront)', (await p.$$eval('.b1-sub', ss => ss.map(x => x.textContent).join('|'))) === 'The cash sent at completion. Covers 78% of the price|Per month. £829 a month, rolled up and repaid at the end|Paid upfront|Paid upfront|Paid upfront');
+  ok('1b: the gross loan is worked out: £97,500 + 9 months of interest (£7,459) = £104,959', (await p.textContent('.b1-gross-r b')) === '£104,959' && (await p.textContent('.b1-gross small')) === '£97,500 + 9 months of interest (£7,459)' && (await p.textContent('.b1-wo')) === 'Worked out');
+  ok('1b: the cost of the bridge £10,009 in amber, 10.3% of the net loan; lender sends / a month / you repay', (await p.textContent('.b1-cost')) === '£10,009' && (await p.textContent('.b1-pct')) === '10.3% of the net loan, over 9 months' && (await p.$$eval('.b1-three b', bs => bs.map(b => b.textContent).join('|'))) === '£97,500|£829|£104,959');
+  const bar1 = await p.$$eval('.fund11-own .fund11-seg', ss => ss.map(e => e.className.replace('fund11-seg ', '')).join());
+  ok('1b: your own money £84,300 (price less the net loan, the costs and the three fees) beside the bridging loan £97,500', (await p.textContent('.fund11-total')) === '£84,300' && (await p.textContent('.fund11-loan .fund11-l')) === 'Bridging loan' && (await p.textContent('.fund11-loanv')) === '£97,500');
+  ok('1b: the bar shows what your money pays for, bridge fees last; the caption says the interest is repaid from the refinance', bar1 === 'sg-deposit,sg-sdlt,sg-legal,sg-refurb,sg-bridge' && (await p.textContent('.fund11-cap')) === 'The rolled-up interest (£7,459) is repaid from the refinance.', bar1);
+  ok('1b: Breakdown adds up: the three fees, the total, less the net loan, your own money; the gross is repaid at the end', (await rowsNow()).endsWith('Bridge legal fees £1,200|Bridge valuation fee £350|Bridge broker fee £1,000|Total to pay £181,800|Less: Bridging loan (the net the lender sends) −£97,500|From your own money £84,300')
+    && (await p.textContent('.fund11-own .fund11-note')) === 'At the end you repay the gross loan, £104,959 (the net plus £7,459 rolled-up interest), out of the refinance or the sale.', await rowsNow());
+  ok('1b: the pinned panel includes the bridge’s cost', (await p.textContent('.pin-tag')) === 'Includes £10,009 bridging');
+  await p.click('.b1-fold .fold-head'); await p.waitForTimeout(40);
+  ok('1b: How it adds up opens (and the letting figures fold shuts: one at a time)', await p.isVisible('.b1-fold .fold-body') && !(await fold('BTL figures').locator('.fold-body').isVisible()) && (await p.textContent('.b1-fold small')) === 'Interest £7,459 · fees £2,550'
+    && (await p.$$eval('.b1-fold .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'))) === 'Net loan £97,500|Interest (0.85% × 9 months on £97,500) £7,459|Gross loan (repaid at the end) £104,959|Legal fees £1,200|Valuation fee £350|Broker fee £1,000|Total cost of the bridge (interest + fees) £10,009|Price less the net loan (your deposit) £27,500');
+  await p.click('.b1-fold .fold-head'); await p.waitForTimeout(40);
+  await p.locator('.b1-row:has(#lg-bridgeNet) .nudge >> nth=1').click(); await p.waitForTimeout(60);
+  ok('1b: + on the net loan adds £500, everything follows, and Reset appears', (await p.inputValue('#lg-bridgeNet')) === '98,000' && (await p.textContent('.b1-gross-r b')) === '£105,497' && (await p.textContent('.fund11-total')) === '£83,800' && await p.isVisible('.pin-reset'), [await p.inputValue('#lg-bridgeNet'), await p.textContent('.b1-gross-r b'), await p.textContent('.fund11-total'), await p.isVisible('.pin-reset')].join());
+  await p.click('.pin-reset'); await p.waitForTimeout(60);
+  ok('1b: Reset puts the bridge figure back too', (await p.inputValue('#lg-bridgeNet')) === '97,500' && !(await p.isVisible('.pin-reset')));
+  await p.fill('#lg-bridgeNet', '0'); await p.fill('#lg-bridgeRatePct', '4'); await p.waitForTimeout(80);
+  ok('1b: messages for a net loan of £0 and a rate above 3% a month; no NaN', (await p.$$eval('.b1-msg', ms => ms.map(m => m.textContent).join('|'))) === 'Enter the net loan: the cash the lender sends at completion.|Above 3% a month is very high for a bridge: check it is per month, not per year.' && (await p.textContent('.b1-pct')) === 'Enter the net loan' && !/NaN|Infinity|undefined/.test(await p.textContent('#v-home')));
+  await p.fill('#lg-bridgeNet', '97500'); await p.fill('#lg-bridgeRatePct', '0.85'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(80);
+  ok('1b: the bridge figures are kept with the deal', (await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('deal-analyser:deal')); return d.bridgeNet + '|' + d.bridgeRatePct; })) == '97500|0.85');
+  for (const old of ['#bridge', '#c/bridging']) {
+    await p.goto(BASE + '/index.html' + old); await p.waitForTimeout(250);
+    ok('1b: the old ' + old + ' address lands on the Calculator', (await p.url()).endsWith('#c/brr') && await p.isVisible('.fund11'));
+  }
   ok('11a: the breakdown stays open across the redraw (kept for the session)', await p.isVisible('.fund11-rows'));
   ok('11a: the pinned panel says it includes the bridging', /^Includes £[\d,]+ bridging$/.test(await p.textContent('.pin-tag')));
   await p.reload(); await p.waitForTimeout(300);
@@ -370,11 +394,11 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.goto(BASE + '/index.html#usual'); await q.waitForTimeout(250);
     const usual = () => q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:usual') || '{}'));
     const look = await q.evaluate(() => ({ fonts: [...new Set([...document.querySelectorAll('#v-usual *')].filter(e => e.type !== 'range').map(e => getComputedStyle(e).fontFamily.split(',')[0].replace(/"/g, '')))].join(), pinned: getComputedStyle(document.querySelector('#v-usual .pin')).position, heads: [...document.querySelectorAll('#v-usual .lg-h')].map(e => e.textContent).join('|'), cards: document.querySelectorAll('#v-usual .u9-card').length, fields: document.querySelectorAll('#v-usual .u9-field').length, sliders: document.querySelectorAll('#v-usual .scrub').length, nudges: document.querySelectorAll('#v-usual .nudge').length, tabs: !document.getElementById('tabs').hidden, calcTab: document.getElementById('t-home').getAttribute('aria-selected') }));
-    ok('usual 9b: pinned header card, three group cards, six figures each with − / slider / +, one font, tab bar with Calculator', look.fonts === 'Geist' && look.pinned === 'sticky' && look.heads === 'Buying costs|Finance|Letting' && look.cards === 3 && look.fields === 6 && look.sliders === 6 && look.nudges === 12 && look.tabs && look.calcTab === 'true', JSON.stringify(look));
-    ok('usual 9b: nothing set: every figure shows its example, "All figures are spreadsheet examples", no Clear all', (await q.textContent('.u9-count')) === 'All figures are spreadsheet examples' && !(await q.isVisible('.u9-clear')) && (await q.$eval('#u-legal', e => e.value)) === '3,000' && await q.$eval('#u-legal', e => e.classList.contains('ex')) && (await q.$$eval('.u9-tag', ts => ts.every(t => t.textContent === 'Example from the spreadsheet'))));
+    ok('usual 9b: pinned header card, four group cards (the bridging loan added by design 1b), ten figures each with − / slider / +, one font, tab bar with Calculator', look.fonts === 'Geist' && look.pinned === 'sticky' && look.heads === 'Buying costs|Finance|Letting|Bridging loan' && look.cards === 4 && look.fields === 10 && look.sliders === 10 && look.nudges === 20 && look.tabs && look.calcTab === 'true', JSON.stringify(look));
+    ok('usual 9b: nothing set: every figure shows its example, "All figures are spreadsheet examples", no Clear all', (await q.textContent('.u9-count')) === 'All figures are spreadsheet examples' && !(await q.isVisible('.u9-clear')) && (await q.$eval('#u-legal', e => e.value)) === '3,000' && await q.$eval('#u-legal', e => e.classList.contains('ex')) && (await q.$$eval('.u9-tag', ts => ts.map(t => t.textContent).join('|'))) === 'Example from the spreadsheet|'.repeat(6) + 'Example figure|Example figure|Example figure|Example figure' && (await q.inputValue('#u-bridgeRatePct')) === '0.85');
     const legal = q.locator('.u9-field:has(#u-legal)');
     await legal.locator('.nudge >> nth=0').click(); await q.waitForTimeout(40);
-    ok('usual 9b: − on legal makes it yours: £2,950, "Yours", "Example £3,000 ↺", saved at once', (await q.$eval('#u-legal', e => e.value)) === '2,950' && (await legal.locator('.u9-tag').textContent()) === 'Yours' && (await legal.locator('.u9-reset').textContent()) === 'Example £3,000 ↺' && (await usual()).legal === '2950' && (await q.textContent('.u9-count')) === '1 of 6 figures are yours' && await q.isVisible('.u9-clear'));
+    ok('usual 9b: − on legal makes it yours: £2,950, "Yours", "Example £3,000 ↺", saved at once', (await q.$eval('#u-legal', e => e.value)) === '2,950' && (await legal.locator('.u9-tag').textContent()) === 'Yours' && (await legal.locator('.u9-reset').textContent()) === 'Example £3,000 ↺' && (await usual()).legal === '2950' && (await q.textContent('.u9-count')) === '1 of 10 figures are yours' && await q.isVisible('.u9-clear'));
     await legal.locator('.u9-reset').click(); await q.waitForTimeout(40);
     ok('usual 9b: "Example £3,000 ↺" puts the example back (the key is deleted)', !('legal' in (await usual())) && (await q.$eval('#u-legal', e => e.value)) === '3,000' && (await legal.locator('.u9-tag').textContent()) === 'Example from the spreadsheet');
     await q.fill('#u-mortgageRate', '6.25'); await q.waitForTimeout(40);
@@ -411,7 +435,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('settings 9a: choosing Light switches the theme and ticks it', (await q.evaluate(() => document.documentElement.getAttribute('data-theme'))) === 'light' && (await q.$eval('.st9-theme:has(b:text-is("Light"))', e => e.getAttribute('aria-pressed'))) === 'true');
     ok('settings 9a: rows are 56px or more; buttons 44px or more (or a 44px hit area)', await q.evaluate(() => [...document.querySelectorAll('#settings-sheet .st9-row')].every(e => e.getBoundingClientRect().height >= 56) && [...document.querySelectorAll('#settings-sheet button')].every(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return r.height >= 44 || (a.content !== 'none' && a.position === 'absolute'); })));
     await q.evaluate(() => localStorage.setItem('deal-analyser:usual', JSON.stringify({ legal: '1500', ltv: '75' }))); await q.reload(); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80);
-    ok('settings 9a: My usual figures says how many are set', (await q.textContent('.st9-link:has(b:text-is("My usual figures")) small')) === '2 of 6 set, used on every new deal');
+    ok('settings 9a: My usual figures says how many are set', (await q.textContent('.st9-link:has(b:text-is("My usual figures")) small')) === '2 of 10 set, used on every new deal');
     await q.click('.st9-link:has(b:text-is("My usual figures"))'); await q.waitForTimeout(200);
     ok('settings 9a: My usual figures opens its screen and closes the sheet', (await q.url()).endsWith('#usual') && !(await q.isVisible('#settings-sheet')));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#gear'); await q.waitForTimeout(80); await q.click('.bs-done'); await q.waitForTimeout(60);
@@ -504,7 +528,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     const tiles0 = await q.$$eval('.lg-results .lg-tile, .lg-results .tile', ts => ts.map(t => t.textContent).join('|')), profit0 = tiles0;
     await q.fill('#lg-mortRate11', '6'); await q.waitForTimeout(100);
     ok('11a: typing 6% changes both payments and the profit, and the letting figures’ own rate', (await mort()).includes('After the refinance £863 /mo') && (await mort()).includes('Until the refinance £469 /mo') && (await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:deal')).mortgageRate)) == 6 && (await q.$eval('#lg-mortgageRate', e => e.value)) === '6' && (await q.$$eval('.lg-results .lg-tile, .lg-results .tile', ts => ts.map(t => t.textContent).join('|'))) !== tiles0, (await mort()) + ' ' + profit0);
-    await q.click('.lg-seg button:has-text("Bridging loan")'); await q.waitForTimeout(150);
+    await q.click('.lg-seg button:text-is("Bridging")'); await q.waitForTimeout(150);
     ok('11a: with bridging, the first tile says Bridge instead', (await mort()).startsWith('Until the refinance Bridge instead Bridge interest is in its cost above|After the refinance £863'));
     ok('11a: the rate box is 44px tall', (await q.$eval('#lg-mortRate11', e => e.getBoundingClientRect().height)) >= 44);
     await c.close();
@@ -755,59 +779,6 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ({ c, q } = await fresh({ onboarded: true, persona: 'invest', pack: { look: 'classic', order: [], off: {}, hide: true, fee: 0, terms: '', prop: {}, client: '', note: '' } }));
     await q.goto(BASE + '/index.html#pack'); await q.waitForTimeout(300);
     ok('pack: not a sourcer: the deal pack is not there (address goes to the Calculator; no Deal pack buttons)', (await q.url()).endsWith('#calculators') && !(await q.locator('.pk12').count()));
-    await c.close();
-    // ---- Bridging quotes (#bridge, 14 Oct 2026) ----
-    ({ c, q } = await fresh({ onboarded: true, deal: { endValue: 320000, purchasePrice: 200000, refurb: 50000, legal: 1500 } }));
-    q.on('dialog', d => d.accept());
-    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
-    await q.click('.lg-link:text-is("True cost and cash needed →")'); await q.waitForTimeout(250);
-    ok('bridge: the Calculator links to Bridging quotes; it starts blank (no figures assumed), one empty quote', (await q.url()).endsWith('#bridge') && await q.isVisible('#v-bridge') && (await q.locator('.bq-quote').count()) === 1 && (await q.textContent('.bq-pin .pin-fig')) === '—' && (await q.inputValue('#v-bridge .bq-f input >> nth=0')) === '');
-    await q.click('.lg-link:text-is("Use my calculator deal")'); await q.waitForTimeout(100);
-    const bf = (label, n) => q.locator('.bq-f:has(label:text-is("' + label + '")) input').nth(n || 0);
-    ok('bridge: Use my calculator deal fills the price, refurb, legal and end value', (await bf('Purchase price').inputValue()) === '200,000' && (await bf('Refurb cost').inputValue()) === '50,000' && (await bf('End value').inputValue()) === '320,000');
-    ok('bridge: stamp duty is worked out from the bands (additional property: £11,500)', (await q.textContent('.bq .hb-sd b')) === '£11,500');
-    await bf('Cash you have available').fill('120000'); await bf('Selling costs').fill('4000'); await bf('Expected term').fill('12');
-    await q.fill('#bq-name-0', 'Lender A'); await bf('Net advance (day one)').fill('140000'); await bf('Gross loan').fill('150000'); await bf('Interest rate').fill('0.8');
-    await q.click('.bq-quote >> .bq-add:text-is("+ Add a fee")'); await q.waitForTimeout(60);
-    await q.locator('.bq-fee input.bq-name').fill('Valuation fee'); await q.locator('.bq-fee .bq-f input').fill('500'); await q.evaluate(() => document.activeElement.blur());
-    const qrow = (i, label) => q.locator('.bq-quote').nth(i).locator('.bq-res > .fund11-rows .fund11-row:has(span:text-is("' + label + '")) b').textContent();
-    ok('bridge: quote A: cost £10,500 (the £10,000 gap and the £500 fee), 7.5% of funds, £875 a month', (await qrow(0, 'Total cost of the finance')) === '£10,500' && (await qrow(0, '… as a share of the funds received')) === '7.5%' && (await qrow(0, '… per month')) === '£875');
-    ok('bridge: quote A: own cash £123,500 and £3,500 short, in red', (await qrow(0, 'Your own cash needed')) === '£123,500' && (await qrow(0, 'Short by')) === '£3,500' && await q.locator('.bq-quote >> nth=0 >> .fund11-row.bq-bad:has(span:text-is("Short by"))').count() === 1);
-    await q.click('.bq-addq'); await q.waitForTimeout(80);
-    const q2 = q.locator('.bq-quote').nth(1), f2 = l => q2.locator('.bq-f:has(label:text-is("' + l + '")) input');
-    await q.fill('#bq-name-1', 'Lender B'); await q2.locator('button:text-is("B · Works in arrears")').click(); await q.waitForTimeout(60);
-    ok('bridge: structure B shows the refurb facility, how the works money comes, and the stages', await f2('Refurb facility').count() === 1 && await f2('Number of stages').count() === 1 && await f2('Works take').count() === 1);
-    await f2('Net advance (day one)').fill('140000'); await f2('Gross loan').fill('190000'); await f2('Refurb facility').fill('50000'); await f2('Interest rate').fill('1'); await f2('Works take').fill('4'); await f2('Number of stages').fill('4');
-    await q2.locator('button:text-is("Rolled up")').click(); await q.fill('#bq-sec-1', 'Purchase property + main residence'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(60);
-    ok('bridge: quote B: interest only from each release (£21,550), own cash £73,000, peak £85,500', (await qrow(1, 'Total cost of the finance')) === '£21,550' && (await qrow(1, 'Your own cash needed')) === '£73,000' && (await qrow(1, 'Peak cash need (paying a stage before its release)')) === '£85,500');
-    ok('bridge: a second property in the security is a red risk flag', /Security includes more than the purchase property/.test(await q2.locator('.bq-risk').textContent()));
-    ok('bridge: the panel names the cheapest finance and the least own cash', (await q.textContent('.bq-pin .pin-eye')) === 'Cheapest finance · Lender A' && (await q.textContent('.bq-pin .pin-fig')) === '£10,500' && /Lender B/.test(await q.textContent('.bq-pin .pin-side-cap')));
-    const cmpT = await q.textContent('.bq-table');
-    ok('bridge: the table compares both, with a ★ on each winner and the shortfall alert', cmpT.includes('Lender A') && cmpT.includes('£10,500 ★') && cmpT.includes('£73,000 ★') && cmpT.includes('£162,500 ★') && /Lender A leaves you £3,500 short/.test(await q.textContent('.bq-alerts')));
-    await bf('Target profit, % of end value').fill('10'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
-    ok('bridge: max bid for 10% of the end value (£32,000) on Lender A, with its breakdown', /Max bid for £32,000 profit/.test(await q.textContent('.bq-mbr:not([hidden])')) && /^£20\d,\d{3}$/.test(await q.textContent('.bq-mbr:not([hidden]) > .fund11-row b')));
-    // the stamp duty bands are editable and the result follows them
-    await q.click('.lg-link:text-is("Edit the bands")'); await q.waitForTimeout(150);
-    ok('bridge: the bands sheet lists the 5 bands and the surcharge', await q.isVisible('#settings-sheet .bq-bands') && (await q.locator('#settings-sheet .bq-band').count()) === 5);
-    await q.locator('#settings-sheet .bq-band input[aria-label="Band 2 rate (%)"]').fill('3'); await q.waitForTimeout(60);
-    ok('bridge: editing a band changes the stamp duty at once (3% on £75,000 → £12,250)', (await q.textContent('.bq .hb-sd b')) === '£12,250');
-    await q.click('#settings-sheet .bq-add:text-is("Back to the app’s rates")'); await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(60);
-    ok('bridge: back to the app’s rates', (await q.textContent('.bq .hb-sd b')) === '£11,500');
-    // a tip opens its explanation; a blank fee and the B/D layout at narrow width
-    await q.locator('.bq-quote >> nth=0 >> .ab10-l:has-text("Structure") .bq-tip').click();
-    ok('bridge: a ? opens its plain-words explanation', await q.locator('.bq-quote >> nth=0 >> .bq-help:has-text("B: the lender releases")').isVisible());
-    await q.locator('.bq-fee .bq-f input').fill(''); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(60);
-    ok('bridge: a fee left blank is flagged to confirm', /Valuation fee has no amount: confirm it with your broker/.test(await q.locator('.bq-quote >> nth=0 >> .bq-warn').textContent()));
-    await q.reload(); await q.waitForTimeout(300);
-    ok('bridge: everything is kept on the phone (two quotes, names, figures)', (await q.locator('.bq-quote').count()) === 2 && (await q.inputValue('#bq-name-1')) === 'Lender B' && (await bf('Purchase price').inputValue()) === '200,000');
-    for (const w of [360, 430]) {
-      await q.setViewportSize({ width: w, height: 800 }); await q.waitForTimeout(80);
-      const lay = await q.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth, nan: /NaN|undefined|Infinity/.test(document.getElementById('v-bridge').innerText),
-        small: [...document.querySelectorAll('#v-bridge button:not(.bq-tip):not(.u9-clear):not(.pin-back), #v-bridge input:not([type=checkbox]), #v-bridge label.bq-check')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height < 43.5; }).length }));
-      ok('bridge at ' + w + 'px: no sideways scroll, no NaN, every tap target 44px', lay.sw === w && !lay.nan && !lay.small, JSON.stringify(lay));
-    }
-    await q.click('.bq-quote >> nth=0 >> .ab10-l:has-text("Structure") .bq-tip').catch(() => {});
-    ok('bridge: the small ? and Back buttons have a 44px hit area', await q.evaluate(() => { const t = document.querySelector('.bq-tip'), s = getComputedStyle(t, '::after'); return t.getBoundingClientRect().height + 2 * Math.abs(parseFloat(s.top)) >= 44; }));
     await c.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));

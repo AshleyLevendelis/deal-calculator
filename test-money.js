@@ -31,15 +31,16 @@ var Fh = Calc.funding(L, 'hmo');
 ok('an HMO let adds its furnishing as a cost', !Fh.rows.some(function (r) { return r[0] === 'Furnishing'; }) === !(L.exits.hmo.own.furnishing > 0) && near(Fh.own, L.exits.hmo.own.total));
 var other = Calc.funding(Calc.ledger(Object.assign({ otherUpfront: 1000 }, deal), false), 'none');
 ok('other costs are a row and come from your own money', other.rows.some(function (r) { return r[0] === 'Other costs' && r[1] === 1000; }) && near(other.own - F.own, 1000));
-// bridging: the loan is what the bridge pays out; its legal fee is yours; rolled-up interest and the exit fee are repaid at the end
-var bd = Object.assign({ grossLoan: 924545, termMonths: 9, monthlyRatePct: 0.85, arrangementFeePct: 2, exitFeePct: 1, valuationFee: 350, bridgeLegal: 1200, brokerFeePct: 0, interestType: 'rolled' }, deal);
+// bridging (design 1b): the loan is the net loan the lender sends; its legal, valuation and broker fees are yours; the
+// rolled-up interest is repaid at the end with it (the gross), from the refinance or the sale
+var bd = Object.assign({ bridgeNet: 900000, bridgeRatePct: 0.85, bridgeLegal: 1200, bridgeValuation: 350, bridgeBroker: 1000 }, deal);
 var B = Calc.funding(Calc.ledger(bd, true), 'none');
-ok('bridging: the loan is the net advance (£924,545 less £18,490.90 arrangement and £350 valuation = £905,704.10)', B.loan.kind === 'bridge' && near(B.loan.amount, 905704.1) && near(B.loan.fees, 18840.9) && B.loan.gross === 924545);
-ok('bridging: its £1,200 legal fee is a row you pay; your own money = total to pay less the loan (£85,495.40)', B.rows.some(function (r) { return r[0] === 'Bridging legal fees' && r[1] === 1200; }) && near(B.total, 991199.5) && near(B.own, 85495.4));
-ok('bridging (rolled up): no interest to pay as you go; repaid at the end = loan + interest + exit fee', !B.rows.some(function (r) { return /interest/.test(r[0]); }) && near(B.loan.repay, 924545 * Math.pow(1.0085, 9) + 9245.45));
-var Bm = Calc.funding(Calc.ledger(Object.assign({}, bd, { interestType: 'monthly' }), true), 'none');
-ok('bridging (paid monthly): the monthly interest is yours (9 x £7,858.63 = £70,727.70) and adds to your own money', Bm.rows.some(function (r) { return r[0] === 'Bridging interest, paid monthly' && near(r[1], 70727.6325); }) && near(Bm.own - B.own, 70727.6325));
-var big = Calc.funding(Calc.ledger(Object.assign({}, bd, { grossLoan: 2000000 }), true), 'none');
+ok('bridging: the loan is the net loan (£900,000), repaid as the gross: + 9 x £7,650 interest = £968,850', B.loan.kind === 'bridge' && B.loan.amount === 900000 && near(B.loan.interest, 68850) && near(B.loan.gross, 968850) && near(B.loan.repay, 968850) && B.loan.fees === 2550);
+ok('bridging: its three fees are rows you pay; your own money = total to pay less the loan (£92,550)', ['Bridge legal fees|1200', 'Bridge valuation fee|350', 'Bridge broker fee|1000'].every(function (t) { return B.rows.some(function (r) { return r.join('|') === t; }); }) && near(B.total, 992550) && near(B.own, 92550));
+ok('bridging: the interest is not paid as you go (no interest row), and own money agrees with the ledger', !B.rows.some(function (r) { return /interest/i.test(r[0]); }) && near(B.own, Calc.ledger(bd, true).exits.none.own.total));
+var Bz = Calc.funding(Calc.ledger(Object.assign({}, bd, { bridgeBroker: 0 }), true), 'none');
+ok('a fee of £0 is not listed', !Bz.rows.some(function (r) { return r[0] === 'Bridge broker fee'; }) && near(B.own - Bz.own, 1000));
+var big = Calc.funding(Calc.ledger(Object.assign({}, bd, { bridgeNet: 2000000 }), true), 'none');
 ok('a loan bigger than the total: your own money is £0 and the extra is shown, never a minus', big.own === 0 && big.over > 0);
 
 // ---- buying a home to live in ----

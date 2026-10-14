@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-bridge.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -385,40 +385,40 @@ first restyle)
   name (deal-analyser:report .by) starts the deal pack's business name. Setup and Prefs wording say "Deal pack".
   (Notes above that mention Compare, the client report or Report branding describe the app before this change.)
 
-## Bridging quotes (#bridge, 14 Oct 2026, Ashley's own spec)
-- WHY: one bridging loan in the old Bridging calculator could not show the TRUE cost of a quote or the own cash it needs,
-  nor compare lenders. The old #c/bridging screen and CALCS 'bridging' stay as they were (the Calculator's bridging switch
-  uses them); it now ends with "Compare bridging quotes →". The Calculator footer links here too ("Bridging quotes to
-  compare? True cost and cash needed →").
-- bridge.js (pure, browser + node; test-bridge.js, every figure worked out by hand, mutation-tested): stampDuty(price,
-  cfg, additional) with editable marginal bands {bands [[up to or '', rate %]], surchargePct, surchargeFrom} (defaultTax =
-  the app's England & NI main rates + 5% from £40,000, so it matches Calc.propertyTax); quote(p, q, cfg, {price,
-  keepLoan}); compare(p, quotes, cfg, threshold) -> rows, cheapest / leastCash / mostLeft, alerts (short = bad, under the
-  threshold = warn, a B quote short at its peak = bad); meets(); maxBid(p, q, cfg, {kind gbp|gdv|cost, value}, {step,
-  keepLoan}) halves the gap 70 times (stamp duty worked out at each price), floors to the step, steps down until met; null
-  when even £0 fails. % of cost = profit / (costs + finance cost).
-- THE MODEL: structures A day one only (you pay the works), B works in arrears (stages equal releases spread over the works
-  months, interest from each release; or "you fund X% first"; peak = cash needed + the first stage / the X%), C works
-  released on day one. Only what the works need is drawn (unused facility: not repaid, no interest, a note). Simple
-  monthly interest. Quoted mode: the lender's net and gross are the truth, so added / deducted fees and retained interest
-  are already in the gap (shown, never counted twice); "gross already includes rolled-up interest" stops it being added
-  again. From-LTV mode: day-one loan = LTV x price; added fees on top (gross), deducted fees and retained interest off the
-  net, settled by repeating (fees as % of gross / net / facility). Total cost = repay - received + fees paid in cash +
-  interest paid monthly + fees paid at the end. Own cash = price - net + stamp duty + auction + legal + cash fees + refurb
-  you pay (A all; B/C above the facility) + interest paid monthly + contingency. Headroom = cash - own cash. Profit =
-  money left - cash, cross-checked against end value - every cost - finance (✓ on screen).
-- Max bid: the loan either stays as quoted or scales with the price (same LTV; a from-LTV quote always follows the bid).
-  Scaling makes the lender's cut grow too, so the bid is usually LOWER than with the loan fixed (tested).
-- bridgeui.js (BridgeUI(ctx) from app.js, like packui.js): pinned panel (cheapest finance, least own cash, shortfall
-  count); The project (Use my calculator deal), Stamp duty (Standard / Additional, worked out or typed, Edit the bands sheet
-  with Back to the app's rates), The exit (end value, sell / refinance, selling costs, expected term); one card per quote
-  (name, structure, quoted / from LTV, facility, B's stages, rate % a month, retained / rolled up / paid monthly, term
-  blank = the expected term, security, fees with presets (datalist) or own names, £ or % of gross / net / facility, paid
-  from cash / added / off the advance / at the end, estimate tick), results and "your cash line by line"; Duplicate /
-  Remove / + Add another quote; Compare (threshold, a table that scrolls inside its box, ★ winners, alerts); Maximum bid
-  (quote, loan fixed / scales, round down to, three targets each with its breakdown). Every field starts BLANK (no
-  figures assumed); "?" tips explain each one. Kept in deal-analyser:bridgeTool. Not a spreadsheet calculator (Ashley's
-  spec lists every field), so the yellow-cell rule does not apply to it.
+## Bridging in one place (design 1b, 14 Oct 2026, hand-off design_handoff_bridging_1b; replaces the 11a bridge block)
+- The separate Bridging quotes screen (#bridge, built the same day from Ashley's own spec: bridge.js, bridgeui.js,
+  test-bridge.js) and the old pill-row Bridging calculator screen are GONE. #bridge and #c/bridging redirect to #c/brr
+  (GONE in route()); Bridging is no longer in the pill row. CALCS 'bridging' and Calc.bridgingEffect stay in calc.js
+  (tested; old saved deals), but nothing on screen uses them. The "effect on your deal" section went with the screen.
+- Bridging is ONE section of How you'll pay (switch now reads Mortgage | Bridging). With Bridging on there are no Lender
+  pays / Deposit tiles; instead FIVE slider rows (rent-row style: label, typed box, 36px −/+, scrubber, sub line), app.js
+  BRIDGE_ROWS: bridgeNet (Net loan, valueWindow like the money sliders, steps 500/100/25), bridgeRatePct (Interest, % a
+  month, 0-2, 0.05), bridgeLegal (0-5,000, 50), bridgeValuation (0-2,000, 25), bridgeBroker (0-5,000, 50); a typed figure
+  may go past the top. Then the Gross loan tile ("WORKED OUT", never typed), the answer tile (Cost of the bridge in amber,
+  "N% of the net loan, over 9 months", Lender sends / Interest a month / You repay), red messages (net loan £0; rate above
+  3% a month), and the "How it adds up" fold (openFold 'bridgeWork'; one fold open at a time with the letting figures).
+  Then Mortgage payments ("Bridge instead") and Your own money in.
+- MATHS (calc.js bridgeOf / bridgeFigures / BRIDGE_FIGS / BRIDGE_MONTHS = 9, no slider): interest = net x rate% x 9
+  (simple, rolled up, on the net); gross = net + interest; upfront = legal + valuation + broker; cost = interest + upfront
+  = L.bridgeCost (lets: added to cash left in and total in, ROI and months back recomputed; flip: off the profit; the pin
+  tag "Includes £X bridging"). Own money with a bridge = price - net + stamp duty + legal + refurb + other + furnishing +
+  upfront (a net above the price pays towards the costs; never below £0); own.deposit = max(0, price - net), own.bridge =
+  upfront, own.mortgage = net, own.interest = the rolled-up interest. Cash left = own money - (refinance - gross): the same
+  identity as before. Calc.funding: rows add Bridge legal / valuation / broker fees; loan = the net (repaid as the gross).
+  Examples 97,500 / 0.85 / 1,200 / 350 / 1,000 (the hand-off's, ASHLEY TO CONFIRM); layered like every figure (example <
+  My usual figures < typed for this deal), saved with the deal; Reset (pin) covers them, Clear figures leaves them alone.
+  Checked against the design's own example (230k / 125k / 30k / 2k, BTL): £759 left in, 128.5% ROI, Weak deal 1/4,
+  £10,009 cost, gross £104,959, own money £68,300.
+- Your own money in with a bridge: the bar is the cost parts (Calc.ownParts: sg-deposit "Price less the net loan", stamp
+  duty, legal, refurb, other, furnishing, sg-bridge "Bridge legal, valuation and broker"), the bridging loan (net) beside
+  the total, caption "The rolled-up interest (£X) is repaid from the refinance." (sale for a flip); Breakdown = the funding
+  rows. With Mortgage, everything is as before (own vs loan bar).
+- My usual figures has a fourth group, Bridging loan (interest, legal, valuation, broker; tag "Example figure"); the net
+  loan is per deal, so it is not there. 10 figures in all.
+- NOT BUILT, waiting for Ashley: section 2b (Lender pays and Deposit as one linked slider, depositPct = 100 - ltv). In
+  calc.js ltv is the refinance share of the END VALUE and depositPct the share of the PRICE, so linking them changes the
+  maths; the hand-off itself says to confirm first. Also to confirm: the example figures, and whether the 9-month term
+  wants a slider.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
