@@ -395,6 +395,64 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .hb-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
 .hb-mt{margin:12px 0 4px}
 .hb-bd{padding:6px 16px 12px}
+.ab10-seg.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Bridging quotes (#bridge, 14 Oct 2026) */
+.bq .u9-card{padding:4px 16px 12px}
+.bq .lg-hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:18px 4px 8px}
+.bq .lg-hrow .lg-h{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bq-tools{display:flex;gap:14px;flex:none}.bq-rm{color:var(--red)}
+.bq .u9-val input{width:104px}.bq .u9-val.bq-wide input{width:64px}
+.bq-q{padding:12px 0 2px;border-top:1px dashed var(--dash)}.bq .u9-card>.bq-q:first-child,.bq-fee>.bq-q{border-top:0}
+.bq .ab10-l{display:flex;align-items:center;gap:6px}
+.bq .u9-txt label{display:inline}.bq .u9-txt small:empty{display:none}
+.bq .u9-val input+.u{margin-left:4px}
+.bq-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;min-height:0;margin-left:6px;padding:0;border:1px solid var(--line);border-radius:50%;background:none;color:var(--mute);font:700 11px/1 var(--font-ui);vertical-align:middle}
+.bq-tip::after{content:"";position:absolute;inset:-12px}
+.bq-tip[aria-expanded=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bq-help{margin:6px 0 4px;padding:8px 10px;border-radius:12px;background:var(--bg);font-size:12px;line-height:1.45;color:var(--mute)}
+.bq-help[hidden]{display:none}
+.bq-namel{display:block;font:600 14px var(--font-ui);color:var(--ink);margin-bottom:2px}
+.bq-name{width:100%;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;padding:0;font:600 16px var(--font-ui);color:var(--ink)}
+.bq-name:focus{outline:none;border-bottom-color:var(--mint)}
+.bq-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;color:var(--mute);cursor:pointer}
+.bq-check input{width:20px;height:20px;flex:none;accent-color:var(--mint)}
+.bq-sub{margin:16px 0 4px;font:700 12px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.bq-fee{margin:8px 0;padding:6px 12px 8px;border-radius:16px;background:var(--bg)}
+.bq-fee .u9-field{border-top:0}
+.bq-fee-top{display:flex;align-items:center;gap:8px}
+.bq-x{flex:none;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:none;color:var(--mute);font:600 22px/1 var(--font-ui)}
+.bq-add{display:block;width:100%;min-height:44px;margin:8px 0 0;border:1px dashed var(--line);border-radius:14px;background:none;color:var(--mint);font:600 13px var(--font-ui)}
+.bq-addq{margin:4px 0 0}
+.bq-acts{display:flex;justify-content:space-between;gap:12px}
+.bq-res{margin-top:6px}
+.bq-fold{display:block;min-height:44px;padding:0;border:0;background:none;color:var(--mint);font:600 12.5px var(--font-ui)}
+.bq-fold-body[hidden]{display:none}
+.fund11-row.bq-bad b,.fund11-row.bq-bad span{color:var(--red)}.fund11-row.bq-ok b{color:var(--mint)}
+.bq-warn,.bq-risk{margin:8px 0 0;padding:0;list-style:none}.bq-warn:empty,.bq-risk:empty{display:none}
+.bq-warn li,.bq-risk li{margin:6px 0 0;padding:8px 10px;border-radius:12px;font-size:12px;line-height:1.4}
+.bq-warn li{background:var(--amberBg);color:var(--amber)}
+.bq-risk li,.bq-warn li.bq-badli{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.bq-risk li::before{content:"⚠ "}
+.bq-tw{overflow-x:auto;margin:10px -4px 0;padding:0 4px 4px;-webkit-overflow-scrolling:touch}
+.bq-table{border-collapse:collapse;font-size:12.5px;min-width:100%}
+.bq-table th,.bq-table td{padding:8px 8px;border-top:1px dashed var(--dash);text-align:right;white-space:nowrap}
+.bq-table tr:first-child th{border-top:0;color:var(--ink);font-weight:700;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.bq-table th:first-child{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;font-weight:600;color:var(--mute)}
+.bq-table td{font-weight:700;color:var(--ink)}
+.bq-table .bq-win{color:var(--mint)}.bq-table .bq-bad{color:var(--red)}
+.bq-wins{margin-top:8px}
+.bq-pick{display:flex;flex-wrap:wrap;gap:6px}
+.bq-pick button{min-height:44px;padding:4px 14px;border:1px solid var(--line);border-radius:14px;background:none;color:var(--mute);font:600 12.5px var(--font-ui)}
+.bq-pick button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bq-lede{margin:10px 0 0}
+.bq-mbr{margin:4px 0 6px;padding:2px 12px 4px;border-radius:16px;background:var(--bg)}
+.bq-mbr[hidden]{display:none}.bq-mbr>.fund11-row{border-top:0}
+.bq-bands{padding:0 4px}
+.bq-band{display:grid;grid-template-columns:minmax(0,1fr) 92px 44px;grid-template-areas:"from from from" "up rate x";align-items:center;gap:4px 8px;padding:8px 0;border-top:1px dashed var(--dash)}
+.bq-band-from{grid-area:from;font-size:12px;color:var(--faint)}
+.bq-band-in{display:flex;align-items:baseline;gap:2px}.bq-band-in .u{font:700 14px var(--font-ui);color:var(--faint)}
+.bq-band-in input{width:100%;min-width:0;min-height:44px;border:0;border-bottom:2px dashed var(--line);background:none;font:700 17px var(--font-ui);color:var(--ink);text-align:right}
+.bq-sur{margin-top:12px;background:var(--bg)}
 .fund11-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
 .r2r-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
 .r2r-tile{min-height:70px;padding:10px 6px}body.ledger #v-home .r2r-tile.on,.r2r-tile.on{border-color:var(--mint)}
@@ -821,6 +879,7 @@ body.pk-setup header{display:none}
   <div id="v-scompare" hidden></div>
   <div id="v-usual" hidden></div>
   <div id="v-buy" hidden></div>
+  <div id="v-bridge" hidden></div>
   <div id="v-pack" hidden></div>
   <div id="v-saved" hidden>
     <div id="deals"></div>
@@ -839,6 +898,8 @@ body.pk-setup header{display:none}
 <script src="prefs.js"></script>
 <script src="dealpack.js"></script>
 <script src="packui.js"></script>
+<script src="bridge.js"></script>
+<script src="bridgeui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

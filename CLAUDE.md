@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-bridge.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -384,6 +384,41 @@ first restyle)
   report button; Settings has no Report branding row (the deal pack's step 3 is the branding). The old Report branding
   name (deal-analyser:report .by) starts the deal pack's business name. Setup and Prefs wording say "Deal pack".
   (Notes above that mention Compare, the client report or Report branding describe the app before this change.)
+
+## Bridging quotes (#bridge, 14 Oct 2026, Ashley's own spec)
+- WHY: one bridging loan in the old Bridging calculator could not show the TRUE cost of a quote or the own cash it needs,
+  nor compare lenders. The old #c/bridging screen and CALCS 'bridging' stay as they were (the Calculator's bridging switch
+  uses them); it now ends with "Compare bridging quotes →". The Calculator footer links here too ("Bridging quotes to
+  compare? True cost and cash needed →").
+- bridge.js (pure, browser + node; test-bridge.js, every figure worked out by hand, mutation-tested): stampDuty(price,
+  cfg, additional) with editable marginal bands {bands [[up to or '', rate %]], surchargePct, surchargeFrom} (defaultTax =
+  the app's England & NI main rates + 5% from £40,000, so it matches Calc.propertyTax); quote(p, q, cfg, {price,
+  keepLoan}); compare(p, quotes, cfg, threshold) -> rows, cheapest / leastCash / mostLeft, alerts (short = bad, under the
+  threshold = warn, a B quote short at its peak = bad); meets(); maxBid(p, q, cfg, {kind gbp|gdv|cost, value}, {step,
+  keepLoan}) halves the gap 70 times (stamp duty worked out at each price), floors to the step, steps down until met; null
+  when even £0 fails. % of cost = profit / (costs + finance cost).
+- THE MODEL: structures A day one only (you pay the works), B works in arrears (stages equal releases spread over the works
+  months, interest from each release; or "you fund X% first"; peak = cash needed + the first stage / the X%), C works
+  released on day one. Only what the works need is drawn (unused facility: not repaid, no interest, a note). Simple
+  monthly interest. Quoted mode: the lender's net and gross are the truth, so added / deducted fees and retained interest
+  are already in the gap (shown, never counted twice); "gross already includes rolled-up interest" stops it being added
+  again. From-LTV mode: day-one loan = LTV x price; added fees on top (gross), deducted fees and retained interest off the
+  net, settled by repeating (fees as % of gross / net / facility). Total cost = repay - received + fees paid in cash +
+  interest paid monthly + fees paid at the end. Own cash = price - net + stamp duty + auction + legal + cash fees + refurb
+  you pay (A all; B/C above the facility) + interest paid monthly + contingency. Headroom = cash - own cash. Profit =
+  money left - cash, cross-checked against end value - every cost - finance (✓ on screen).
+- Max bid: the loan either stays as quoted or scales with the price (same LTV; a from-LTV quote always follows the bid).
+  Scaling makes the lender's cut grow too, so the bid is usually LOWER than with the loan fixed (tested).
+- bridgeui.js (BridgeUI(ctx) from app.js, like packui.js): pinned panel (cheapest finance, least own cash, shortfall
+  count); The project (Use my calculator deal), Stamp duty (Standard / Additional, worked out or typed, Edit the bands sheet
+  with Back to the app's rates), The exit (end value, sell / refinance, selling costs, expected term); one card per quote
+  (name, structure, quoted / from LTV, facility, B's stages, rate % a month, retained / rolled up / paid monthly, term
+  blank = the expected term, security, fees with presets (datalist) or own names, £ or % of gross / net / facility, paid
+  from cash / added / off the advance / at the end, estimate tick), results and "your cash line by line"; Duplicate /
+  Remove / + Add another quote; Compare (threshold, a table that scrolls inside its box, ★ winners, alerts); Maximum bid
+  (quote, loan fixed / scales, round down to, three targets each with its breakdown). Every field starts BLANK (no
+  figures assumed); "?" tips explain each one. Kept in deal-analyser:bridgeTool. Not a spreadsheet calculator (Ashley's
+  spec lists every field), so the yellow-cell rule does not apply to it.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

@@ -1,6 +1,7 @@
 // Drives the Calculator's main screen (design 6c) in a real browser: the slider's bubble, drag and snap tick, Set price,
 // the arrow keys, Reset, the fold cards (one open at a time), the remembered exit and bridging, the verdict strip, Save in
 // the panel, Clear figures and the empty state, nothing hidden behind the panel or tab bar, and 44px tap targets.
+// Also the Bridging quotes screen (quotes, comparison, max bid, the bands sheet).
 // Needs Playwright with Chromium (installed in Claude's cloud sessions). Run: node test-browser.js
 const http = require('http'), fs = require('fs'), path = require('path');
 let pw; try { pw = require('playwright'); } catch (e) { try { pw = require('/opt/node-tools/node_modules/playwright'); } catch (e2) { console.log('skipped: Playwright is not installed here'); process.exit(0); } }
@@ -754,6 +755,59 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ({ c, q } = await fresh({ onboarded: true, persona: 'invest', pack: { look: 'classic', order: [], off: {}, hide: true, fee: 0, terms: '', prop: {}, client: '', note: '' } }));
     await q.goto(BASE + '/index.html#pack'); await q.waitForTimeout(300);
     ok('pack: not a sourcer: the deal pack is not there (address goes to the Calculator; no Deal pack buttons)', (await q.url()).endsWith('#calculators') && !(await q.locator('.pk12').count()));
+    await c.close();
+    // ---- Bridging quotes (#bridge, 14 Oct 2026) ----
+    ({ c, q } = await fresh({ onboarded: true, deal: { endValue: 320000, purchasePrice: 200000, refurb: 50000, legal: 1500 } }));
+    q.on('dialog', d => d.accept());
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    await q.click('.lg-link:text-is("True cost and cash needed →")'); await q.waitForTimeout(250);
+    ok('bridge: the Calculator links to Bridging quotes; it starts blank (no figures assumed), one empty quote', (await q.url()).endsWith('#bridge') && await q.isVisible('#v-bridge') && (await q.locator('.bq-quote').count()) === 1 && (await q.textContent('.bq-pin .pin-fig')) === '—' && (await q.inputValue('#v-bridge .bq-f input >> nth=0')) === '');
+    await q.click('.lg-link:text-is("Use my calculator deal")'); await q.waitForTimeout(100);
+    const bf = (label, n) => q.locator('.bq-f:has(label:text-is("' + label + '")) input').nth(n || 0);
+    ok('bridge: Use my calculator deal fills the price, refurb, legal and end value', (await bf('Purchase price').inputValue()) === '200,000' && (await bf('Refurb cost').inputValue()) === '50,000' && (await bf('End value').inputValue()) === '320,000');
+    ok('bridge: stamp duty is worked out from the bands (additional property: £11,500)', (await q.textContent('.bq .hb-sd b')) === '£11,500');
+    await bf('Cash you have available').fill('120000'); await bf('Selling costs').fill('4000'); await bf('Expected term').fill('12');
+    await q.fill('#bq-name-0', 'Lender A'); await bf('Net advance (day one)').fill('140000'); await bf('Gross loan').fill('150000'); await bf('Interest rate').fill('0.8');
+    await q.click('.bq-quote >> .bq-add:text-is("+ Add a fee")'); await q.waitForTimeout(60);
+    await q.locator('.bq-fee input.bq-name').fill('Valuation fee'); await q.locator('.bq-fee .bq-f input').fill('500'); await q.evaluate(() => document.activeElement.blur());
+    const qrow = (i, label) => q.locator('.bq-quote').nth(i).locator('.bq-res > .fund11-rows .fund11-row:has(span:text-is("' + label + '")) b').textContent();
+    ok('bridge: quote A: cost £10,500 (the £10,000 gap and the £500 fee), 7.5% of funds, £875 a month', (await qrow(0, 'Total cost of the finance')) === '£10,500' && (await qrow(0, '… as a share of the funds received')) === '7.5%' && (await qrow(0, '… per month')) === '£875');
+    ok('bridge: quote A: own cash £123,500 and £3,500 short, in red', (await qrow(0, 'Your own cash needed')) === '£123,500' && (await qrow(0, 'Short by')) === '£3,500' && await q.locator('.bq-quote >> nth=0 >> .fund11-row.bq-bad:has(span:text-is("Short by"))').count() === 1);
+    await q.click('.bq-addq'); await q.waitForTimeout(80);
+    const q2 = q.locator('.bq-quote').nth(1), f2 = l => q2.locator('.bq-f:has(label:text-is("' + l + '")) input');
+    await q.fill('#bq-name-1', 'Lender B'); await q2.locator('button:text-is("B · Works in arrears")').click(); await q.waitForTimeout(60);
+    ok('bridge: structure B shows the refurb facility, how the works money comes, and the stages', await f2('Refurb facility').count() === 1 && await f2('Number of stages').count() === 1 && await f2('Works take').count() === 1);
+    await f2('Net advance (day one)').fill('140000'); await f2('Gross loan').fill('190000'); await f2('Refurb facility').fill('50000'); await f2('Interest rate').fill('1'); await f2('Works take').fill('4'); await f2('Number of stages').fill('4');
+    await q2.locator('button:text-is("Rolled up")').click(); await q.fill('#bq-sec-1', 'Purchase property + main residence'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(60);
+    ok('bridge: quote B: interest only from each release (£21,550), own cash £73,000, peak £85,500', (await qrow(1, 'Total cost of the finance')) === '£21,550' && (await qrow(1, 'Your own cash needed')) === '£73,000' && (await qrow(1, 'Peak cash need (paying a stage before its release)')) === '£85,500');
+    ok('bridge: a second property in the security is a red risk flag', /Security includes more than the purchase property/.test(await q2.locator('.bq-risk').textContent()));
+    ok('bridge: the panel names the cheapest finance and the least own cash', (await q.textContent('.bq-pin .pin-eye')) === 'Cheapest finance · Lender A' && (await q.textContent('.bq-pin .pin-fig')) === '£10,500' && /Lender B/.test(await q.textContent('.bq-pin .pin-side-cap')));
+    const cmpT = await q.textContent('.bq-table');
+    ok('bridge: the table compares both, with a ★ on each winner and the shortfall alert', cmpT.includes('Lender A') && cmpT.includes('£10,500 ★') && cmpT.includes('£73,000 ★') && cmpT.includes('£162,500 ★') && /Lender A leaves you £3,500 short/.test(await q.textContent('.bq-alerts')));
+    await bf('Target profit, % of end value').fill('10'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
+    ok('bridge: max bid for 10% of the end value (£32,000) on Lender A, with its breakdown', /Max bid for £32,000 profit/.test(await q.textContent('.bq-mbr:not([hidden])')) && /^£20\d,\d{3}$/.test(await q.textContent('.bq-mbr:not([hidden]) > .fund11-row b')));
+    // the stamp duty bands are editable and the result follows them
+    await q.click('.lg-link:text-is("Edit the bands")'); await q.waitForTimeout(150);
+    ok('bridge: the bands sheet lists the 5 bands and the surcharge', await q.isVisible('#settings-sheet .bq-bands') && (await q.locator('#settings-sheet .bq-band').count()) === 5);
+    await q.locator('#settings-sheet .bq-band input[aria-label="Band 2 rate (%)"]').fill('3'); await q.waitForTimeout(60);
+    ok('bridge: editing a band changes the stamp duty at once (3% on £75,000 → £12,250)', (await q.textContent('.bq .hb-sd b')) === '£12,250');
+    await q.click('#settings-sheet .bq-add:text-is("Back to the app’s rates")'); await q.click('#settings-sheet .bs-done'); await q.waitForTimeout(60);
+    ok('bridge: back to the app’s rates', (await q.textContent('.bq .hb-sd b')) === '£11,500');
+    // a tip opens its explanation; a blank fee and the B/D layout at narrow width
+    await q.locator('.bq-quote >> nth=0 >> .ab10-l:has-text("Structure") .bq-tip').click();
+    ok('bridge: a ? opens its plain-words explanation', await q.locator('.bq-quote >> nth=0 >> .bq-help:has-text("B: the lender releases")').isVisible());
+    await q.locator('.bq-fee .bq-f input').fill(''); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(60);
+    ok('bridge: a fee left blank is flagged to confirm', /Valuation fee has no amount: confirm it with your broker/.test(await q.locator('.bq-quote >> nth=0 >> .bq-warn').textContent()));
+    await q.reload(); await q.waitForTimeout(300);
+    ok('bridge: everything is kept on the phone (two quotes, names, figures)', (await q.locator('.bq-quote').count()) === 2 && (await q.inputValue('#bq-name-1')) === 'Lender B' && (await bf('Purchase price').inputValue()) === '200,000');
+    for (const w of [360, 430]) {
+      await q.setViewportSize({ width: w, height: 800 }); await q.waitForTimeout(80);
+      const lay = await q.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth, nan: /NaN|undefined|Infinity/.test(document.getElementById('v-bridge').innerText),
+        small: [...document.querySelectorAll('#v-bridge button:not(.bq-tip):not(.u9-clear):not(.pin-back), #v-bridge input:not([type=checkbox]), #v-bridge label.bq-check')].filter(e => { const r = e.getBoundingClientRect(); return r.width && r.height < 43.5; }).length }));
+      ok('bridge at ' + w + 'px: no sideways scroll, no NaN, every tap target 44px', lay.sw === w && !lay.nan && !lay.small, JSON.stringify(lay));
+    }
+    await q.click('.bq-quote >> nth=0 >> .ab10-l:has-text("Structure") .bq-tip').catch(() => {});
+    ok('bridge: the small ? and Back buttons have a 44px hit area', await q.evaluate(() => { const t = document.querySelector('.bq-tip'), s = getComputedStyle(t, '::after'); return t.getBoundingClientRect().height + 2 * Math.abs(parseFloat(s.top)) >= 44; }));
     await c.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));

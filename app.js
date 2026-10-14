@@ -711,6 +711,7 @@
     folds.forEach(function (f) { box.appendChild(f.card); });
     var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); page.appendChild(foot);
     var hb = h('p', 'lg-foot', 'Buying a home to live in? '), hbl = h('button', 'lg-link', 'What you’d pay →'); hbl.type = 'button'; hbl.onclick = function () { location.hash = '#home'; }; hb.appendChild(hbl); page.appendChild(hb);
+    var bq = h('p', 'lg-foot', 'Bridging quotes to compare? '), bql = h('button', 'lg-link', 'True cost and cash needed →'); bql.type = 'button'; bql.onclick = function () { location.hash = '#bridge'; }; bq.appendChild(bql); page.appendChild(bq);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; page.appendChild(ul);
     page.appendChild(legalFooter());
     setView(ledgerView, false);
@@ -947,6 +948,10 @@
       det.appendChild(body); box.appendChild(det);
     }
     if (current.showsEffect) buildEffectSection(box);
+    if (current.id === 'bridging') {                                   // several quotes, side by side: the Bridging quotes screen
+      var bqf = h('p', 'lg-foot', 'Got more than one quote? '), bql = h('button', 'lg-link', 'Compare bridging quotes →'); bql.type = 'button';
+      bql.onclick = function () { location.hash = '#bridge'; }; bqf.appendChild(bql); box.appendChild(bqf);
+    }
 
     // ---- the bar above the tabs ----
     var bar = $('sticky-bar'); bar.innerHTML = '';
@@ -1764,21 +1769,22 @@
     else if (navigated && (hash === '' || hash === '#calculators')) openPreferred();   // no calculator in the address: your letting type's
     var PACK_VIEWS = { '#pack': 'pack', '#pack-setup': 'packsetup', '#pack-brand': 'packbrand', '#pack-preview': 'packprev' };
     if (PACK_VIEWS[hash] && !clientReportsOn()) { location.hash = '#calculators'; return; }     // the deal pack is for sourcers
-    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#saved-compare' ? 'scompare' : hash === '#usual' ? 'usual' : hash === '#home' ? 'buy' : PACK_VIEWS[hash] || 'home';
+    var view = c ? 'home' : hash === '#saved' ? 'saved' : hash === '#saved-compare' ? 'scompare' : hash === '#usual' ? 'usual' : hash === '#home' ? 'buy' : hash === '#bridge' ? 'bridge' : PACK_VIEWS[hash] || 'home';
     var packView = /^pack/.test(view), setupView = view === 'packsetup' || view === 'packbrand';
     $('v-home').hidden = view !== 'home'; $('v-saved').hidden = view !== 'saved';
-    $('v-scompare').hidden = view !== 'scompare'; $('v-usual').hidden = view !== 'usual'; $('v-buy').hidden = view !== 'buy'; $('v-pack').hidden = !packView;
+    $('v-scompare').hidden = view !== 'scompare'; $('v-usual').hidden = view !== 'usual'; $('v-buy').hidden = view !== 'buy'; $('v-bridge').hidden = view !== 'bridge'; $('v-pack').hidden = !packView;
     if (view === 'scompare') renderSavedCompare();
     if (view === 'usual') renderUsual();
     if (view === 'buy') renderHome();
+    if (view === 'bridge') BridgeTool.render($('v-bridge'));
     if (packView) Pack.render(view, $('v-pack'));
-    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || view === 'buy' || packView);  // usual figures, deal pack: the Calculator's look
+    if (view !== 'home') document.body.classList.toggle('ledger', view === 'usual' || view === 'buy' || view === 'bridge' || packView);  // usual figures, deal pack: the Calculator's look
     document.body.classList.toggle('pk-setup', setupView);
     var overlayView = view === 'scompare';
     $('tabs').hidden = overlayView || setupView; $('back').hidden = !overlayView; $('sticky-bar').hidden = view !== 'home';
     document.body.classList.toggle('has-tabs', !overlayView && !setupView);
     document.body.classList.toggle('has-bar', view === 'home');
-    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual' || view === 'buy'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
+    $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual' || view === 'buy' || view === 'bridge'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
     $('title').textContent = view === 'scompare' ? 'Compare saved deals' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
@@ -1795,6 +1801,8 @@
       if (location.hash === to) route(); else location.hash = to;
     },
     loadDeal: function (d) { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; if (typeof d.bridge === 'boolean') { bridgeOn = d.bridge; store(BRIDGE_KEY, bridgeOn); } } });
+  var BridgeTool = BridgeUI({ h: h, load: load, store: store, goBack: goBack, openSheet: openSheet, sheetHead: sheetHead, Calc: Calc,
+    deal: function () { return eff(deal); }, taxBuyer: function () { return Calc.taxSetting().buyer; } });
   $('back').onclick = goBack;
   $('t-home').onclick = function () { location.hash = '#calculators'; };
   $('t-saved').onclick = function () { location.hash = '#saved'; };
