@@ -75,7 +75,7 @@
     if (!(monthly > 0)) return null;
     var budget = loan + monthly * PAYBACK_MONTHS - fixed, price = 0;
     if (budget <= 0) return 0;
-    var lo = 0, hi = budget; for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget) lo = mid; else hi = mid; } price = lo;
+    var lo = 0, hi = budget; for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget + 1e-6) lo = mid; else hi = mid; } price = lo;
     return Math.floor(price);
   }
   function interestOnly(mortgage, ratePct) { return mortgage * n(ratePct) / 100 / 12; }
@@ -389,7 +389,7 @@
       var budget = loan - fixed, price = 0;
       if (budget > 0) {
         var lo = 0, hi = budget;                                        // price + stampDuty(price) rises with price, so search
-        for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget) lo = mid; else hi = mid; }
+        for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget + 1e-6) lo = mid; else hi = mid; }
         price = Math.floor(lo);                                         // whole pounds, rounded DOWN so it never overshoots
       }
       var impossible = budget <= 0, sdlt = stampDuty(price);
@@ -609,7 +609,7 @@
   function priceForBudget(budget) {
     if (!(budget > 0)) return null;
     var lo = 0, hi = budget;
-    for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget) lo = mid; else hi = mid; }
+    for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget + 1e-6) lo = mid; else hi = mid; }
     return Math.floor(lo);
   }
   // ---- The bridge on the Calculator (design 1b, 14 Oct 2026): five figures, the gross loan worked out ----------------
@@ -658,7 +658,7 @@
       var costAt = function (P) { return bridgeOf(Object.assign({}, deal, { purchasePrice: P })).cost; };
       if (!(budget - costAt(0) > 0)) return null;
       var lo = 0, hi = budget;
-      for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) + costAt(mid) <= budget) lo = mid; else hi = mid; }
+      for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) + costAt(mid) <= budget + 1e-6) lo = mid; else hi = mid; }
       return Math.floor(lo);
     }
     var E = n(ps.endValue), ltv = n(ps.ltv), legal = n(ps.legal), refurb = n(ps.refurb), other = n(ps.otherUpfront), P0 = n(ps.purchasePrice);

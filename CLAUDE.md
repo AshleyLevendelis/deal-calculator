@@ -48,7 +48,7 @@ anti-aliasing noise (at most 5 of 255 shades) on the Save bar at 360px; no sidew
 
 - Files: index.html (all CSS + skeleton), app.js (all screens and routing), calc.js (all maths, pure), pdf.js, sw.js.
 - Tests: `node test.js`, `node test-calcs.js`, `node test-pdf.js`, `node test-sw.js`, `node test-app.js`,
-  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-browser.js` — all must
+  `node test-verdict.js`, `node test-tax-targets.js`, `node test-other-costs.js`, `node test-prefs.js`, `node test-dealpack.js`, `node test-money.js`, `node test-audit.js`, `node test-browser.js` — all must
   pass. test-other-costs.js checks £1,000 of other costs adds exactly £1,000 everywhere and comes off the recycle price. test-tax-targets.js
   checks every place x buyer at the band edges (figures worked out by hand) and that every verdict and label follows the
   targets. New logic gets mutation-tested (break it on purpose,
@@ -444,6 +444,19 @@ first restyle)
     (d.fund; older ones: bridge or mortgage). test-browser.js seeds fundMode 'mortgage' for the older checks and has its
     own No funding block.
   On the test deal (125k price): net £93,750, cost £9,721.88, gross £100,921.88; the example deal's BTL keeps 3/4 with it.
+
+## Maths audit (15 Oct 2026, Ashley: "check all the maths")
+- test-audit.js re-works the figures from first principles (its own tax slices and formulas, never calc.js's) over ~43,000
+  checks on random deals: stamp duty / LBTT / LTT at every band edge and published examples (SDLT £300k = £5,000, £500k second
+  home = £40,000; LBTT £300k = £4,600; LTT £300k = £4,500), every exit with No funding / Mortgage / Bridging (monthly, annual,
+  cash left, ROI, months back, own money, bridge cost, the cash-left identity), flip profit and margin, the recycle / flip /
+  payback prices (tried £1 either side), the Max price tool, rent to rent, buying a home. All agree.
+- One fix from it: the price solvers (recycle, flip, payback) compared with a bare <=, so a price landing exactly on a whole
+  pound could come out £1 low from floating-point rounding; they now allow 1e-6.
+- Things the maths deliberately does NOT include (Ashley's sheets, or the 1b design): interest on a purchase mortgage or
+  bridge while the works run beyond the bridge's own interest, selling costs on a flip, arrangement and exit fees on a bridge
+  (only legal, valuation and broker fees), compounding of rolled-up bridge interest (simple interest, as the 1b design says;
+  the old Bridging calculator compounded monthly), void periods during the works, tax on profit.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

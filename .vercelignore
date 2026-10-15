@@ -13,3 +13,4 @@ test-prefs.js
 test-dealpack.js
 test-money.js
 .vercel/
+test-audit.js
