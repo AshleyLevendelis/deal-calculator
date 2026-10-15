@@ -136,6 +136,9 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('1b: How it adds up opens (and the letting figures fold shuts: one at a time)', await p.isVisible('.b1-fold .fold-body') && !(await fold('BTL figures').locator('.fold-body').isVisible()) && (await p.textContent('.b1-fold small')) === 'Interest £7,172 · fees £2,550'
     && (await p.$$eval('.b1-fold .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join('|'))) === 'Net loan £93,750|Interest (0.85% × 9 months on £93,750) £7,172|Gross loan (repaid at the end) £100,922|Legal fees £1,200|Valuation fee £350|Broker fee £1,000|Total cost of the bridge (interest + fees) £9,722|Price less the net loan (your deposit) £31,250');
   await p.click('.b1-fold .fold-head'); await p.waitForTimeout(40);
+  await p.locator('.b1-row:has(#lg-bridgeRatePct) .nudge >> nth=1').click(); await p.waitForTimeout(60);
+  ok('1b: + on the interest steps by 0.01 (0.86%), not 0.05, so rates like 0.87 and 0.88 are one tap apart', (await p.inputValue('#lg-bridgeRatePct')) === '0.86' && (await p.textContent('.b1-row:has(#lg-bridgeRatePct) .b1-sub')).startsWith('Per month. £806 a month'), await p.inputValue('#lg-bridgeRatePct'));
+  await p.click('.pin-reset'); await p.waitForTimeout(60);
   await p.locator('.b1-row:has(#lg-bridgeMonths) .nudge >> nth=1').click(); await p.waitForTimeout(60);
   ok('1b: + on months: 10 months of interest (£7,969), and the cost follows', (await p.inputValue('#lg-bridgeMonths')) === '10' && (await p.textContent('.b1-gross small')) === '£93,750 + 10 months of interest (£7,969)' && (await p.textContent('.b1-cost')) === '£10,519');
   await p.click('.pin-reset'); await p.waitForTimeout(60);

@@ -184,7 +184,7 @@
   var EXIT_NAME = { none: 'Flip', btl: 'BRR → BTL', hmo: 'BRR → HMO', sa: 'BRR → SA' };
   // The bridge's five figures (design 1b): net loan in a 60%-140% window like the money sliders, the rest in fixed ranges
   // (a typed figure may go past the top). levels: the step, then finer steps when the finger slides down.
-  var BRIDGE_ROWS = { bridgeNet: { window: true, range: [0, 300000], levels: [500, 100, 25], nudge: 500, grow: 10000 }, bridgeRatePct: { range: [0, 2], levels: [0.05, 0.01, 0.01] },
+  var BRIDGE_ROWS = { bridgeNet: { window: true, range: [0, 300000], levels: [500, 100, 25], nudge: 500, grow: 10000 }, bridgeRatePct: { range: [0, 2], levels: [0.01, 0.01, 0.01] },
     bridgeMonths: { range: [1, 24], levels: [1, 1, 1] }, bridgeLegal: { range: [0, 5000], levels: [50, 10, 5] }, bridgeValuation: { range: [0, 2000], levels: [25, 5, 1] }, bridgeBroker: { range: [0, 5000], levels: [50, 10, 5] } };
   var BRIDGE_IDS = Calc.BRIDGE_FIGS.map(function (f) { return f[0]; });
   function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
@@ -1436,7 +1436,7 @@
   // yours ("Yours", and "Example £X ↺" puts the example back). Saved to USUAL_KEY on every change, as before.
   var USUAL_RANGE = { legal: [0, 5000, 50, [50, 10, 5]], otherUpfront: [0, 10000, 50, [50, 10, 5]], ltv: [50, 85, 1, [1, 1, 1]], depositPct: [5, 40, 1, [1, 1, 1]],
     mortgageRate: [0, 10, 0.05, [0.05, 0.01, 0.01]], mgmtPct: [0, 20, 0.5, [0.5, 0.1, 0.1]],
-    bridgeRatePct: [0, 2, 0.05, [0.05, 0.01, 0.01]], bridgeLegal: [0, 5000, 50, [50, 10, 5]], bridgeValuation: [0, 2000, 25, [25, 5, 1]], bridgeBroker: [0, 5000, 50, [50, 10, 5]] };
+    bridgeRatePct: [0, 2, 0.01, [0.01, 0.01, 0.01]], bridgeLegal: [0, 5000, 50, [50, 10, 5]], bridgeValuation: [0, 2000, 25, [25, 5, 1]], bridgeBroker: [0, 5000, 50, [50, 10, 5]] };
   var USUAL_IDS = []; USUAL_FIELDS.forEach(function (g) { g[1].forEach(function (f) { USUAL_IDS.push(f[0]); }); });
   function usualSet(id) { return Object.prototype.hasOwnProperty.call(usual, id) && String(usual[id]).trim() !== ''; }
   function usualCount() { return USUAL_IDS.filter(usualSet).length; }

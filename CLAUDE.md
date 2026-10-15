@@ -393,7 +393,7 @@ first restyle)
 - Bridging is ONE section of How you'll pay (switch now reads Mortgage | Bridging). With Bridging on there are no Lender
   pays / Deposit tiles; instead FIVE slider rows (rent-row style: label, typed box, 36px −/+, scrubber, sub line), app.js
   BRIDGE_ROWS: bridgeNet (Net loan, valueWindow like the money sliders, steps 500/100/25), bridgeRatePct (Interest, % a
-  month, 0-2, 0.05), bridgeMonths (1-24, 1), bridgeLegal (0-5,000, 50), bridgeValuation (0-2,000, 25), bridgeBroker (0-5,000, 50); a typed figure
+  month, 0-2, steps of 0.01 so 0.87 / 0.88 are one tap apart), bridgeMonths (1-24, 1), bridgeLegal (0-5,000, 50), bridgeValuation (0-2,000, 25), bridgeBroker (0-5,000, 50); a typed figure
   may go past the top. Then the Gross loan tile ("WORKED OUT", never typed), the answer tile (Cost of the bridge in amber,
   "N% of the net loan, over 9 months", Lender sends / Interest a month / You repay), red messages (net loan £0; rate above
   3% a month), and the "How it adds up" fold (openFold 'bridgeWork'; one fold open at a time with the letting figures).
