@@ -204,6 +204,21 @@
   function tickOf(verdict) { return verdict === 'good' ? ' ✓' : verdict === 'bad' ? ' ✗' : ''; }
   function isTyped(id) { return Object.prototype.hasOwnProperty.call(deal, id) || (Object.prototype.hasOwnProperty.call(usual, id) && usual[id] !== ''); }
   function holdEnd() { clearTimeout(holdT); clearInterval(holdI); }
+  // The option picker (restyle, 15 Oct 2026): the calculator's ink-filled segmented track. opts: [[key, label]]. More than four
+  // options scroll sideways with the scrollbar hidden and the chosen pill brought into view.
+  function segPicker(opts, value, onPick, o) {
+    o = o || {};
+    var seg = h('div', 'segmented s6' + (opts.length > 4 ? ' seg-scroll' : '') + (o.cls ? ' ' + o.cls : '')), btns = [];
+    seg.setAttribute('role', 'group'); if (o.label) seg.setAttribute('aria-label', o.label);
+    var show = function (b) { if (seg.scrollWidth > seg.clientWidth) seg.scrollLeft = Math.max(0, b.offsetLeft - (seg.clientWidth - b.offsetWidth) / 2); };
+    opts.forEach(function (x) {
+      var b = h('button', '', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(x[0] === value));
+      b.onclick = function () { if (x[0] === value) return; value = x[0]; btns.forEach(function (y) { y.setAttribute('aria-pressed', String(y === b)); }); show(b); onPick(x[0]); };
+      btns.push(b); seg.appendChild(b);
+    });
+    setTimeout(function () { btns.forEach(function (b) { if (b.getAttribute('aria-pressed') === 'true') show(b); }); }, 0);
+    return seg;
+  }
   function setFig(id, v) { deal[id] = v; store(DEAL, deal); refreshLedger(); }
   function refreshLedger() {
     if (nodes.r2r) { refreshR2R(); return; }
@@ -1035,7 +1050,7 @@
     }
 
     // ---- the bar above the tabs ----
-    var bar = $('sticky-bar'); bar.innerHTML = '';
+    var bar = $('sticky-bar'); bar.innerHTML = ''; bar.className = 'sticky-bar';
     // Save is the main button; only Max price adds "Use as my offer" (the Every strategy screen was removed, 7 Oct 2026).
     var recycle = st.key === 'recycle', save = h('button', recycle ? 'sec' : 'primary', 'Save'), go = recycle ? h('button', 'primary', 'Use as my offer') : null;
     save.onclick = saveDeal;
@@ -1199,53 +1214,54 @@
     else goCalc(calcId);
   }
   function renderDeals() {
-    var list = getDeals(), box = $('deals'); box.innerHTML = '';
-    box.appendChild(h('p', 'eyebrow', 'SAVED')); box.appendChild(h('h1', 'hero', 'Your deals'));
-    box.appendChild(h('p', 'lede', 'Kept on this device. Tick two or more to put them side by side.'));
+    var list = getDeals(), box = $('deals'), bar = $('sticky-bar'); box.innerHTML = '';
+    box.appendChild(h('p', 'pg-title', 'Your deals'));
+    box.appendChild(h('p', 'pg-lede', 'Kept on this phone. Tick two or more to compare.'));
     Object.keys(sel).forEach(function (id) { if (!list.some(function (d) { return d.id === id; })) delete sel[id]; });
-    var listBox = h('div'); box.appendChild(listBox);
-    if (!list.length) { listBox.appendChild(h('p', 'note', 'No saved deals yet. Open a calculator and tap Save this deal.')); return; }
-    var bar = h('div', 'btns'), go = h('button', 'primary'); bar.appendChild(go); listBox.appendChild(bar);
+    var listBox = h('div', 'd6-list'); box.appendChild(listBox);
+    if (!list.length) { listBox.appendChild(h('p', 'note', 'No saved deals yet. Open a calculator and tap Save.')); bar.hidden = true; document.body.classList.remove('has-bar'); return; }
+    // Compare is a bottom action bar (restyle 4b): "Compare N deals", or a disabled "Tick 2 or more to compare".
+    bar.innerHTML = ''; var go = h('button', 'primary'); go.type = 'button'; bar.appendChild(go); bar.classList.add('one'); bar.hidden = false; document.body.classList.add('has-bar');
     function refreshBar() {
-      var n = Object.keys(sel).length; go.textContent = n >= 2 ? plural(n, 'deal') + ' selected · Compare' : 'Compare deals (tick 2 or more)'; go.disabled = n < 2;
+      var n = Object.keys(sel).length; go.textContent = n >= 2 ? 'Compare ' + plural(n, 'deal') : 'Tick 2 or more to compare'; go.disabled = n < 2;
     }
     go.onclick = function () { location.hash = '#saved-compare'; };
     list.forEach(function (d, i) {
       var c = Calc.find(d.calc || 'flip'); if (!c) return;
-      var v = c.compute(Calc.stateFor(c, dealData(d))).v, row = h('div', 'deal'), open = h('button', 'open');
-      var left = h('div'), name = h('div', '', d.name); left.appendChild(name);
-      left.appendChild(h('div', 'meta', c.name + ' · ' + relTime(d.savedAt || Date.now())));
-      var figs = h('div', 'figs'), roi = h('span', 'roi fig', fmt(c.summary[2][2], v[c.summary[2][1]]));
-      // A cost figure (e.g. Bridging Loan's total cost) is never "good", so it is never coloured green — only an actual ROI is.
-      if (!c.costOnly && !c.solver) { if (v.cashLeft != null) setCashRoi(roi, v[c.summary[2][1]]); else tone(roi, typeof v[c.summary[2][1]] === 'number' ? v[c.summary[2][1]] : null); }
-      // A deal saved on the Flip exit shows its flip margin, coloured by the flip verdict, in place of the BTL ROI.
-      if (c.id === 'flip' && (d.letting === 'none' || (!d.letting && d.view === 'flip'))) { roi.textContent = flipMarginText(v.margin); roi.className = 'roi fig ' + flipCls(v.margin); }
-      figs.appendChild(roi); figs.appendChild(h('span', 'money fig', money(v.totalIn)));
-      // Your own cash, only shown when a mortgage rolled into "money in" makes it a different number.
-      if (typeof v.ownMoney === 'number' && Math.abs(v.ownMoney - v.totalIn) > 0.5) figs.appendChild(h('span', 'own fig', 'Own: ' + money(v.ownMoney)));
-      var chk = h('label', 'chk'), box2 = h('input'); box2.type = 'checkbox'; box2.checked = !!sel[d.id]; box2.setAttribute('aria-label', 'Compare ' + d.name);
-      box2.onchange = function () { if (box2.checked) sel[d.id] = true; else delete sel[d.id]; refreshBar(); };
-      chk.appendChild(box2);
-      open.appendChild(left); open.appendChild(figs);
-      open.onclick = function () { openDeal(d, c.id); };
-      var del = h('button', 'del', '×'); del.setAttribute('aria-label', 'Delete ' + d.name);
+      var v = c.compute(Calc.stateFor(c, dealData(d))).v, card = h('article', 'd6' + (sel[d.id] ? ' on' : '')), top = h('div', 'd6-top');
+      // the round tick
+      var chk = h('label', 'chk'), tick = h('input'); tick.type = 'checkbox'; tick.checked = !!sel[d.id]; tick.setAttribute('aria-label', 'Compare ' + d.name);
+      tick.onchange = function () { if (tick.checked) sel[d.id] = true; else delete sel[d.id]; card.classList.toggle('on', tick.checked); refreshBar(); };
+      chk.appendChild(tick); chk.appendChild(h('i')); top.appendChild(chk);
+      // the name and what it is
+      var open = h('button', 'd6-open'), id = h('span', 'd6-id'), key = c.summary[2][1], flipExit = c.id === 'flip' && (d.letting === 'none' || (!d.letting && d.view === 'flip'));
+      id.appendChild(h('b', '', d.name)); id.appendChild(h('small', '', (flipExit ? 'Flip' : c.name) + ' · ' + relTime(d.savedAt || Date.now())));
+      // the answer, in its verdict colour, with a plain caption
+      var fig = h('span', 'd6-fig'), roi = h('b', 'fig', ''), cap;
+      if (flipExit) { roi.textContent = flipMarginText(v.margin); roi.className = 'fig ' + flipCls(v.margin); cap = 'of end value'; }
+      else if (c.costOnly || c.solver) { roi.textContent = fmt(c.summary[2][2], v[key]); cap = c.summary[2][0]; }
+      else if (v.cashLeft != null) { roi.textContent = v.moneyOut ? '∞' : cashRoiText(v[key]); setCashRoi(roi, v[key]); cap = v.moneyOut ? 'No cash left in' : 'ROI on cash left in'; }
+      else { roi.textContent = fmt(c.summary[2][2], v[key]); tone(roi, typeof v[key] === 'number' ? v[key] : null); cap = 'ROI on money in'; }
+      fig.appendChild(roi); fig.appendChild(h('small', '', cap));
+      open.appendChild(id); open.appendChild(fig); open.onclick = function () { openDeal(d, c.id); }; top.appendChild(open); card.appendChild(top);
+      // under a dashed rule: the note, the deal pack, delete
+      var bot = h('div', 'd6-bot'), nr = h('div', 'd6-note');
+      var del = h('button', 'd6-del', '×'); del.type = 'button'; del.setAttribute('aria-label', 'Delete ' + d.name);
       del.onclick = function () { if (confirm('Delete "' + d.name + '"?')) { list.splice(i, 1); store(DEALS, list); delete sel[d.id]; renderDeals(); } };
-      row.appendChild(chk); row.appendChild(open); row.appendChild(del); listBox.appendChild(row);
-      var nr = h('div', 'note-row');
+      var dp = null;
+      if (clientReportsOn()) { dp = h('button', 'd6-link rep10', 'Deal pack'); dp.type = 'button'; dp.setAttribute('aria-label', 'Deal pack for ' + d.name); dp.onclick = function () { Pack.start(d.id); }; }
       var drawNote = function (editing) {
-        nr.innerHTML = '';
+        nr.innerHTML = ''; bot.classList.toggle('editing', editing);
         if (editing) {
-          nr.appendChild(noteArea(d.note, function (v) { d.note = v; store(DEALS, list); }));
-          var done = h('button', 'note-btn', 'Done'); done.onclick = function () { drawNote(false); }; nr.appendChild(done);
+          nr.appendChild(noteArea(d.note, function (x) { d.note = x; store(DEALS, list); }));
+          var done = h('button', 'd6-link', 'Done'); done.type = 'button'; done.onclick = function () { drawNote(false); }; nr.appendChild(done);
         } else {
-          var nb = h('button', 'note-btn' + (d.note ? ' has' : ''), d.note ? d.note : 'Add a note'); nb.onclick = function () { drawNote(true); }; nr.appendChild(nb);
-          if (clientReportsOn()) {   // sourcers: this deal's pack (its figures are loaded first)
-            var dp = h('button', 'note-btn rep10', 'Deal pack'); dp.type = 'button'; dp.setAttribute('aria-label', 'Deal pack for ' + d.name);
-            dp.onclick = function () { Pack.start(d.id); }; nr.appendChild(dp);
-          }
+          var nb = h('button', 'd6-note-btn' + (d.note ? ' has' : ''), d.note ? d.note : 'Add a note'); nb.type = 'button'; nb.onclick = function () { drawNote(true); }; nr.appendChild(nb);
         }
+        if (dp) dp.hidden = editing;
       };
-      drawNote(false); listBox.appendChild(nr);
+      bot.appendChild(nr); if (dp) bot.appendChild(dp); bot.appendChild(del); card.appendChild(bot); drawNote(false);
+      listBox.appendChild(card);
     });
     refreshBar();
   }
@@ -1843,7 +1859,7 @@
     document.body.classList.toggle('has-tabs', !overlayView && !setupView);
     document.body.classList.toggle('has-bar', view === 'home');
     $('t-home').setAttribute('aria-selected', view === 'home' || view === 'usual' || view === 'buy'); $('t-saved').setAttribute('aria-selected', view === 'saved' || packView);
-    $('title').textContent = view === 'scompare' ? 'Compare saved deals' : 'BRR Calculator';
+    $('title').textContent = view === 'scompare' ? 'Compare' : 'BRR Calculator';
     $('tagline').hidden = overlayView;
     if (view === 'saved') renderDeals();
     if (view === 'home') renderCalculator();

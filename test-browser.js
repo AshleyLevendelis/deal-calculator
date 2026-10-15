@@ -219,7 +219,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   await p.evaluate(() => { location.hash = '#c/recycle'; }); await p.waitForTimeout(150);
   ok('Max price keeps Save and Use as my offer in its bar', await p.isVisible('#sticky-bar') && (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.textContent).join())) === 'Save,Use as my offer');
   await p.evaluate(() => { location.hash = '#c/btl'; }); await p.waitForTimeout(150);
-  ok('the other calculators: Save is the one full-width button (Compare all strategies is gone)', (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.className + ':' + b.textContent).join())) === 'primary:Save' && Math.abs((await p.$eval('#sticky-bar button', e => e.getBoundingClientRect().width)) - 350) < 2 && !(await p.locator('text=Compare every strategy').count()));
+  ok('the other calculators: Save is the one full-width button (Compare all strategies is gone)', (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.className + ':' + b.textContent).join())) === 'primary:Save' && Math.abs((await p.$eval('#sticky-bar button', e => e.getBoundingClientRect().width)) - 358) < 2 && !(await p.locator('text=Compare every strategy').count()));
   // ---- your targets ----
   await p.evaluate(() => { location.hash = '#c/brr'; }); await p.waitForTimeout(200);
   await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(80);
@@ -396,7 +396,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('.pin-save'); await q.waitForTimeout(150);
     const saved = await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:deals'))[0]);
     ok('r2r: Save keeps it as an R2R SA deal', saved && saved.name === 'R2R test' && saved.calc === 'r2rsa', JSON.stringify(saved && { calc: saved.calc, view: saved.view }));
-    await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250); await q.click('.deal .open'); await q.waitForTimeout(250);
+    await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250); await q.click('.d6-open'); await q.waitForTimeout(250);
     ok('r2r: opening the saved deal comes back to this screen', (await q.url()).endsWith('#c/r2rsa') && await q.isVisible('.r2r-tile.on:has(.nm:text-is("R2R SA"))'));
     // the ways back
     await q.click('.pin-back'); await q.waitForTimeout(250);
@@ -603,8 +603,8 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(250); await q.click('#t-saved'); await q.waitForTimeout(200); await q.goBack(); await q.waitForTimeout(250);
     ok('calculator → Saved → Back ends on the calculator', (await q.url()).endsWith('#c/brr') && await q.isVisible('#v-home'));
     await q.click('#t-saved'); await q.waitForTimeout(200);
-    await q.$$eval('.deal input[type=checkbox]', cs => cs.forEach(c => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }));
-    await q.waitForTimeout(80); await q.click('#v-saved .btns .primary'); await q.waitForTimeout(250);
+    await q.$$eval('.d6 input[type=checkbox]', cs => cs.forEach(c => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }));
+    await q.waitForTimeout(80); await q.click('#sticky-bar .primary'); await q.waitForTimeout(250);
     ok('Saved → compare saved deals: Download PDF only, no Client report', (await q.url()).endsWith('#saved-compare') && (await q.$$eval('#v-scompare .btns button', bs => bs.map(b => b.textContent).join())) === 'Download PDF');
     await q.click('#back'); await q.waitForTimeout(250);
     ok('... and Back ends on Saved', (await q.url()).endsWith('#saved'));
