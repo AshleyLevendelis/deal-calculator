@@ -185,7 +185,7 @@
   // The bridge's five figures (design 1b): net loan in a 60%-140% window like the money sliders, the rest in fixed ranges
   // (a typed figure may go past the top). levels: the step, then finer steps when the finger slides down.
   var BRIDGE_ROWS = { bridgeNet: { window: true, range: [0, 300000], levels: [500, 100, 25], nudge: 500, grow: 10000 }, bridgeRatePct: { range: [0, 2], levels: [0.05, 0.01, 0.01] },
-    bridgeLegal: { range: [0, 5000], levels: [50, 10, 5] }, bridgeValuation: { range: [0, 2000], levels: [25, 5, 1] }, bridgeBroker: { range: [0, 5000], levels: [50, 10, 5] } };
+    bridgeMonths: { range: [1, 24], levels: [1, 1, 1] }, bridgeLegal: { range: [0, 5000], levels: [50, 10, 5] }, bridgeValuation: { range: [0, 2000], levels: [25, 5, 1] }, bridgeBroker: { range: [0, 5000], levels: [50, 10, 5] } };
   var BRIDGE_IDS = Calc.BRIDGE_FIGS.map(function (f) { return f[0]; });
   function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
   function isInf(v) { return typeof v === 'string' && v.charAt(0) === '∞'; }
@@ -410,7 +410,7 @@
     var exit = Calc.BRR_LETTING.hasOwnProperty(brrLet) ? brrLet : 'none', isLet = exit !== 'none';
     var L0 = Calc.ledger(eff(deal), bridgeOn);
     current = Calc.find(L0.exits[exit].calcId);
-    if (!ledgerStart) { ledgerStart = {}; DEAL_ORDER.forEach(function (id) { ledgerStart[id] = num(L0.ps[id]); }); var bf0 = Calc.bridgeFigures(eff(deal)); BRIDGE_IDS.forEach(function (id) { ledgerStart[id] = bf0[id]; }); }
+    if (!ledgerStart) { ledgerStart = {}; DEAL_ORDER.forEach(function (id) { ledgerStart[id] = num(L0.ps[id]); }); var bf0 = Calc.bridgeFigures(eff(deal)); BRIDGE_IDS.forEach(function (id) { ledgerStart[id] = bf0[id]; ledgerStart['typed:' + id] = Object.prototype.hasOwnProperty.call(deal, id); }); }
     var cur = function (id) { return num(Calc.stateFor(FLIP_CALC, eff(deal))[id]); };
     var exitName = EXIT_CARDS.filter(function (e) { return e[0] === exit; })[0][1];
     if (!(openFold === 'let' && isLet) && !(openFold === 'bridgeWork' && bridgeOn)) openFold = null;   // the letting figures, or the bridge's How it adds up
@@ -421,7 +421,10 @@
     right.appendChild(resetAll); right.appendChild(savePin); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
     head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(right); pin.appendChild(head);
     var resetIds = bridgeOn ? DEAL_ORDER.concat(BRIDGE_IDS) : DEAL_ORDER, now = function (id) { return BRIDGE_IDS.indexOf(id) >= 0 ? Calc.bridgeFigures(eff(deal))[id] : cur(id); };
-    resetAll.onclick = function () { resetIds.forEach(function (id) { deal[id] = ledgerStart[id]; }); store(DEAL, deal); refreshLedger(); };
+    resetAll.onclick = function () {
+      resetIds.forEach(function (id) { if (BRIDGE_IDS.indexOf(id) >= 0 && !ledgerStart['typed:' + id]) delete deal[id]; else deal[id] = ledgerStart[id]; });
+      store(DEAL, deal); refreshLedger();
+    };
     R.push(function () { resetAll.hidden = !resetIds.some(function (id) { return now(id) !== ledgerStart[id]; }); });
     var eye = h('div', 'pin-eye'); pin.appendChild(eye);
     var heroRow = h('div', 'pin-row'), hero = h('div', 'pin-fig fig'), side = h('div', 'pin-side'), sideFig = h('div', 'pin-side-fig fig'), sideCap = h('div', 'pin-side-cap');
@@ -555,17 +558,44 @@
     box.appendChild(h('p', 'lg-h', 'How you’ll pay'));
     var fund = h('section', 'lg-card fund11'), swSlot = h('div', 'fund11-sw'), bridgeSlot = h('div', 'fund11-bridge'), ownSlot = h('div', 'fund11-own');
     box.appendChild(fund);
-    var chips = h('div', 'lg-chips');
-    // A flip is not refinanced, so it has no "Lender pays" tile (11 Oct 2026); the deposit is still the mortgage's.
-    if (!isLet) chips.classList.add('one');
-    (isLet ? [['ltv', 'Lender pays'], ['depositPct', 'Deposit']] : [['depositPct', 'Deposit']]).forEach(function (c) {
-      var id = c[0], chip = h('div', 'lg-chip'), amt = h('div', 'amt'), w = h('div', 'pct');
-      var lab = h('label', '', c[1]); lab.setAttribute('for', 'lg-' + id);
-      var inp = numBox({ id: 'lg-' + id, decimal: true, label: c[1] + ' percent', get: function () { return Calc.stateFor(FLIP_CALC, eff(deal))[id]; }, show: function (v) { return String(v); },
-        set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
+    // Lender pays and Deposit are one figure (design 2b; Ashley, 15 Oct 2026): moving either sets the other, and calc.js
+    // works out the deposit as 100% less the lender's share. Both boxes and the slider write ltv and depositPct together.
+    var ltvNow = function () { return num(Calc.stateFor(FLIP_CALC, eff(deal)).ltv); };
+    var setLink = function (lend) {
+      if (lend === '' || lend == null || !isFinite(Number(lend))) return;
+      lend = Math.max(0, Math.min(100, Number(Number(lend).toFixed(2))));
+      deal.ltv = lend; deal.depositPct = Number((100 - lend).toFixed(2)); store(DEAL, deal); refreshLedger();
+    };
+    var linkEx = function () { return !isTyped('ltv') && !isTyped('depositPct'); };
+    var chips;
+    if (isLet) {
+      chips = h('div', 'lk2b');
+      var lkTop = h('div', 'lk2b-top'), lkAmt = h('div', 'lk2b-amt');
+      var side = function (id, label, cls, get, set) {
+        var c = h('div', 'lk2b-side ' + cls), lab = h('label', '', label), w = h('div', 'pct'); lab.setAttribute('for', 'lg-' + id);
+        var inp = numBox({ id: 'lg-' + id, decimal: true, label: label + ' percent', get: get, show: function (v) { return String(v); }, set: set, example: linkEx });
+        w.appendChild(inp); w.appendChild(h('span', '', '%')); c.appendChild(lab); c.appendChild(w); lkTop.appendChild(c); return inp;
+      };
+      var iL = side('ltv', 'Lender pays', 'acc', ltvNow, setLink);
+      var iD = side('depositPct', 'Deposit', 'amb', function () { return Number((100 - ltvNow()).toFixed(2)); }, function (v) { if (v !== '') setLink(100 - Number(v)); });
+      var lo = { label: 'Lender pays', get: ltvNow, set: setLink, min: 0, max: function () { return 100; }, step: 1, levels: [1, 1, 1], snaps: function () { return []; }, onEnd: refreshLedger,
+        bubble: function (v) { return Math.round(v) + '% · ' + Math.round(100 - v) + '%'; } };
+      var lkL2 = h('div', 'lg-l2'), lkSl = scrubber(lo); lkL2.appendChild(nudge(-1, lo, 'sm')); lkL2.appendChild(lkSl); lkL2.appendChild(nudge(1, lo, 'sm'));
+      var aL = h('span', 'acc'), aD = h('span', 'amb'); lkAmt.appendChild(aL); lkAmt.appendChild(aD);
+      chips.appendChild(lkTop); chips.appendChild(lkL2); chips.appendChild(lkAmt);
+      R.push(function (L, X) {
+        iL._sync(); iD._sync(); lkSl._sync();
+        aL.textContent = '= ' + money(num(L.ps.purchasePrice) * L.ltv / 100) + ' of the price'; aD.textContent = '= ' + money(X.own.deposit) + ' from you';
+      });
+    } else {
+      // A flip is not refinanced, so it has no "Lender pays" tile (11 Oct 2026); its deposit is still linked to the lender's share.
+      chips = h('div', 'lg-chips one');
+      var chip = h('div', 'lg-chip'), amt = h('div', 'amt'), w = h('div', 'pct'), lab = h('label', '', 'Deposit'); lab.setAttribute('for', 'lg-depositPct');
+      var inp = numBox({ id: 'lg-depositPct', decimal: true, label: 'Deposit percent', get: function () { return Number((100 - ltvNow()).toFixed(2)); }, show: function (v) { return String(v); },
+        set: function (v) { if (v !== '') setLink(100 - Number(v)); }, example: linkEx });
       w.appendChild(inp); w.appendChild(h('span', '', '%')); chip.appendChild(lab); chip.appendChild(w); chip.appendChild(amt); chips.appendChild(chip);
-      R.push(function (L, X) { inp._sync(); amt.textContent = id === 'ltv' ? '= ' + money(num(L.ps.endValue) * L.ltv / 100) + ' refinance' : '= ' + money(X.own.deposit) + ' of the price'; });
-    });
+      R.push(function (L, X) { inp._sync(); amt.textContent = '= ' + money(X.own.deposit) + ' of the price'; });
+    }
     // Mortgage payments (11a, second hand-off): interest-only at the shared mortgageRate (the letting figures' own rate, so
     // a change here changes the profit too). Until the refinance: on the price less the deposit (or the bridge instead);
     // after it: on the refinance, the same figure the lets already take off the monthly profit. Shows only, no new maths.
@@ -688,16 +718,16 @@
       // ---- the bridge (design 1b, 14 Oct 2026): five figures, each typed or slid; the gross loan is worked out ----
       var bfig = function (id) { return Calc.bridgeFigures(eff(deal))[id]; };
       Calc.BRIDGE_FIGS.forEach(function (f) {
-        var id = f[0], cfg = BRIDGE_ROWS[id], pound = f[2] === '£', hint = null, snapTo = null;
+        var id = f[0], cfg = BRIDGE_ROWS[id], pound = f[2] === '£', months = f[2] === 'mo', hint = null, snapTo = null;
         var win = cfg.window ? valueWindow(cfg, ledgerStart[id], function () { return bfig(id); }) : null;
         var o = { label: f[1], get: function () { return bfig(id); }, set: function (v) { setFig(id, v); },
           min: win ? win.lo : cfg.range[0], max: win ? win.hi : function () { return Math.max(cfg.range[1], bfig(id)); }, step: cfg.levels[0], levels: cfg.levels,
           snaps: function () { return [ledgerStart[id]]; }, onLevel: function (lv) { hint = lv; drawSub(); }, onEnd: refreshLedger,
-          bubble: function (v) { return pound ? money(v) : String(Number(Number(v).toFixed(2))) + '%'; }, onSnap: function (to) { snapTo = to; drawSub(); } };
+          bubble: function (v) { return pound ? money(v) : months ? Math.round(v) + (Math.round(v) === 1 ? ' month' : ' months') : String(Number(Number(v).toFixed(2))) + '%'; }, onSnap: function (to) { snapTo = to; drawSub(); } };
         var row = h('div', 'rent-row b1-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', f[1]); lab.setAttribute('for', 'lg-' + id);
-        var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: !pound, label: f[1], get: function () { return bfig(id); },
+        var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: !pound && !months, label: f[1], get: function () { return bfig(id); },
           show: function (v) { return pound ? (v ? Number(v).toLocaleString('en-GB') : '') : String(v); }, set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-        if (pound) w.appendChild(h('span', '', '£')); w.appendChild(inp); if (!pound) w.appendChild(h('span', '', '%'));
+        if (pound) w.appendChild(h('span', '', '£')); w.appendChild(inp); if (!pound) w.appendChild(h('span', '', months ? ' mo' : '%'));
         l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
         var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'sm')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'sm')); row.appendChild(l2);
         var sub = h('div', 'b1-sub'); row.appendChild(sub); pf.body.appendChild(row);
@@ -709,8 +739,9 @@
         R.push(function (L) {
           var b = L.bridge, P0 = num(L.ps.purchasePrice);
           if (win) win.settle(); inp._sync(); sl._sync();
-          subBase = id === 'bridgeNet' ? 'The cash sent at completion.' + (P0 > 0 ? ' Covers ' + Math.round(b.net / P0 * 100) + '% of the price' : '')
-            : id === 'bridgeRatePct' ? 'Per month. ' + money(b.interestMo) + ' a month, rolled up and repaid at the end' : 'Paid upfront';
+          subBase = id === 'bridgeNet' ? (isTyped('bridgeNet') ? 'The cash sent at completion.' + (P0 > 0 ? ' Covers ' + Math.round(b.net / P0 * 100) + '% of the price' : '') : 'The cash sent at completion: ' + Calc.BRIDGE_NET_PCT + '% of the price until you change it')
+            : id === 'bridgeRatePct' ? 'Per month. ' + money(b.interestMo) + ' a month, rolled up and repaid at the end'
+            : id === 'bridgeMonths' ? 'How long you’ll have the bridge. Interest is charged for each month' : 'Paid upfront';
           drawSub();
         });
       });
@@ -727,7 +758,7 @@
       // How it adds up: one fold, opened like the letting figures (only one open at a time)
       var bw = fold('bridgeWork', 'How it adds up'); bw.card.classList.add('b1-fold'); pf.body.appendChild(bw.card);
       R.push(function (L) {
-        var b = L.bridge, P0 = num(L.ps.purchasePrice), mo = b.months + ' months';
+        var b = L.bridge, P0 = num(L.ps.purchasePrice), mo = b.months + (b.months === 1 ? ' month' : ' months');
         gVal.textContent = money(b.gross); gSub.textContent = money(b.net) + ' + ' + mo + ' of interest (' + money(b.interest) + ')';
         aCost.textContent = money(b.cost); aPct.textContent = b.costPct == null ? 'Enter the net loan' : pctText(b.costPct) + ' of the net loan, over ' + mo;
         aSend.textContent = money(b.net); aMo.textContent = money(b.interestMo); aRepay.textContent = money(b.gross);
@@ -1531,7 +1562,12 @@
   function renderUsual() {
     var box = $('v-usual'); box.innerHTML = ''; box.className = 'u9';
     var R = [], refresh = function () { R.forEach(function (f) { f(); }); };
-    var save = function (id, v) { if (v === '' || v == null) delete usual[id]; else usual[id] = String(v); store(USUAL_KEY, usual); refresh(); };
+    var save = function (id, v) {
+      if (v === '' || v == null) delete usual[id]; else usual[id] = String(v);
+      var twin = id === 'ltv' ? 'depositPct' : id === 'depositPct' ? 'ltv' : null;    // linked (Ashley, 15 Oct 2026)
+      if (twin) { if (v === '' || v == null) delete usual[twin]; else usual[twin] = String(Number((100 - Number(v)).toFixed(2))); }
+      store(USUAL_KEY, usual); refresh();
+    };
     // the pinned header card
     var pin = h('div', 'pin u9-pin'), head = h('div', 'pin-head'), back = h('button', 'pin-back'), clear = h('button', 'u9-clear', 'Clear all');
     back.type = 'button'; clear.type = 'button'; back.setAttribute('aria-label', 'Back');

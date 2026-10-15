@@ -393,32 +393,44 @@ first restyle)
 - Bridging is ONE section of How you'll pay (switch now reads Mortgage | Bridging). With Bridging on there are no Lender
   pays / Deposit tiles; instead FIVE slider rows (rent-row style: label, typed box, 36px −/+, scrubber, sub line), app.js
   BRIDGE_ROWS: bridgeNet (Net loan, valueWindow like the money sliders, steps 500/100/25), bridgeRatePct (Interest, % a
-  month, 0-2, 0.05), bridgeLegal (0-5,000, 50), bridgeValuation (0-2,000, 25), bridgeBroker (0-5,000, 50); a typed figure
+  month, 0-2, 0.05), bridgeMonths (1-24, 1), bridgeLegal (0-5,000, 50), bridgeValuation (0-2,000, 25), bridgeBroker (0-5,000, 50); a typed figure
   may go past the top. Then the Gross loan tile ("WORKED OUT", never typed), the answer tile (Cost of the bridge in amber,
   "N% of the net loan, over 9 months", Lender sends / Interest a month / You repay), red messages (net loan £0; rate above
   3% a month), and the "How it adds up" fold (openFold 'bridgeWork'; one fold open at a time with the letting figures).
   Then Mortgage payments ("Bridge instead") and Your own money in.
-- MATHS (calc.js bridgeOf / bridgeFigures / BRIDGE_FIGS / BRIDGE_MONTHS = 9, no slider): interest = net x rate% x 9
+- MATHS (calc.js bridgeOf / bridgeFigures / BRIDGE_FIGS): interest = net x rate% x months
   (simple, rolled up, on the net); gross = net + interest; upfront = legal + valuation + broker; cost = interest + upfront
   = L.bridgeCost (lets: added to cash left in and total in, ROI and months back recomputed; flip: off the profit; the pin
   tag "Includes £X bridging"). Own money with a bridge = price - net + stamp duty + legal + refurb + other + furnishing +
   upfront (a net above the price pays towards the costs; never below £0); own.deposit = max(0, price - net), own.bridge =
   upfront, own.mortgage = net, own.interest = the rolled-up interest. Cash left = own money - (refinance - gross): the same
   identity as before. Calc.funding: rows add Bridge legal / valuation / broker fees; loan = the net (repaid as the gross).
-  Examples 97,500 / 0.85 / 1,200 / 350 / 1,000 (the hand-off's, ASHLEY TO CONFIRM); layered like every figure (example <
+  Starting figures: see Ashley's answers below; layered like every figure (example <
   My usual figures < typed for this deal), saved with the deal; Reset (pin) covers them, Clear figures leaves them alone.
-  Checked against the design's own example (230k / 125k / 30k / 2k, BTL): £759 left in, 128.5% ROI, Weak deal 1/4,
-  £10,009 cost, gross £104,959, own money £68,300.
+  Checked against the design's own example (230k / 125k / 30k / 2k, BTL, its £97,500 net): £759 left in, 128.5% ROI,
+  Weak deal 1/4, £10,009 cost, gross £104,959, own money £68,300.
 - Your own money in with a bridge: the bar is the cost parts (Calc.ownParts: sg-deposit "Price less the net loan", stamp
   duty, legal, refurb, other, furnishing, sg-bridge "Bridge legal, valuation and broker"), the bridging loan (net) beside
   the total, caption "The rolled-up interest (£X) is repaid from the refinance." (sale for a flip); Breakdown = the funding
   rows. With Mortgage, everything is as before (own vs loan bar).
 - My usual figures has a fourth group, Bridging loan (interest, legal, valuation, broker; tag "Example figure"); the net
   loan is per deal, so it is not there. 10 figures in all.
-- NOT BUILT, waiting for Ashley: section 2b (Lender pays and Deposit as one linked slider, depositPct = 100 - ltv). In
-  calc.js ltv is the refinance share of the END VALUE and depositPct the share of the PRICE, so linking them changes the
-  maths; the hand-off itself says to confirm first. Also to confirm: the example figures, and whether the 9-month term
-  wants a slider.
+- ASHLEY'S ANSWERS (15 Oct 2026), all built:
+  - 2b LINKED: Lender pays and Deposit are ONE slider with Mortgage selected (lets): .lk2b, "Lender pays" box (mint) and
+    "Deposit" box (amber), an amber track with a mint fill, −/+ (1%), "= £X of the price" / "= £Y from you". Either box or
+    the slider writes ltv AND depositPct (setLink). calc.js ledger() works out depositPct = 100 - ltv itself (the main
+    screen only; the other calculator screens keep their own), so the lender lends the same share of the price at the
+    start as of the end value at the refinance. The flip keeps its single Deposit tile, linked the same way. My usual
+    figures: saving ltv or depositPct sets the other to 100 less it.
+  - MONTHS SLIDER: a sixth bridge figure, bridgeMonths (1-24, step 1, default 9, " mo"), between Interest and Legal;
+    "How long you'll have the bridge. Interest is charged for each month". BRIDGE_MONTHS is gone; bridgeOf uses it.
+  - NET LOAN STARTS AT 75% OF THE PRICE (Calc.BRIDGE_NET_PCT) while not typed, and follows the price; sub line "The cash
+    sent at completion: 75% of the price until you change it" (typed: "Covers N% of the price"). Because the bridge's
+    cost then moves with the price, ledger() fitPrice works the flip, recycle and payback prices out with the cost
+    recalculated at each price (tested: the flip price still lands on 25.0%). Reset puts an untyped bridge figure back
+    to untyped (ledgerStart['typed:' + id]), so the net follows the price again. Other starting figures as the hand-off.
+  - QUOTES SCREEN: removed completely (it is in the git history if ever wanted).
+  On the test deal (125k price): net £93,750, cost £9,721.88, gross £100,921.88; the example deal's BTL keeps 3/4 with it.
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one

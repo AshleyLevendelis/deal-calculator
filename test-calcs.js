@@ -392,19 +392,31 @@ eq('no bridging: no bridging cost anywhere', [L0.bridgeCost, L0.exits.none.own.b
 const Lblank = Calc.ledger({}, false);
 eq('with nothing typed every exit still uses the same price, refurb, legal and end value', ['btl', 'hmo', 'sa'].every(k => ['purchasePrice', 'refurb', 'legal', 'endValue', 'ltv', 'depositPct'].every(f => Lblank.exits[k].state[f] === Lblank.ps[f])), true);
 // bridging on: its whole cost is extra cash left in
-// Design 1b (14 Oct 2026): five figures; with nothing typed, the examples £97,500 net, 0.85% a month, £1,200 legal, £350
-// valuation, £1,000 broker. Interest 97,500 x 0.85% x 9 = £7,458.75; fees £2,550; cost £10,008.75; gross £104,958.75.
-const BCOST = 10008.75;
-eq('bridging: the cost is the interest on the net loan for 9 months plus the three fees (£10,008.75)', lcNear(L1.bridgeCost, BCOST), true);
-const B1 = Calc.bridgeOf({});
-eq('bridge: the gross loan is worked out: net + 9 months of interest (£104,958.75)', [B1.net, B1.interestMo, B1.interest, B1.gross].map(x => Math.round(x * 100) / 100).join(), '97500,828.75,7458.75,104958.75');
-eq('bridge: cost = interest + legal + valuation + broker', lcNear(B1.cost, B1.interest + 1200 + 350 + 1000) && B1.upfront === 2550, true);
+// Design 1b (14 Oct 2026) with Ashley's choices of 15 Oct: with nothing typed, the net loan is 75% of the price (£93,750 on
+// £125,000), 0.85% a month for 9 months, £1,200 legal, £350 valuation, £1,000 broker. Interest 93,750 x 0.85% x 9 =
+// £7,171.875; fees £2,550; cost £9,721.875; gross £100,921.875.
+const BCOST = 9721.875;
+eq('bridging: the cost is the interest on the net loan for 9 months plus the three fees (£9,721.88)', lcNear(L1.bridgeCost, BCOST), true);
+const B1 = Calc.bridgeOf({ purchasePrice: 125000 });
+eq('bridge: the gross loan is worked out: net + 9 months of interest (£100,921.88)', [B1.net, B1.interestMo, B1.interest, B1.gross].map(x => Math.round(x * 100) / 100).join(), '93750,796.88,7171.88,100921.88');
+eq('bridge: the net loan starts at 75% of the price and follows it until one is typed', [Calc.bridgeOf({ purchasePrice: 200000 }).net, Calc.bridgeOf({ purchasePrice: 99999 }).net, Calc.bridgeOf({ purchasePrice: 200000, bridgeNet: 120000 }).net].join(), '150000,74999,120000');
+eq('bridge: months: 12 months at 1% on £100,000 = £12,000; 0 months = no interest', [Calc.bridgeOf({ bridgeNet: 100000, bridgeRatePct: 1, bridgeMonths: 12 }).interest, Calc.bridgeOf({ bridgeNet: 100000, bridgeRatePct: 1, bridgeMonths: 0 }).interest, Calc.bridgeOf({ bridgeNet: 100000, bridgeRatePct: 1, bridgeMonths: -3 }).interest].join(), '12000,0,0');
+eq('bridge: cost = interest + legal + valuation + broker', lcNear(B1.cost, B1.interest + 1200 + 350 + 1000) && B1.upfront === 2550 && B1.months === 9, true);
 const B2 = Calc.bridgeOf({ bridgeNet: 150000, bridgeRatePct: 1, bridgeLegal: 1500, bridgeValuation: 500, bridgeBroker: 0 });
 eq('bridge: typed figures win: £150,000 at 1% = £1,500 a month, £13,500 over 9 months, gross £163,500, cost £15,500', [B2.interestMo, B2.interest, B2.gross, B2.cost].join(), '1500,13500,163500,15500');
 const B0 = Calc.bridgeOf({ bridgeNet: 0, bridgeRatePct: 0.85 });
 eq('bridge: a net loan of £0: no interest, no NaN, no cost % (the fees still count)', [B0.interest, B0.gross, B0.costPct, B0.cost].join() + '|' + JSON.stringify(Calc.ledger(Object.assign({ bridgeNet: 0 }, LD), true)).indexOf('NaN'), '0,0,,2550|-1');
+eq('Lender pays and Deposit are one figure on the main screen: the deposit is 100% less the lender\'s share', [Calc.ledger({ ltv: 80, depositPct: 40 }, false).ps.depositPct, Calc.ledger({ ltv: 80, depositPct: 40 }, false).exits.btl.state.depositPct, Calc.ledger({}, false).ps.depositPct].join(), '20,20,25');
+eq('... so a mortgage at 80% leaves a 20% deposit of the price (£25,000 on £125,000)', Calc.ledger(Object.assign({ ltv: 80 }, LD), false).exits.btl.own.deposit, 25000);
 eq('bridge: My usual figures sit under what is typed, examples under both', [Calc.bridgeOf(Calc.withUsual({}, { bridgeRatePct: 0.7 })).rate, Calc.bridgeOf(Calc.withUsual({ bridgeRatePct: 0.9 }, { bridgeRatePct: 0.7 })).rate, Calc.bridgeOf({ bridgeRatePct: '' }).rate].join(), '0.7,0.9,0.85');
-eq('bridge: the term is the 9 months the old bridging calculator started with', Calc.BRIDGE_MONTHS + '|' + Calc.defaults(Calc.find('bridging')).termMonths, '9|9');
+eq('bridge: the six figures, in screen order', Calc.BRIDGE_FIGS.map(f => f[0]).join(), 'bridgeNet,bridgeRatePct,bridgeMonths,bridgeLegal,bridgeValuation,bridgeBroker');
+// The flip, recycle and payback prices: while the net loan follows the price, the bridge's cost is worked out again at each price.
+const Lfp = Calc.ledger(LD, true), atFp = Calc.ledger(Object.assign({}, LD, { purchasePrice: Lfp.exits.none.flipPrice }), true).exits.none.v;
+eq('with a bridge whose net follows the price, the flip price still lands on the 25.0% target', (atFp.margin * 100).toFixed(1), '25.0');
+const atRecB = Calc.ledger(Object.assign({}, LD, { purchasePrice: Lfp.exits.hmo.recyclePrice }), true).exits.hmo.v, atRecB1 = Calc.ledger(Object.assign({}, LD, { purchasePrice: Lfp.exits.hmo.recyclePrice + 1 }), true).exits.hmo.v;
+eq('... and at the recycle price every pound comes back; £1 more and it does not', atRecB.cashLeft <= 0 && atRecB1.cashLeft > 0, true);
+const Lfix = Calc.ledger(Object.assign({ bridgeNet: 90000 }, LD), true);
+eq('a typed net loan stays put, so the prices take the bridge\'s cost as it is', Lfix.exits.none.flipPrice === Calc.priceForBudget(230000 * 0.75 - 45000 - 3000 - 0 - Lfix.bridgeCost), true);
 eq('bridging: cash left in rises by exactly the cost, on every exit', ['none', 'btl', 'hmo', 'sa'].every(k => lcNear(L1.exits[k].v.cashLeft, L0.exits[k].v.cashLeft + BCOST)), true);
 eq('bridging: total money in rises by exactly the cost', ['none', 'btl', 'hmo', 'sa'].every(k => lcNear(L1.exits[k].v.totalIn, L0.exits[k].v.totalIn + BCOST)), true);
 eq('bridging: ROI is the same annual profit over the larger cash left in', lcNear(L1.exits.hmo.v.roi, L0.exits.hmo.v.annual / (L0.exits.hmo.v.cashLeft + BCOST)), true);
@@ -423,10 +435,10 @@ eq('own money: stamp duty is worked out from the price', o0.sdlt, Calc.stampDuty
 eq('own money in = deposit + stamp duty + legal + refurb', o0.total, 31250 + Calc.stampDuty(125000) + 3000 + 45000);
 eq('own money: furnishing counts only when letting by the room or nightly', [L0.exits.none.own.furnishing, L0.exits.btl.own.furnishing, oh.furnishing, L0.exits.sa.own.furnishing].join(), '0,0,5000,5000');
 eq('own money by the room includes the furnishing', oh.total, o0.total + 5000);
-eq('own money with a bridge: the price less the net loan, the costs, and the bridge fees (not its interest)', lcNear(o1.total, 125000 - 97500 + Calc.stampDuty(125000) + 3000 + 45000 + 5000 + 2550) && o1.deposit === 27500 && o1.bridge === 2550, true);
+eq('own money with a bridge: the price less the net loan, the costs, and the bridge fees (not its interest)', lcNear(o1.total, 125000 - 93750 + Calc.stampDuty(125000) + 3000 + 45000 + 5000 + 2550) && o1.deposit === 31250 && o1.bridge === 2550, true);
 eq('a net loan above the price pays towards the costs; own money never goes below £0', lcNear(Calc.ledger(Object.assign({ bridgeNet: 140000 }, LD), true).exits.none.own.total, 125000 + Calc.stampDuty(125000) + 3000 + 45000 + 2550 - 140000) && Calc.ledger(Object.assign({ bridgeNet: 900000 }, LD), true).exits.none.own.total === 0, true);
 eq('a negative net loan typed by mistake counts as £0', Calc.bridgeOf({ bridgeNet: -5000 }).net + '|' + Calc.bridgeOf({ bridgeNet: -5000 }).interest, '0|0');
-eq('with the net above the price the deposit is £0 (never a minus), and the money borrowed is the net loan', [Calc.ledger(Object.assign({ bridgeNet: 140000 }, LD), true).exits.btl.own.deposit, Calc.ledger(Object.assign({ bridgeNet: 140000 }, LD), true).exits.btl.own.mortgage, L1.exits.btl.own.interest].join(), '0,140000,7458.75');
+eq('with the net above the price the deposit is £0 (never a minus), and the money borrowed is the net loan', [Calc.ledger(Object.assign({ bridgeNet: 140000 }, LD), true).exits.btl.own.deposit, Calc.ledger(Object.assign({ bridgeNet: 140000 }, LD), true).exits.btl.own.mortgage, L1.exits.btl.own.interest].join(), '0,140000,7171.875');
 eq('cash left with a bridge = own money in - what the refinance hands back after repaying the gross', ['btl', 'hmo', 'sa'].every(k => { const X = L1.exits[k]; return lcNear(X.v.cashLeft, X.own.total - (X.v.newMortgage - Calc.bridgeOf(LD).gross)); }), true);
 eq('the mortgage covers the rest of the price', o0.mortgage, 125000 - 31250);
 eq('total money in = own money + mortgage', o0.totalIn, o0.total + o0.mortgage);
