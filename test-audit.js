@@ -49,12 +49,12 @@ for (let t = 0; t < 400; t++) {
   const d = { endValue: pick(100e3, 600e3, 5000), purchasePrice: pick(50e3, 400e3, 2500), refurb: pick(0, 120e3, 2500), legal: pick(0, 6e3, 250), otherUpfront: pick(0, 4e3, 250),
     ltv: pick(50, 85, 5), mortgageRate: pick(2, 8, 0.25), monthlyRent: pick(500, 2500, 25), roomRate: pick(300, 800, 5), rooms: pick(3, 8, 1), nightlyRate: pick(60, 250, 5), occupancyPct: pick(40, 90, 5), furnishing: pick(0, 15e3, 500) };
   const S = Object.assign({}, DEF, d), E = S.endValue, P = S.purchasePrice, sd = want('eng', 'add', P);
-  const bridge = { bridgeNet: pick(30e3, 300e3, 500), bridgeRatePct: pick(0.5, 1.5, 0.01), bridgeMonths: pick(3, 18, 1), bridgeLegal: pick(0, 3e3, 50), bridgeValuation: pick(0, 1e3, 25), bridgeBroker: pick(0, 3e3, 50) };
+  const bridge = { bridgeNet: pick(30e3, 300e3, 500), bridgeRatePct: pick(0.5, 1.5, 0.01), bridgeMonths: pick(3, 18, 1), bridgeArrangePct: pick(0, 3, 0.25), bridgeExitPct: pick(0, 2, 0.25), bridgeLegal: pick(0, 3e3, 50), bridgeValuation: pick(0, 1e3, 25), bridgeBroker: pick(0, 3e3, 50) };
   const refi = E * S.ltv / 100;
   for (const mode of ['cash', 'mortgage', 'bridge']) {
     const deal = Object.assign({}, d, mode === 'bridge' ? bridge : {}), L = Calc.ledger(deal, mode);
     // bridge by hand
-    const b = mode === 'bridge' ? (() => { const mo = bridge.bridgeNet * bridge.bridgeRatePct / 100, int = mo * bridge.bridgeMonths, up = bridge.bridgeLegal + bridge.bridgeValuation + bridge.bridgeBroker; return { int, gross: bridge.bridgeNet + int, up, cost: int + up }; })() : { int: 0, up: 0, cost: 0, gross: 0 };
+    const b = mode === 'bridge' ? (() => { const int = bridge.bridgeNet * (Math.pow(1 + bridge.bridgeRatePct / 100, bridge.bridgeMonths) - 1), up = bridge.bridgeNet * bridge.bridgeArrangePct / 100 + bridge.bridgeLegal + bridge.bridgeValuation + bridge.bridgeBroker, ex = bridge.bridgeNet * bridge.bridgeExitPct / 100; return { int, gross: bridge.bridgeNet + int, up, ex, repay: bridge.bridgeNet + int + ex, cost: int + up + ex }; })() : { int: 0, up: 0, ex: 0, repay: 0, cost: 0, gross: 0 };
     const tag = t + mode;
     eq('bridge cost ' + tag, L.bridgeCost, b.cost);
     // BTL exit (flip calc's rental half)
@@ -77,7 +77,7 @@ for (let t = 0; t < 400; t++) {
       const F = Calc.funding(L, k);
       eq('funding adds up ' + k + tag, F.own + F.loan.amount - F.over, F.total, 0.005);
       // the cash left in after everything = own money at the start less what the refinance hands back after repaying the loan
-      const handBack = refi - (mode === 'bridge' ? b.gross : mode === 'mortgage' ? P * (1 - (100 - S.ltv) / 100) : 0);
+      const handBack = refi - (mode === 'bridge' ? b.repay : mode === 'mortgage' ? P * (1 - (100 - S.ltv) / 100) : 0);
       if (F.over === 0) eq('cash-left identity ' + k + tag, X.own.total - handBack, cashLeft, 0.01);   // (a loan bigger than the whole purchase is clamped to £0 own money)
       // the recycle price: £1 over leaves cash in, at it nothing left in (brute force on the same ledger)
       if (X.recyclePrice != null) {
@@ -138,8 +138,9 @@ for (let t = 0; t < 300; t++) {
   eq('r2r monthly ' + t, rv.monthly, mo); eq('r2r roi ' + t, rv.roi, mo * 12 / tin, 1e-9);
 }
 // the single-let rate / months rounding: bridge months & rate
-const B = Calc.bridgeOf({ bridgeNet: 100000, bridgeRatePct: 0.87, bridgeMonths: 12, bridgeLegal: 1000, bridgeValuation: 400, bridgeBroker: 600 });
-eq('bridge 0.87% x12 on £100k', B.interest, 10440); eq('bridge gross', B.gross, 110440); eq('bridge cost', B.cost, 12440);
+const B = Calc.bridgeOf({ bridgeNet: 100000, bridgeRatePct: 0.87, bridgeMonths: 12, bridgeArrangePct: 2, bridgeExitPct: 1, bridgeLegal: 1000, bridgeValuation: 400, bridgeBroker: 600 });
+const i12 = 100000 * (Math.pow(1.0087, 12) - 1);   // compounding monthly
+eq('bridge 0.87% x12 on £100k compounding', B.interest, i12, 1e-6); eq('bridge ~£10,954 (more than simple £10,440)', Math.round(B.interest), 10954); eq('bridge gross', B.gross, 100000 + i12, 1e-6); eq('bridge repay (+1% exit)', B.repay, 100000 + i12 + 1000, 1e-6); eq('bridge cost = interest + 2% arrangement + fees + exit', B.cost, i12 + 2000 + 2000 + 1000, 1e-6);
 console.log(checks + ' more checks, ' + bad + ' disagree'); if (bad) process.exitCode = 1; fails.forEach(f => console.log('  ' + f));
 
 })();

@@ -193,7 +193,7 @@
   // The bridge's five figures (design 1b): net loan in a 60%-140% window like the money sliders, the rest in fixed ranges
   // (a typed figure may go past the top). levels: the step, then finer steps when the finger slides down.
   var BRIDGE_ROWS = { bridgeNet: { window: true, range: [0, 300000], levels: [500, 100, 25], nudge: 500, grow: 10000 }, bridgeRatePct: { range: [0, 2], levels: [0.01, 0.01, 0.01] },
-    bridgeMonths: { range: [1, 24], levels: [1, 1, 1] }, bridgeLegal: { range: [0, 5000], levels: [50, 10, 5] }, bridgeValuation: { range: [0, 2000], levels: [25, 5, 1] }, bridgeBroker: { range: [0, 5000], levels: [50, 10, 5] } };
+    bridgeMonths: { range: [1, 24], levels: [1, 1, 1] }, bridgeArrangePct: { range: [0, 5], levels: [0.05, 0.01, 0.01] }, bridgeExitPct: { range: [0, 3], levels: [0.05, 0.01, 0.01] }, bridgeLegal: { range: [0, 5000], levels: [50, 10, 5] }, bridgeValuation: { range: [0, 2000], levels: [25, 5, 1] }, bridgeBroker: { range: [0, 5000], levels: [50, 10, 5] } };
   var BRIDGE_IDS = Calc.BRIDGE_FIGS.map(function (f) { return f[0]; });
   function num(v) { v = Number(v); return isFinite(v) ? v : 0; }
   function isInf(v) { return typeof v === 'string' && v.charAt(0) === '∞'; }
@@ -348,7 +348,7 @@
     if (F.loan.amount > 0) row('Less: ' + loanLab, '−' + money(F.loan.amount), 'f-less');
     row('From your own money', money(F.own), 'f-own');
     var note = F.loan.kind === 'bridge'
-      ? 'At the end you repay the gross loan, ' + money(F.loan.repay) + ' (the net plus ' + money(F.loan.interest) + ' rolled-up interest), out of the refinance or the sale.' + (F.over > 0 ? ' The loan is ' + money(F.over) + ' more than you need.' : '')
+      ? 'At the end you repay ' + money(F.loan.repay) + ' (the net plus ' + money(F.loan.interest) + ' rolled-up interest' + (F.loan.exit > 0 ? ' and a ' + money(F.loan.exit) + ' exit fee' : '') + '), out of the refinance or the sale.' + (F.over > 0 ? ' The loan is ' + money(F.over) + ' more than you need.' : '')
       : F.loan.amount > 0 ? 'Your money covers the ' + dep + '% deposit (' + money(P0 * dep / 100) + ') and every cost above; the mortgage pays the rest of the price.' : '';
     if (note) el.appendChild(h('p', 'fund11-note', note));
   }
@@ -758,7 +758,9 @@
           var b = L.bridge, P0 = num(L.ps.purchasePrice);
           if (win) win.settle(); inp._sync(); sl._sync();
           subBase = id === 'bridgeNet' ? (isTyped('bridgeNet') ? 'The cash sent at completion.' + (P0 > 0 ? ' Covers ' + Math.round(b.net / P0 * 100) + '% of the price' : '') : 'The cash sent at completion: ' + Calc.BRIDGE_NET_PCT + '% of the price until you change it')
-            : id === 'bridgeRatePct' ? 'Per month. ' + money(b.interestMo) + ' a month, rolled up and repaid at the end'
+            : id === 'bridgeRatePct' ? 'Per month, compounding. ' + money(b.interestMo) + ' in the first month, all rolled up and repaid at the end'
+            : id === 'bridgeArrangePct' ? 'Paid upfront: ' + money(b.arrangement) + ' (a share of the net loan)'
+            : id === 'bridgeExitPct' ? 'Paid when you repay: ' + money(b.exit) + ' (a share of the net loan)'
             : id === 'bridgeMonths' ? 'How long you’ll have the bridge. Interest is charged for each month' : 'Paid upfront';
           drawSub();
         });
@@ -779,14 +781,15 @@
         var b = L.bridge, P0 = num(L.ps.purchasePrice), mo = b.months + (b.months === 1 ? ' month' : ' months');
         gVal.textContent = money(b.gross); gSub.textContent = money(b.net) + ' + ' + mo + ' of interest (' + money(b.interest) + ')';
         aCost.textContent = money(b.cost); aPct.textContent = b.costPct == null ? 'Enter the net loan' : pctText(b.costPct) + ' of the net loan, over ' + mo;
-        aSend.textContent = money(b.net); aMo.textContent = money(b.interestMo); aRepay.textContent = money(b.gross);
+        aSend.textContent = money(b.net); aMo.textContent = money(b.interestMo); aRepay.textContent = money(b.repay);
         msgs.innerHTML = '';
         if (!(b.net > 0)) msgs.appendChild(h('p', 'b1-msg', 'Enter the net loan: the cash the lender sends at completion.'));
         if (b.rate > 3) msgs.appendChild(h('p', 'b1-msg', 'Above 3% a month is very high for a bridge: check it is per month, not per year.'));
-        bw.sum.textContent = 'Interest ' + money(b.interest) + ' · fees ' + money(b.upfront);
+        bw.sum.textContent = 'Interest ' + money(b.interest) + ' · fees ' + money(b.fees);
         bw.body.innerHTML = '';
-        [['Net loan', money(b.net)], ['Interest (' + b.rate + '% × ' + mo + ' on ' + money(b.net) + ')', money(b.interest)],
-          ['Gross loan (repaid at the end)', money(b.gross), 'solid strong'], ['Legal fees', money(b.legal)], ['Valuation fee', money(b.valuation)], ['Broker fee', money(b.broker)],
+        [['Net loan', money(b.net)], ['Interest (' + b.rate + '% a month, compounding, × ' + mo + ' on ' + money(b.net) + ')', money(b.interest)],
+          ['Gross loan (net + interest)', money(b.gross), 'solid strong'], ['Exit fee (paid when you repay)', money(b.exit)], ['You repay at the end', money(b.repay), 'solid strong'],
+          ['Arrangement fee', money(b.arrangement)], ['Legal fees', money(b.legal)], ['Valuation fee', money(b.valuation)], ['Broker fee', money(b.broker)],
           ['Total cost of the bridge (interest + fees)', money(b.cost), 'solid strong'], ['Price less the net loan (your deposit)', money(Math.max(0, P0 - b.net))]].forEach(function (r) {
           var st = statRow(r[0], ''); if (r[2]) st.row.className += ' ' + r[2]; st.val.textContent = r[1]; bw.body.appendChild(st.row);
         });
@@ -1446,7 +1449,7 @@
     ['Buying costs', [['legal', 'Legal costs', '£', 'Your solicitor, per purchase'], ['otherUpfront', 'Other costs up front', '£', 'Survey, broker, finance fees']]],
     ['Finance', [['ltv', 'Re-mortgage LTV', '%', 'How much of the end value the lender pays out'], ['depositPct', 'Deposit', '%', 'Of the purchase price, on a mortgaged purchase'], ['mortgageRate', 'Mortgage rate', '%', 'Interest rate on your mortgage']]],
     ['Letting', [['mgmtPct', 'Management', '%', 'Letting agent fee, % of rent']]],
-    ['Bridging loan', [['bridgeRatePct', 'Interest', '%', 'Per month, on the net loan'], ['bridgeLegal', 'Bridge legal fees', '£', 'Paid upfront'],
+    ['Bridging loan', [['bridgeRatePct', 'Interest', '%', 'Per month, on the net loan'], ['bridgeArrangePct', 'Arrangement fee', '%', 'A share of the net loan, paid upfront'], ['bridgeExitPct', 'Exit fee', '%', 'A share of the net loan, paid when you repay'], ['bridgeLegal', 'Bridge legal fees', '£', 'Paid upfront'],
       ['bridgeValuation', 'Valuation fee', '£', 'Paid upfront'], ['bridgeBroker', 'Broker fee', '£', 'Paid upfront']]]];   // design 1b (the net loan is per deal)
   // ---- My usual figures (design 9b, 7 Oct 2026): a pinned header card like the Calculator's answer panel, then the
   // same three groups as cards, each figure with its typed value and the Calculator's − / slider / + . An unset figure
@@ -1454,7 +1457,7 @@
   // yours ("Yours", and "Example £X ↺" puts the example back). Saved to USUAL_KEY on every change, as before.
   var USUAL_RANGE = { legal: [0, 5000, 50, [50, 10, 5]], otherUpfront: [0, 10000, 50, [50, 10, 5]], ltv: [50, 85, 1, [1, 1, 1]], depositPct: [5, 40, 1, [1, 1, 1]],
     mortgageRate: [0, 10, 0.05, [0.05, 0.01, 0.01]], mgmtPct: [0, 20, 0.5, [0.5, 0.1, 0.1]],
-    bridgeRatePct: [0, 2, 0.01, [0.01, 0.01, 0.01]], bridgeLegal: [0, 5000, 50, [50, 10, 5]], bridgeValuation: [0, 2000, 25, [25, 5, 1]], bridgeBroker: [0, 5000, 50, [50, 10, 5]] };
+    bridgeRatePct: [0, 2, 0.01, [0.01, 0.01, 0.01]], bridgeArrangePct: [0, 5, 0.05, [0.05, 0.01, 0.01]], bridgeExitPct: [0, 3, 0.05, [0.05, 0.01, 0.01]], bridgeLegal: [0, 5000, 50, [50, 10, 5]], bridgeValuation: [0, 2000, 25, [25, 5, 1]], bridgeBroker: [0, 5000, 50, [50, 10, 5]] };
   var USUAL_IDS = []; USUAL_FIELDS.forEach(function (g) { g[1].forEach(function (f) { USUAL_IDS.push(f[0]); }); });
   function usualSet(id) { return Object.prototype.hasOwnProperty.call(usual, id) && String(usual[id]).trim() !== ''; }
   function usualCount() { return USUAL_IDS.filter(usualSet).length; }

@@ -612,15 +612,18 @@
     for (var i = 0; i < 80; i++) { var mid = (lo + hi) / 2; if (mid + stampDuty(mid) <= budget + 1e-6) lo = mid; else hi = mid; }
     return Math.floor(lo);
   }
-  // ---- The bridge on the Calculator (design 1b, 14 Oct 2026): five figures, the gross loan worked out ----------------
-  // net: the cash the lender sends at completion. Interest is simple, charged on the net, rolled up and repaid at the
-  // end with the loan, for the months you have the bridge. The gross loan is net + that interest (never typed). Legal,
-  // valuation and broker fees are paid up front from your own money.
+  // ---- The bridge on the Calculator (design 1b, 14 Oct 2026): the figures typed, the gross loan worked out -------------
+  // net: the cash the lender sends at completion. Interest is rolled up: it compounds monthly on the net and is repaid at
+  // the end with the loan, for the months you have the bridge (Ashley, 15 Oct 2026: compounding, as lenders charge it;
+  // 1b first said simple). The gross loan is net + that interest (never typed). Fees: arrangement (a % of the net loan),
+  // legal, valuation and broker are paid up front from your own money; the exit fee (a % of the net loan) is paid when
+  // you repay, with the loan. The repayment at the end is the gross loan + the exit fee.
   // Starting figures (Ashley, 15 Oct 2026): the net loan is 75% of the purchase price until one is typed (so it follows
-  // the price), 9 months; the rest are the hand-off's. They sit under My usual figures and what is typed, as every figure.
+  // the price), 9 months, arrangement 2% and exit 1% (the old Bridging calculator's own starting fees); the rest are the
+  // hand-off's. They sit under My usual figures and what is typed, as every figure.
   var BRIDGE_NET_PCT = 75;
   var BRIDGE_FIGS = [['bridgeNet', 'Net loan', '£', null], ['bridgeRatePct', 'Interest', '%', 0.85], ['bridgeMonths', 'Months', 'mo', 9],
-    ['bridgeLegal', 'Legal fees', '£', 1200], ['bridgeValuation', 'Valuation fee', '£', 350], ['bridgeBroker', 'Broker fee', '£', 1000]];
+    ['bridgeArrangePct', 'Arrangement fee', '%', 2], ['bridgeExitPct', 'Exit fee', '%', 1], ['bridgeLegal', 'Legal fees', '£', 1200], ['bridgeValuation', 'Valuation fee', '£', 350], ['bridgeBroker', 'Broker fee', '£', 1000]];
   function bridgeFigures(deal) {
     var out = {}, price = n(stateFor(find('flip'), deal || {}).purchasePrice);
     BRIDGE_FIGS.forEach(function (f) {
@@ -631,10 +634,11 @@
   }
   function bridgeOf(deal) {
     var f = bridgeFigures(deal), net = Math.max(0, n(f.bridgeNet)), rate = n(f.bridgeRatePct), months = Math.max(0, n(f.bridgeMonths));
-    var interestMo = net * rate / 100, interest = interestMo * months, legal = n(f.bridgeLegal), valuation = n(f.bridgeValuation), broker = n(f.bridgeBroker);
-    var upfront = legal + valuation + broker, cost = interest + upfront;
-    return { net: net, rate: rate, months: months, interestMo: interestMo, interest: interest, gross: net + interest,
-      legal: legal, valuation: valuation, broker: broker, upfront: upfront, cost: cost, costPct: net > 0 ? cost / net : null };
+    var interestMo = net * rate / 100, interest = net * (Math.pow(1 + rate / 100, months) - 1), legal = n(f.bridgeLegal), valuation = n(f.bridgeValuation), broker = n(f.bridgeBroker);
+    var arrangement = net * Math.max(0, n(f.bridgeArrangePct)) / 100, exit = net * Math.max(0, n(f.bridgeExitPct)) / 100;
+    var upfront = arrangement + legal + valuation + broker, cost = interest + upfront + exit;
+    return { net: net, rate: rate, months: months, interestMo: interestMo, interest: interest, gross: net + interest, arrangement: arrangement, exit: exit, repay: net + interest + exit,
+      legal: legal, valuation: valuation, broker: broker, upfront: upfront, fees: upfront + exit, cost: cost, costPct: net > 0 ? cost / net : null };
   }
   // deal: the figures as typed, already layered with the usual figures. bridgeOn: is a bridging loan paying for it.
   // Returns { ps, ltv, bridgeCost, bridge, exits: { none, btl, hmo, sa } }; each exit is
@@ -688,14 +692,14 @@
       // its rolled-up interest is repaid from the refinance or the sale. A net loan above the price pays towards the costs.
       var sdlt = stampDuty(P0), dep = bridge ? Math.max(0, P0 - bridge.net) : P0 * n(ps.depositPct) / 100;
       var total = bridge ? Math.max(0, P0 + sdlt + legal + refurb + other + furn + bridge.upfront - bridge.net) : dep + sdlt + legal + refurb + other + furn;
-      var borrowed = bridge ? bridge.net : P0 - dep, rolled = bridge ? bridge.interest : 0;
+      var borrowed = bridge ? bridge.net : P0 - dep, rolled = bridge ? bridge.interest : 0, exitFee = bridge ? bridge.exit : 0;
       // The flip price (11 Oct 2026): on the Flip exit the price card offers the most you can pay for your flip target
       // margin (the recycle price is a refinancing figure, and at it a flip's margin is just 100% less the lender's %).
       var fp = key === 'none' && E > 0 ? fitPrice(E * (1 - TG.flip / 100) - refurb - legal - other) : null;
       return { exit: key, calcId: calcId, state: s, v: v, furnishing: furn, flipPrice: fp,
         recyclePrice: furn || cost ? fitPrice(E * ltv / 100 - refurb - legal - other - furn) : recyclePrice(ps),
-        own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, other: other, furnishing: furn, bridge: bridge ? bridge.upfront : 0, interest: rolled,
-          total: total, mortgage: borrowed, totalIn: total + borrowed + rolled } };
+        own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, other: other, furnishing: furn, bridge: bridge ? bridge.upfront : 0, interest: rolled, exit: exitFee,
+          total: total, mortgage: borrowed, totalIn: total + borrowed + rolled + exitFee } };
     }
     return { ps: ps, ltv: ltv, fund: mode, bridgeCost: cost, bridge: bridge, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
   }
@@ -776,7 +780,7 @@
   }
   // Your own money in, as the How you'll pay card's bar and breakdown (design 11a): one part per kind of cost above zero,
   // in a fixed order, each with its share of the total (the shares add up to 1). own: Calc.ledger(...).exits[x].own.
-  var OWN_PARTS = [['deposit', 'Deposit'], ['sdlt', 'Stamp duty'], ['legal', 'Legal costs'], ['refurb', 'Refurb costs'], ['furnishing', 'Furnishing'], ['other', 'Other costs'], ['bridge', 'Bridge legal, valuation and broker']];
+  var OWN_PARTS = [['deposit', 'Deposit'], ['sdlt', 'Stamp duty'], ['legal', 'Legal costs'], ['refurb', 'Refurb costs'], ['furnishing', 'Furnishing'], ['other', 'Other costs'], ['bridge', 'Bridge arrangement, legal, valuation and broker fees']];
   function ownParts(own) {
     own = own || {};
     var parts = OWN_PARTS.map(function (p) { return { key: p[0], label: p[1], value: n(own[p[0]]) }; }).filter(function (p) { return p.value > 0; });
@@ -796,8 +800,8 @@
     var loan;
     if (L.bridge) {
       var b = L.bridge;
-      [['Bridge legal fees', b.legal], ['Bridge valuation fee', b.valuation], ['Bridge broker fee', b.broker]].forEach(function (r) { if (r[1] > 0) rows.push(r); });
-      loan = { kind: 'bridge', label: 'Bridging loan', amount: b.net, gross: b.gross, fees: b.upfront, interest: b.interest, repay: b.gross };
+      [['Bridge arrangement fee', b.arrangement], ['Bridge legal fees', b.legal], ['Bridge valuation fee', b.valuation], ['Bridge broker fee', b.broker]].forEach(function (r) { if (r[1] > 0) rows.push(r); });
+      loan = { kind: 'bridge', label: 'Bridging loan', amount: b.net, gross: b.gross, fees: b.upfront, interest: b.interest, exit: b.exit, repay: b.repay };
     } else if (L.fund === 'cash') loan = { kind: 'cash', label: 'No loan', amount: 0, gross: 0, fees: 0, repay: null };
     else loan = { kind: 'mortgage', label: 'Mortgage', amount: Math.max(0, P0 - n(o.deposit)), gross: Math.max(0, P0 - n(o.deposit)), fees: 0, repay: null };
     var total = rows.reduce(function (t, r) { return t + r[1]; }, 0), own = total - loan.amount;

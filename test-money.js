@@ -37,8 +37,9 @@ ok('other costs are a row and come from your own money', other.rows.some(functio
 // rolled-up interest is repaid at the end with it (the gross), from the refinance or the sale
 var bd = Object.assign({ bridgeNet: 900000, bridgeRatePct: 0.85, bridgeLegal: 1200, bridgeValuation: 350, bridgeBroker: 1000 }, deal);
 var B = Calc.funding(Calc.ledger(bd, true), 'none');
-ok('bridging: the loan is the net loan (£900,000), repaid as the gross: + 9 x £7,650 interest = £968,850', B.loan.kind === 'bridge' && B.loan.amount === 900000 && near(B.loan.interest, 68850) && near(B.loan.gross, 968850) && near(B.loan.repay, 968850) && B.loan.fees === 2550);
-ok('bridging: its three fees are rows you pay; your own money = total to pay less the loan (£92,550)', ['Bridge legal fees|1200', 'Bridge valuation fee|350', 'Bridge broker fee|1000'].every(function (t) { return B.rows.some(function (r) { return r.join('|') === t; }); }) && near(B.total, 992550) && near(B.own, 92550));
+var int900 = 900000 * (Math.pow(1.0085, 9) - 1);   // 0.85% a month compounding for 9 months on £900,000
+ok('bridging: the loan is the net loan (£900,000); interest compounds (£71,237.93); the gross is net + interest; you repay it plus a 1% exit fee (£9,000)', B.loan.kind === 'bridge' && B.loan.amount === 900000 && near(B.loan.interest, int900) && near(B.loan.gross, 900000 + int900) && near(B.loan.exit, 9000) && near(B.loan.repay, 900000 + int900 + 9000) && near(B.loan.fees, 18000 + 2550) && Math.round(int900) === 71238);
+ok('bridging: its four fees are rows you pay (2% arrangement £18,000 + £1,200 + £350 + £1,000); your own money = total to pay less the loan (£110,550)', ['Bridge arrangement fee|18000', 'Bridge legal fees|1200', 'Bridge valuation fee|350', 'Bridge broker fee|1000'].every(function (t) { return B.rows.some(function (r) { return r.join('|') === t; }); }) && near(B.total, 990000 + 18000 + 2550) && near(B.own, 110550));
 ok('bridging: the interest is not paid as you go (no interest row), and own money agrees with the ledger', !B.rows.some(function (r) { return /interest/i.test(r[0]); }) && near(B.own, Calc.ledger(bd, true).exits.none.own.total));
 var Bz = Calc.funding(Calc.ledger(Object.assign({}, bd, { bridgeBroker: 0 }), true), 'none');
 ok('a fee of £0 is not listed', !Bz.rows.some(function (r) { return r[0] === 'Bridge broker fee'; }) && near(B.own - Bz.own, 1000));

@@ -398,9 +398,10 @@ first restyle)
   "N% of the net loan, over 9 months", Lender sends / Interest a month / You repay), red messages (net loan £0; rate above
   3% a month), and the "How it adds up" fold (openFold 'bridgeWork'; one fold open at a time with the letting figures).
   Then Mortgage payments ("Bridge instead") and Your own money in.
-- MATHS (calc.js bridgeOf / bridgeFigures / BRIDGE_FIGS): interest = net x rate% x months
-  (simple, rolled up, on the net); gross = net + interest; upfront = legal + valuation + broker; cost = interest + upfront
-  = L.bridgeCost (lets: added to cash left in and total in, ROI and months back recomputed; flip: off the profit; the pin
+- MATHS (calc.js bridgeOf / bridgeFigures / BRIDGE_FIGS): interest = net x ((1 + rate%)^months - 1) (rolled up and COMPOUNDING
+  monthly on the net, Ashley 15 Oct 2026; 1b first said simple); gross = net + interest; upfront = arrangement (a % of the net
+  loan) + legal + valuation + broker; exit fee = a % of the net loan, paid when you repay; repay = gross + exit; cost =
+  interest + upfront + exit = L.bridgeCost (lets: added to cash left in and total in, ROI and months back recomputed; flip: off the profit; the pin
   tag "Includes £X bridging"). Own money with a bridge = price - net + stamp duty + legal + refurb + other + furnishing +
   upfront (a net above the price pays towards the costs; never below £0); own.deposit = max(0, price - net), own.bridge =
   upfront, own.mortgage = net, own.interest = the rolled-up interest. Cash left = own money - (refinance - gross): the same
@@ -408,7 +409,8 @@ first restyle)
   Starting figures: see Ashley's answers below; layered like every figure (example <
   My usual figures < typed for this deal), saved with the deal; Reset (pin) covers them, Clear figures leaves them alone.
   Checked against the design's own example (230k / 125k / 30k / 2k, BTL, its £97,500 net): £759 left in, 128.5% ROI,
-  Weak deal 1/4, £10,009 cost, gross £104,959, own money £68,300.
+  Weak deal 1/4, £10,009 cost, gross £104,959, own money £68,300 (those figures are the design's: simple interest, no
+  arrangement or exit fee; the app has since added both, see below).
 - Your own money in with a bridge: the bar is the cost parts (Calc.ownParts: sg-deposit "Price less the net loan", stamp
   duty, legal, refurb, other, furnishing, sg-bridge "Bridge legal, valuation and broker"), the bridging loan (net) beside
   the total, caption "The rolled-up interest (£X) is repaid from the refinance." (sale for a flip); Breakdown = the funding
@@ -443,7 +445,16 @@ first restyle)
     mortgage payments tile reads "No loan · You buy with your own cash until the refinance". Saved deals remember it
     (d.fund; older ones: bridge or mortgage). test-browser.js seeds fundMode 'mortgage' for the older checks and has its
     own No funding block.
-  On the test deal (125k price): net £93,750, cost £9,721.88, gross £100,921.88; the example deal's BTL keeps 3/4 with it.
+  - ARRANGEMENT AND EXIT FEES, COMPOUNDING (Ashley said yes, 15 Oct 2026, to the audit's suggestions): two more bridge
+    figures, bridgeArrangePct (Arrangement fee, 0-5%, 0.05 steps, starts 2%, paid upfront from your money, a share of the
+    net loan) and bridgeExitPct (Exit fee, 0-3%, starts 1%, paid when you repay, added to what you repay); interest now
+    compounds monthly. The starting 2% / 1% are the old Bridging calculator's own. Eight bridge rows now: net, interest,
+    months, arrangement, exit, legal, valuation, broker; My usual figures has both new ones (12 figures). Own money's bridge
+    part is arrangement + legal + valuation + broker ("Bridge arrangement, legal, valuation and broker fees"); own.totalIn
+    adds the rolled-up interest and the exit fee, so it still equals the calculator's total in. The answer tile's "You
+    repay" is gross + exit; the fold lists gross, exit fee, "You repay at the end", then the fees and the total cost.
+  On the test deal (125k price): net £93,750, interest £7,420.62, fees £4,425 upfront + £937.50 exit, cost £12,783.12,
+  gross £101,170.62, repay £102,108.12; the example deal's BTL then leaves £3,033 in (0/4 targets) instead of pulling money out.
 
 ## Maths audit (15 Oct 2026, Ashley: "check all the maths")
 - test-audit.js re-works the figures from first principles (its own tax slices and formulas, never calc.js's) over ~43,000
@@ -454,9 +465,9 @@ first restyle)
 - One fix from it: the price solvers (recycle, flip, payback) compared with a bare <=, so a price landing exactly on a whole
   pound could come out £1 low from floating-point rounding; they now allow 1e-6.
 - Things the maths deliberately does NOT include (Ashley's sheets, or the 1b design): interest on a purchase mortgage or
-  bridge while the works run beyond the bridge's own interest, selling costs on a flip, arrangement and exit fees on a bridge
-  (only legal, valuation and broker fees), compounding of rolled-up bridge interest (simple interest, as the 1b design says;
-  the old Bridging calculator compounded monthly), void periods during the works, tax on profit.
+  bridge while the works run beyond the bridge's own interest, selling costs on a flip,
+  void periods during the works, tax on profit. (Arrangement and exit fees and compounding bridge interest WERE on this
+  list; added the same day, see Bridging in one place.)
 
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
