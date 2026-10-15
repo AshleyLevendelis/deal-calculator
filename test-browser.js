@@ -11,7 +11,7 @@ const server = http.createServer((req, res) => { const f = path.join(__dirname, 
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(res); });
 let fails = 0; const ok = (n, c, x) => { console.log((c ? 'ok:   ' : 'FAIL: ') + n + (c ? '' : ' ' + (x || ''))); if (!c) fails++; };
 server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + server.address().port; const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', hasTouch: false });
-  await ctx.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); window.__buzz = 0; navigator.vibrate = () => { window.__buzz++; return true; }; });
+  await ctx.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); if (!sessionStorage.getItem('fm')) { sessionStorage.setItem('fm', '1'); localStorage.setItem('deal-analyser:fundMode', '"mortgage"'); } window.__buzz = 0; navigator.vibrate = () => { window.__buzz++; return true; }; });
   const p = await ctx.newPage(); const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(BASE + '/index.html#c/brr'); await p.waitForTimeout(300);
   for (const [id, v] of [['lg-endValue', 230000], ['lg-purchasePrice', 125000], ['lg-refurb', 30000], ['lg-legal', 1500]]) await p.fill('#' + id, String(v));
@@ -117,7 +117,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('2b: typing a 20% deposit makes the lender 80%, and the refinance follows (£184,000)', (await p.inputValue('#lg-ltv')) === '80' && (await p.textContent('.lk2b-amt .acc')) === '= £100,000 of the price' && (await p.textContent('.deal-card:has(#lg-endValue) .lg-sub')).includes('Lender pays 80% = £184,000'), [await p.inputValue('#lg-ltv'), await p.textContent('.lk2b-amt .acc'), await p.textContent('.deal-card:has(#lg-endValue) .lg-sub')].join('|'));
   await p.fill('#lg-ltv', '75'); await p.evaluate(() => document.activeElement.blur()); await p.waitForTimeout(60);
   ok('2b: back to 75 / 25', (await p.inputValue('#lg-depositPct')) === '25' && (await p.textContent('.fund11-total')) === '£85,500');
-  ok('1b: the switch reads Mortgage | Bridging', (await p.$$eval('.fund11 .lg-seg button', bs => bs.map(b => b.textContent).join('|'))) === 'Mortgage|Bridging');
+  ok('1b: the switch reads No funding | Mortgage | Bridging', (await p.$$eval('.fund11 .lg-seg button', bs => bs.map(b => b.textContent).join('|'))) === 'No funding|Mortgage|Bridging');
   await p.click('.lg-seg button:text-is("Bridging")'); await p.waitForTimeout(100);
   // Design 1b (14 Oct 2026) with Ashley's choices of 15 Oct: six figures; the net loan starts at 75% of the price
   const bIds = ['bridgeNet', 'bridgeRatePct', 'bridgeMonths', 'bridgeLegal', 'bridgeValuation', 'bridgeBroker'];
@@ -189,7 +189,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   ok('the chips agree with the score', (await p.locator('.vs-score').textContent()) === chips.filter(c => c[0] === '✓').length + '/4');
   ok('chip labels are never cut off', await p.evaluate(() => [...document.querySelectorAll('.vs-chip span:last-child')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
   await p.click('.exit-tile:has(.nm:text-is("Flip"))'); await p.waitForTimeout(80);
-  ok('it stays open when the exit changes (remembered), and a flip has one chip: 25% margin', await p.isVisible('.vs-chips') && (await p.locator('.vs-chip').allTextContents()).join() .endsWith('25% margin') && (await p.locator('.vs-chip').count()) === 1);
+  ok('it stays open when the exit changes (remembered), and a flip has one chip: 25% margin', await p.isVisible('.vs-chips') && /25% margin/.test((await p.locator('.vs-chip').allTextContents()).join()) && (await p.locator('.vs-chip').count()) === 1);
   await p.reload(); await p.waitForTimeout(300);
   ok('open or shut is remembered for the session', await p.isVisible('.vs-chips'));
   await p.click('.vs-row'); await p.waitForTimeout(50); ok('tapping again shuts it', !(await p.isVisible('.vs-chips')));
@@ -305,7 +305,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // ---- design 8a: Figures | Results under the exit tiles ----
   {
     const c2 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-    await c2.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    await c2.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); if (!sessionStorage.getItem('fm')) { sessionStorage.setItem('fm', '1'); localStorage.setItem('deal-analyser:fundMode', '"mortgage"'); } });
     const q = await c2.newPage(); q.on('pageerror', e => errs.push(e.message));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
     for (const [id, v] of [['lg-endValue', 230000], ['lg-purchasePrice', 125000], ['lg-refurb', 45000], ['lg-legal', 3000]]) await q.fill('#' + id, String(v));
@@ -339,7 +339,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('8a: ... with the switch just under the pinned panel', sw2.sw >= sw2.pin && sw2.sw - sw2.pin <= 16, JSON.stringify(sw2));
     await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(60);
     const c3 = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-    await c3.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); });
+    await c3.addInitScript(() => { localStorage.setItem('deal-analyser:onboarded', 'true'); if (!sessionStorage.getItem('fm')) { sessionStorage.setItem('fm', '1'); localStorage.setItem('deal-analyser:fundMode', '"mortgage"'); } });
     const r = await c3.newPage(); await r.goto(BASE + '/index.html#c/brr'); await r.waitForTimeout(300);
     ok('8a: a new session starts on Figures', (await r.$$eval('.lg-switch button', bs => bs.map(x => x.getAttribute('aria-pressed')).join())) === 'true,false');
     ok('8a: no sideways scroll in either view', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
@@ -469,7 +469,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // ---- Setup answers that count (design 10) ----
   {
     const fresh = async (seed) => { const c = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
-      await c.addInitScript(sd => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); Object.keys(sd).forEach(k => localStorage.setItem('deal-analyser:' + k, JSON.stringify(sd[k]))); }, seed || {});
+      await c.addInitScript(sd => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); Object.keys(Object.assign({ fundMode: 'mortgage' }, sd)).forEach(k => localStorage.setItem('deal-analyser:' + k, JSON.stringify(Object.assign({ fundMode: 'mortgage' }, sd)[k]))); }, seed || {});
       const q = await c.newPage(); q.on('pageerror', e => errs.push(e.message)); return { c, q }; };
     // the whole setup, as a sourcer who lets by the room
     let { c, q } = await fresh();
@@ -801,6 +801,35 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ({ c, q } = await fresh({ onboarded: true, persona: 'invest', pack: { look: 'classic', order: [], off: {}, hide: true, fee: 0, terms: '', prop: {}, client: '', note: '' } }));
     await q.goto(BASE + '/index.html#pack'); await q.waitForTimeout(300);
     ok('pack: not a sourcer: the deal pack is not there (address goes to the Calculator; no Deal pack buttons)', (await q.url()).endsWith('#calculators') && !(await q.locator('.pk12').count()));
+    await c.close();
+  }
+  // ---- No funding to start with (Ashley, 15 Oct 2026): the BRR results on their own; Mortgage or Bridging if wanted ----
+  {
+    const fresh2 = async (seed) => { const c = await b.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+      await c.addInitScript(sd => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); Object.keys(sd).forEach(k => localStorage.setItem('deal-analyser:' + k, JSON.stringify(sd[k]))); }, seed);
+      const q = await c.newPage(); q.on('pageerror', e => errs.push(e.message)); return { c, q }; };
+    let { c, q } = await fresh2({ onboarded: true, brrlet: 'btl', deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } });
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    ok('no funding: a new phone starts on No funding, selected, beside Mortgage and Bridging', (await q.$$eval('.fund11 .lg-seg button', bs => bs.map(b => b.textContent + ':' + b.getAttribute('aria-pressed')).join('|'))) === 'No funding:true|Mortgage:false|Bridging:false');
+    ok('no funding: no mortgage or bridge figures; only the share the lender pays at the REFINANCE (75% = £172,500)', !(await q.locator('#lg-depositPct').count()) && !(await q.locator('.b1-row').count()) && (await q.inputValue('#lg-ltv')) === '75' && (await q.textContent('.fund11 .lg-chip .amt')) === '= £172,500 refinance' && !(await q.locator('.lk2b').count()));
+    ok('no funding: your own money is the whole £162,750, no loan beside it, and it says so', (await q.textContent('.fund11-total')) === '£162,750' && !(await q.isVisible('.fund11-loan')) && (await q.textContent('.fund11-cap')) === 'Total to pay £162,750, all from you.');
+    ok('no funding: the mortgage payments block says there is no loan until the refinance (£719 after it)', (await q.$$eval('.fund11-mtile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ').trim()).join('|'))) === 'Until the refinance No loan You buy with your own cash until the refinance|After the refinance £719 /mo On £172,500 after the refinance');
+    ok('no funding: the answer is the BRR on its own: £9,750 pulled out, no bridging tag', /9,750/.test(await q.textContent('.pin')) && !(await q.isVisible('.pin-tag')));
+    await q.click('.lg-seg button:text-is("Mortgage")'); await q.waitForTimeout(100);
+    ok('choosing Mortgage brings the linked Lender pays / Deposit slider and a £69,000 own money with £93,750 borrowed; the results do not change', await q.isVisible('.lk2b') && (await q.textContent('.fund11-total')) === '£69,000' && (await q.textContent('.fund11-loanv')) === '£93,750' && /9,750/.test(await q.textContent('.pin')));
+    await q.reload(); await q.waitForTimeout(300);
+    ok('the choice is remembered', (await q.$eval('.fund11 .lg-seg button[aria-pressed=true]', e => e.textContent)) === 'Mortgage');
+    await q.click('.lg-seg button:text-is("No funding")'); await q.waitForTimeout(100);
+    await q.click('.exit-tile:has(.nm:text-is("Flip"))'); await q.waitForTimeout(100);
+    ok('no funding on a flip: nothing to ask under How you’ll pay (no tiles, no mortgage payments), just your own money', !(await q.locator('.fund11 .lg-chip, .fund11 .lk2b, .fund11-mort').count()) && (await q.textContent('.fund11-total')) === '£162,750');
+    await q.click('.lg-seg button:text-is("Bridging")'); await q.waitForTimeout(100);
+    ok('choosing Bridging shows the bridge figures; going back to No funding hides them', (await q.locator('.b1-row').count()) === 6);
+    await q.click('.lg-seg button:text-is("No funding")'); await q.waitForTimeout(100);
+    ok('... and the bridge cost leaves the answer', !(await q.locator('.b1-row').count()) && !(await q.isVisible('.pin-tag')));
+    await c.close();
+    ({ c, q } = await fresh2({ onboarded: true, brrBridge: true, deal: { endValue: 230000, purchasePrice: 125000, refurb: 30000, legal: 1500 } }));
+    await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
+    ok('a phone that already had bridging on keeps it', (await q.$eval('.fund11 .lg-seg button[aria-pressed=true]', e => e.textContent)) === 'Bridging');
     await c.close();
   }
   ok('no page errors', !errs.length, JSON.stringify(errs));

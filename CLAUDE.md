@@ -430,6 +430,19 @@ first restyle)
     recalculated at each price (tested: the flip price still lands on 25.0%). Reset puts an untyped bridge figure back
     to untyped (ledgerStart['typed:' + id]), so the net follows the price again. Other starting figures as the hand-off.
   - QUOTES SCREEN: removed completely (it is in the git history if ever wanted).
+  - NO FUNDING TO START WITH (Ashley, 15 Oct 2026: "see the BRR results without any funding, and just select that if
+    they want"): the How you'll pay switch is now No funding | Mortgage | Bridging and a new phone starts on No funding
+    (localStorage deal-analyser:fundMode 'cash' | 'mortgage' | 'bridge'; an older phone with deal-analyser:brrBridge on
+    keeps Bridging). Calc.ledger(deal, fund) takes 'cash' | 'mortgage' | 'bridge' (false = mortgage, true = bridge, so
+    old callers and tests are unchanged); L.fund says which. 'cash': depositPct is 100 (you pay the whole price), nothing
+    borrowed, own money = price + stamp duty + refurb + legal (+ furnishing / other); the BRR RESULTS (cash left, ROI,
+    monthly, flip profit) are identical to Mortgage, because a mortgage only changes who pays at the start. Calc.funding
+    gives loan kind 'cash' (no loan row, "Total to pay £X, all from you."). Screen with No funding: no linked slider and
+    no deposit; a let keeps ONE box, "Lender pays at the refinance" (the refinance share of the end value still decides
+    the BRR); a flip has nothing to ask and no mortgage payments block; the own-money total has no loan beside it; the
+    mortgage payments tile reads "No loan · You buy with your own cash until the refinance". Saved deals remember it
+    (d.fund; older ones: bridge or mortgage). test-browser.js seeds fundMode 'mortgage' for the older checks and has its
+    own No funding block.
   On the test deal (125k price): net £93,750, cost £9,721.88, gross £100,921.88; the example deal's BTL keeps 3/4 with it.
 
 ## Ashley's rules (all kept from the Deal Analyser)

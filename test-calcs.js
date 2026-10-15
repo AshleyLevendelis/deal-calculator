@@ -408,6 +408,13 @@ const B0 = Calc.bridgeOf({ bridgeNet: 0, bridgeRatePct: 0.85 });
 eq('bridge: a net loan of £0: no interest, no NaN, no cost % (the fees still count)', [B0.interest, B0.gross, B0.costPct, B0.cost].join() + '|' + JSON.stringify(Calc.ledger(Object.assign({ bridgeNet: 0 }, LD), true)).indexOf('NaN'), '0,0,,2550|-1');
 eq('Lender pays and Deposit are one figure on the main screen: the deposit is 100% less the lender\'s share', [Calc.ledger({ ltv: 80, depositPct: 40 }, false).ps.depositPct, Calc.ledger({ ltv: 80, depositPct: 40 }, false).exits.btl.state.depositPct, Calc.ledger({}, false).ps.depositPct].join(), '20,20,25');
 eq('... so a mortgage at 80% leaves a 20% deposit of the price (£25,000 on £125,000)', Calc.ledger(Object.assign({ ltv: 80 }, LD), false).exits.btl.own.deposit, 25000);
+// No funding (Ashley, 15 Oct 2026): the BRR results on their own, paid for with your own cash
+const Lc = Calc.ledger(LD, 'cash'), Lm = Calc.ledger(LD, 'mortgage');
+eq('no funding: you pay the whole price (£125,000 deposit, nothing borrowed) and the total is £179,250 (price + stamp duty + refurb + legal)', [Lc.exits.btl.own.deposit, Lc.exits.btl.own.mortgage, Lc.exits.btl.own.total, Lc.fund].join(), '125000,0,179250,cash');
+eq('no funding: the BRR results are the same as with a mortgage (a mortgage only changes who pays at the start)', ['cashLeft', 'roi', 'monthly', 'breakeven', 'totalIn'].every(k => Lc.exits.btl.v[k] === Lm.exits.btl.v[k]) && Lc.exits.none.v.profit === Lm.exits.none.v.profit, true);
+eq('no funding: your own money is higher than with a mortgage by exactly the loan (£93,750)', Lc.exits.btl.own.total - Lm.exits.btl.own.total, 93750);
+eq('no funding: no bridge cost; false still means mortgage and true still means bridge', [Lc.bridgeCost, String(Lc.bridge), Calc.ledger(LD, false).fund, Calc.ledger(LD, true).fund].join(), '0,null,mortgage,bridge');
+eq('no funding: the lender\'s refinance share (Lender pays) still matters: 80% refinances £184,000', Calc.ledger(Object.assign({ ltv: 80 }, LD), 'cash').exits.btl.v.newMortgage, 184000);
 eq('bridge: My usual figures sit under what is typed, examples under both', [Calc.bridgeOf(Calc.withUsual({}, { bridgeRatePct: 0.7 })).rate, Calc.bridgeOf(Calc.withUsual({ bridgeRatePct: 0.9 }, { bridgeRatePct: 0.7 })).rate, Calc.bridgeOf({ bridgeRatePct: '' }).rate].join(), '0.7,0.9,0.85');
 eq('bridge: the six figures, in screen order', Calc.BRIDGE_FIGS.map(f => f[0]).join(), 'bridgeNet,bridgeRatePct,bridgeMonths,bridgeLegal,bridgeValuation,bridgeBroker');
 // The flip, recycle and payback prices: while the net loan follows the price, the bridge's cost is worked out again at each price.

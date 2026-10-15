@@ -27,6 +27,8 @@ var F = Calc.funding(L, 'none');
 ok('mortgage: the rows are the price and every cost, adding up to the total to pay (£990,000)', F.rows.map(function (r) { return r[0]; }).join('|') === 'Purchase price|Stamp duty|Legal costs|Refurb costs' && near(F.total, 990000));
 ok('mortgage: the loan is the price less the 10% deposit (£652,090.50)', F.loan.kind === 'mortgage' && near(F.loan.amount, 652090.5));
 ok('mortgage: your own money is £337,909 = deposit + stamp duty + legal + refurb (the same as before)', near(F.own, 337909) && near(F.own, L.exits.none.own.total) && near(F.own + F.loan.amount, F.total));
+var Fc = Calc.funding(Calc.ledger(deal, 'cash'), 'none');
+ok('no funding: no loan; your own money is the whole £990,000 total to pay', Fc.loan.kind === 'cash' && Fc.loan.amount === 0 && near(Fc.total, 990000) && near(Fc.own, 990000) && Fc.over === 0 && !Fc.rows.some(function (r) { return /bridge/i.test(r[0]); }));
 var Fh = Calc.funding(L, 'hmo');
 ok('an HMO let adds its furnishing as a cost', !Fh.rows.some(function (r) { return r[0] === 'Furnishing'; }) === !(L.exits.hmo.own.furnishing > 0) && near(Fh.own, L.exits.hmo.own.total));
 var other = Calc.funding(Calc.ledger(Object.assign({ otherUpfront: 1000 }, deal), false), 'none');

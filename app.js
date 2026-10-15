@@ -168,7 +168,15 @@
   // detail folded into cards, and a plain-words verdict docked above the buttons. Every number comes from
   // Calc.ledger; this file only draws it. The DOM is built once and refreshLedger() updates figures in place, so a slider
   // being dragged or a number being typed is never rebuilt under the finger.
-  var BRIDGE_KEY = 'deal-analyser:brrBridge', bridgeOn = !!load(BRIDGE_KEY, false), ledgerStart = null, holdT = null, holdI = null;
+  // How it is paid for (Ashley, 15 Oct 2026): no funding to start with, so the BRR results show on their own; Mortgage or
+  // Bridging is chosen if wanted. An older phone that had bridging on keeps it.
+  var BRIDGE_KEY = 'deal-analyser:brrBridge', FUND_KEY2 = 'deal-analyser:fundMode', ledgerStart = null, holdT = null, holdI = null;
+  var fundMode = load(FUND_KEY2, null); if (fundMode !== 'cash' && fundMode !== 'mortgage' && fundMode !== 'bridge') fundMode = load(BRIDGE_KEY, false) ? 'bridge' : 'cash';
+  var bridgeOn = fundMode === 'bridge';
+  function setFund(m) { fundMode = m; bridgeOn = m === 'bridge'; store(FUND_KEY2, m); }
+  function fundFromDeal(d) {                                         // a saved deal remembers how it was paid for (older ones: mortgage or bridge)
+    if (d.fund === 'cash' || d.fund === 'mortgage' || d.fund === 'bridge') setFund(d.fund); else if (typeof d.bridge === 'boolean') setFund(d.bridge ? 'bridge' : 'mortgage');
+  }
   var DEAL_ORDER = ['endValue', 'refurb', 'legal', 'otherUpfront', 'purchasePrice'];   // design 7a
   var DEAL_ROWS = {
     endValue: { range: [80000, 400000], levels: [1000, 200, 50], nudge: 1000, grow: 10000 },
@@ -200,7 +208,7 @@
   function refreshLedger() {
     if (nodes.r2r) { refreshR2R(); return; }
     if (!nodes.ledger) return;
-    var L = Calc.ledger(eff(deal), bridgeOn), X = L.exits[brrLet] || L.exits.none;
+    var L = Calc.ledger(eff(deal), fundMode), X = L.exits[brrLet] || L.exits.none;
     nodes.ledger.forEach(function (f) { f(L, X); });
   }
 
@@ -408,7 +416,7 @@
   function renderLedger(box) {
     var R = []; nodes.ledger = R; folds = [];
     var exit = Calc.BRR_LETTING.hasOwnProperty(brrLet) ? brrLet : 'none', isLet = exit !== 'none';
-    var L0 = Calc.ledger(eff(deal), bridgeOn);
+    var L0 = Calc.ledger(eff(deal), fundMode);
     current = Calc.find(L0.exits[exit].calcId);
     if (!ledgerStart) { ledgerStart = {}; DEAL_ORDER.forEach(function (id) { ledgerStart[id] = num(L0.ps[id]); }); var bf0 = Calc.bridgeFigures(eff(deal)); BRIDGE_IDS.forEach(function (id) { ledgerStart[id] = bf0[id]; ledgerStart['typed:' + id] = Object.prototype.hasOwnProperty.call(deal, id); }); }
     var cur = function (id) { return num(Calc.stateFor(FLIP_CALC, eff(deal))[id]); };
@@ -568,7 +576,16 @@
     };
     var linkEx = function () { return !isTyped('ltv') && !isTyped('depositPct'); };
     var chips;
-    if (isLet) {
+    if (fundMode === 'cash') {
+      // No funding: you buy with your own cash. A let still needs the share the lender pays at the REFINANCE; a flip has nothing to ask.
+      if (isLet) {
+        chips = h('div', 'lg-chips one');
+        var cchip = h('div', 'lg-chip'), camt = h('div', 'amt'), cw = h('div', 'pct'), clab = h('label', '', 'Lender pays at the refinance'); clab.setAttribute('for', 'lg-ltv');
+        var cinp = numBox({ id: 'lg-ltv', decimal: true, label: 'Lender pays percent', get: ltvNow, show: function (v) { return String(v); }, set: function (v) { if (v !== '') setFig('ltv', v); }, example: function () { return !isTyped('ltv'); } });
+        cw.appendChild(cinp); cw.appendChild(h('span', '', '%')); cchip.appendChild(clab); cchip.appendChild(cw); cchip.appendChild(camt); chips.appendChild(cchip);
+        R.push(function (L) { cinp._sync(); camt.textContent = '= ' + money(num(L.ps.endValue) * L.ltv / 100) + ' refinance'; });
+      }
+    } else if (isLet) {
       chips = h('div', 'lk2b');
       var lkTop = h('div', 'lk2b-top'), lkAmt = h('div', 'lk2b-amt');
       var side = function (id, label, cls, get, set) {
@@ -601,7 +618,7 @@
     // after it: on the refinance, the same figure the lets already take off the monthly profit. Shows only, no new maths.
     var mortSlot = h('div', 'fund11-mort'), letOf = function (L) { return brrLet !== 'none' && L.exits[brrLet] ? L.exits[brrLet] : L.exits.btl; };
     var mh = h('div', 'fund11-mh'), mr = h('span', 'fund11-rate'), rLab = h('label', '', 'Interest-only at'); rLab.setAttribute('for', 'lg-mortRate11');
-    var rateBox = numBox({ id: 'lg-mortRate11', decimal: true, label: 'Mortgage rate percent', get: function () { return letOf(Calc.ledger(eff(deal), bridgeOn)).state.mortgageRate; }, show: function (v) { return String(v); },
+    var rateBox = numBox({ id: 'lg-mortRate11', decimal: true, label: 'Mortgage rate percent', get: function () { return letOf(Calc.ledger(eff(deal), fundMode)).state.mortgageRate; }, show: function (v) { return String(v); },
       set: function (v) { setFig('mortgageRate', v); }, example: function () { return !isTyped('mortgageRate'); } });
     mr.appendChild(rLab); mr.appendChild(rateBox); mr.appendChild(h('span', '', '%'));
     mh.appendChild(h('span', 'fund11-l', 'Mortgage payments')); mh.appendChild(mr); mortSlot.appendChild(mh);
@@ -614,12 +631,13 @@
     R.push(function (L, X) {
       var E = letOf(L), rate = num(E.state.mortgageRate), loan0 = X.own.mortgage, refi = num(E.v.newMortgage);
       rateBox._sync();
-      if (bridgeOn) { mNow.v.textContent = 'Bridge instead'; mNow.s.textContent = 'Bridge interest is in its cost above'; }
+      if (fundMode === 'cash') { mNow.v.textContent = 'No loan'; mNow.s.textContent = 'You buy with your own cash until the refinance'; }
+      else if (bridgeOn) { mNow.v.textContent = 'Bridge instead'; mNow.s.textContent = 'Bridge interest is in its cost above'; }
       else { perMonth(mNow.v, ioMonth(loan0, rate)); mNow.s.textContent = 'On ' + money(loan0) + ' borrowed at purchase'; }
       perMonth(mAfter.v, ioMonth(refi, rate)); mAfter.s.textContent = 'On ' + money(refi) + ' after the refinance';
       mYear.textContent = money(ioMonth(refi, rate) * 12) + ' a year after the refinance. Already taken off your monthly profit.';
     });
-    fund.appendChild(swSlot); if (!bridgeOn) fund.appendChild(chips); fund.appendChild(bridgeSlot); fund.appendChild(mortSlot); fund.appendChild(ownSlot);
+    fund.appendChild(swSlot); if (chips && !bridgeOn) fund.appendChild(chips); fund.appendChild(bridgeSlot); if (!(fundMode === 'cash' && !isLet)) fund.appendChild(mortSlot); fund.appendChild(ownSlot);
     // Your own money in: the total, a stacked bar (one colour per kind of cost, zero costs left out), a Breakdown that
     // lists the same rows (open or shut kept for the session) and the caption.
     // 11 Oct 2026 (Ashley: "exactly what I would pay from my money and what I would have to borrow"): your own money and
@@ -634,7 +652,7 @@
     drawOpen();
     R.push(function (L) {
       var F = Calc.funding(L, exit), share = F.own + F.loan.amount || 1;
-      oTot.textContent = money(F.own); lnLab.textContent = F.loan.kind === 'bridge' ? 'Bridging loan' : 'Mortgage'; lnVal.textContent = money(F.loan.amount);
+      oTot.textContent = money(F.own); lnLab.textContent = F.loan.kind === 'bridge' ? 'Bridging loan' : 'Mortgage'; lnVal.textContent = money(F.loan.amount); lnBox.style.display = F.loan.kind === 'cash' ? 'none' : '';
       oBar.innerHTML = '';
       if (L.bridge) {                                                  // design 1b: what your own money pays for, part by part
         var own = L.exits[exit].own, parts = Calc.ownParts(own);
@@ -680,7 +698,7 @@
     if (isLet) box.appendChild(h('p', 'lg-h', 'More detail'));
     if (isLet) {
       var lf = fold('let', exitName + ' figures'), EC = Calc.find(Calc.BRR_LETTING[exit]), shown = [];
-      var val = function (id) { return Calc.ledger(eff(deal), bridgeOn).exits[exit].state[id]; };
+      var val = function (id) { return Calc.ledger(eff(deal), fundMode).exits[exit].state[id]; };
       Calc.simplePlan('brr', exit).rental.forEach(function (id) {
         var f = fieldDef(EC, id); if (!f) return;
         shown.push(f);
@@ -708,9 +726,9 @@
     var back = h('button', 'lg-back', '← Change the figures'); back.type = 'button'; back.onclick = function () { setView('figures', true); }; resView.appendChild(back);
     var pf = { body: bridgeSlot };                                    // the bridge figures sit in the How you'll pay card
     var seg = h('div', 'segmented lg-seg');
-    [[false, 'Mortgage'], [true, 'Bridging']].forEach(function (m) {
-      var b = h('button', '', m[1]); b.type = 'button'; b.setAttribute('aria-pressed', bridgeOn === m[0]);
-      b.onclick = function () { if (bridgeOn === m[0]) return; bridgeOn = m[0]; store(BRIDGE_KEY, bridgeOn); renderCalculator(); };
+    [['cash', 'No funding'], ['mortgage', 'Mortgage'], ['bridge', 'Bridging']].forEach(function (m) {
+      var b = h('button', '', m[1]); b.type = 'button'; b.setAttribute('aria-pressed', fundMode === m[0]);
+      b.onclick = function () { if (fundMode === m[0]) return; setFund(m[0]); renderCalculator(); };
       seg.appendChild(b);
     });
     swSlot.appendChild(seg);
@@ -1142,7 +1160,7 @@
   }
   function saveDeal() {
     var name = prompt('Name this deal (e.g. the address)'); if (!name) return;
-    var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, letting: brrLet, bridge: bridgeOn, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
+    var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, letting: brrLet, bridge: bridgeOn, fund: fundMode, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
     if (clientReportsOn()) { savedNext(list[0]); return; }
     alert('Saved. Find it under Saved.');
   }
@@ -1172,7 +1190,7 @@
   var savedAs = '';                               // '' = each deal through the calculator it was saved from
   function openDeal(d, calcId) {
     deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null;
-    if (typeof d.bridge === 'boolean') { bridgeOn = d.bridge; store(BRIDGE_KEY, bridgeOn); }
+    fundFromDeal(d);
     if (d.view === 'flip' || d.view === 'brr') { setLet(d.view === 'brr' && d.letting ? d.letting : 'none'); location.hash = '#c/brr'; }
     else if (calcId === 'flip') { setLet('none'); location.hash = '#c/brr'; }     // saved before the screens merged: the basics show both flip and refinance
     else goCalc(calcId);
@@ -1830,14 +1848,14 @@
   }
   var Pack = PackUI({ h: h, load: load, store: store, money: money, goBack: goBack, redraw: redraw, openSheet: openSheet, sheetHead: sheetHead, closeSettings: closeSettings,
     getDeals: getDeals, saveDeals: function (list) { store(DEALS, list); }, targets: function () { return Calc.targets(); },
-    ledger: function () { return Calc.ledger(eff(deal), bridgeOn); }, currentLet: function () { return brrLet; },
+    ledger: function () { return Calc.ledger(eff(deal), fundMode); }, currentLet: function () { return brrLet; },
     calcOf: function (id) { var c = Calc.find(id), s = Calc.stateFor(c, eff(deal)); return { v: c.compute(s).v, s: s }; },
     openStrategy: function (st) {                                       // "Edit in calculator ›": the screen the deal was saved from
       var to = st.kind === 'flip' || st.kind === 'brr' ? '#c/brr' : '#c/' + st.calc;
       if (to === '#c/brr') setLet(st.kind === 'flip' ? 'none' : st.exit);
       if (location.hash === to) route(); else location.hash = to;
     },
-    loadDeal: function (d) { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; if (typeof d.bridge === 'boolean') { bridgeOn = d.bridge; store(BRIDGE_KEY, bridgeOn); } } });
+    loadDeal: function (d) { deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null; fundFromDeal(d); } });
   $('back').onclick = goBack;
   $('t-home').onclick = function () { location.hash = '#calculators'; };
   $('t-saved').onclick = function () { location.hash = '#saved'; };

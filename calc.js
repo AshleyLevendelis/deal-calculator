@@ -639,11 +639,15 @@
   // deal: the figures as typed, already layered with the usual figures. bridgeOn: is a bridging loan paying for it.
   // Returns { ps, ltv, bridgeCost, bridge, exits: { none, btl, hmo, sa } }; each exit is
   //   { exit, calcId, state, v, furnishing, recyclePrice, own: { deposit, sdlt, legal, refurb, other, furnishing, bridge, total, mortgage, totalIn } }.
-  function ledger(deal, bridgeOn) {
+  // fund: how the purchase is paid for. 'cash' (no funding: the BRR results on their own, you pay the whole price), 'mortgage'
+  // (also false) or 'bridge' (also true). The app starts on 'cash' (Ashley, 15 Oct 2026): funding is something you choose.
+  function ledger(deal, fund) {
+    var mode = fund === true || fund === 'bridge' ? 'bridge' : fund === 'cash' ? 'cash' : 'mortgage', bridgeOn = mode === 'bridge';
     // Lender pays and Deposit are one slider (design 2b; Ashley, 15 Oct 2026): the lender lends the same share of the price
-    // at the start as of the end value at the refinance, so the deposit is always 100% less the lender's share.
+    // at the start as of the end value at the refinance, so the deposit is always 100% less the lender's share. With no
+    // funding there is no deposit to link: the whole price is yours.
     var fc = find('flip');
-    deal = Object.assign({}, deal, { depositPct: 100 - n(stateFor(fc, deal || {}).ltv) });
+    deal = Object.assign({}, deal, { depositPct: mode === 'cash' ? 100 : 100 - n(stateFor(fc, deal || {}).ltv) });
     var ps = stateFor(fc, deal), pv = fc.compute(ps).v;
     var bridge = bridgeOn ? bridgeOf(deal) : null, cost = bridge ? bridge.cost : 0;
     // The most you can pay for a budget that the price, its stamp duty and the bridge's cost must fit in. While the net loan
@@ -693,7 +697,7 @@
         own: { deposit: dep, sdlt: sdlt, legal: legal, refurb: refurb, other: other, furnishing: furn, bridge: bridge ? bridge.upfront : 0, interest: rolled,
           total: total, mortgage: borrowed, totalIn: total + borrowed + rolled } };
     }
-    return { ps: ps, ltv: ltv, bridgeCost: cost, bridge: bridge, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
+    return { ps: ps, ltv: ltv, fund: mode, bridgeCost: cost, bridge: bridge, exits: { none: exitOf('none'), btl: exitOf('btl'), hmo: exitOf('hmo'), sa: exitOf('sa') } };
   }
 
   // Is a listing an auction? Traditional and modern-method auctions both count, and so does anything with an auction date.
@@ -794,7 +798,8 @@
       var b = L.bridge;
       [['Bridge legal fees', b.legal], ['Bridge valuation fee', b.valuation], ['Bridge broker fee', b.broker]].forEach(function (r) { if (r[1] > 0) rows.push(r); });
       loan = { kind: 'bridge', label: 'Bridging loan', amount: b.net, gross: b.gross, fees: b.upfront, interest: b.interest, repay: b.gross };
-    } else loan = { kind: 'mortgage', label: 'Mortgage', amount: Math.max(0, P0 - n(o.deposit)), gross: Math.max(0, P0 - n(o.deposit)), fees: 0, repay: null };
+    } else if (L.fund === 'cash') loan = { kind: 'cash', label: 'No loan', amount: 0, gross: 0, fees: 0, repay: null };
+    else loan = { kind: 'mortgage', label: 'Mortgage', amount: Math.max(0, P0 - n(o.deposit)), gross: Math.max(0, P0 - n(o.deposit)), fees: 0, repay: null };
     var total = rows.reduce(function (t, r) { return t + r[1]; }, 0), own = total - loan.amount;
     return { rows: rows, total: total, loan: loan, own: Math.max(0, own), over: Math.max(0, -own) };
   }
