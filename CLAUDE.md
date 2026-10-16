@@ -469,6 +469,28 @@ first restyle)
   void periods during the works, tax on profit. (Arrangement and exit fees and compounding bridge interest WERE on this
   list; added the same day, see Bridging in one place.)
 
+## One style for the whole app (restyle, 15-16 Oct 2026, hand-off design_handoff_restyle)
+- Every old-style screen (warm paper, serif figures, outlined cards, uppercase eyebrows) now uses the calculator's parts. The BRR
+  calculator screen itself did not change. README names map here as: slider6 = scrubber(), f6 / n6 = the .rent-row figure row
+  (numBox + nudge + scrubber + sub line), p6 = .pin, picker = segPicker(opts, value, onPick, {cls,label}) (.segmented.s6, scrolls
+  sideways past 4 options), fold = fold(). The accent stays --mint (the README's --acc). Extra tokens --part-blue/pink/tan/coral.
+- Type and chrome: header 62px with a 36px back / gear circle and a 700 17px title (Compare says "Compare", everything else "BRR
+  Calculator"); page titles .pg-title / .pg-lede; tab bar and sticky-bar are card-coloured with 24px top corners; buttons
+  .primary / .sec; the serif font is gone from the app (index.html). Instrument Serif stays only for the client link page p.html
+  (its Editorial look), so fonts/ and the sw precache keep it.
+- Saved deals (4b): .d6 cards (28px round tick label.chk, name + "calc . when", result in its verdict colour, dashed row with
+  note / Deal pack (sourcers) / 32px delete). Compare is the bottom bar: "Compare N deals" or a disabled "Tick 2 or more to compare".
+- Compare saved deals (4c): .c6 cards (rank circle, ROI 30px, three stats: Monthly profit, Money in, Left in or Breakeven; Annual
+  profit dropped), controls card with two segPickers (Run every deal as, Rank by), Download PDF as a .sec button (.c6-pdf).
+- Other calculators (4e: Max price, BTL, HMO BTL, SA BTL): a pinned .pin panel (title, Save, a segPicker over every strategy
+  (.pin-seg), the answer in .pin-fig), "How X does" stat card, "Your figures" cards where every figure is buildField = the one slider
+  (ranges: DEAL_ROWS money windows, RENT_RANGE for the rest, with insurance / depositPct / ltv added; unknown ids use 3x their
+  example), a "How it adds up" fold (Max price: its sum), "Test an offer", and Max price's bottom bar ("Use as my offer" only; Save
+  is in the panel, so the other calculators have no bar). ledgerRow now draws .lg-stat rows. These screens set body.ledger.
+- Skipped on purpose: 4d (a deal's detail page: the deal feed is not in this app) and the old client report (removed earlier).
+  Usual figures, the deal pack builder, Setup and Settings were already on these parts.
+- Old CSS deleted (.deal, .cmp, .fig-card, .result-card, .strat-pill(s), .pills, .working, .eyebrow.sect, .hero-fig ...).
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
   named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).

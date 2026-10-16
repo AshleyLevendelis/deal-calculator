@@ -12,8 +12,6 @@
 <style>
 /* ---- Fonts: self-hosted so the app still works offline (see sw.js) ---- */
 @font-face{font-family:'Geist';src:url('fonts/Geist-Variable.woff2') format('woff2');font-weight:400 700;font-style:normal;font-display:swap}
-@font-face{font-family:'Instrument Serif';src:url('fonts/InstrumentSerif-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:'Instrument Serif';src:url('fonts/InstrumentSerif-Italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap}
 
 /* ---- Design tokens: "Ledger" revamp — warm paper/ink, light + dark + system ---- */
 :root{
@@ -25,7 +23,6 @@
   --good:var(--mint);--goodInk:var(--mintInk);--shadow:rgba(33,28,24,.14);
   --part-blue:#9db8f2;--part-pink:#e8a1c4;--part-tan:#c9b48a;--part-coral:#ff9f7a;
   --font-ui:'Geist',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  --font-serif:'Instrument Serif',Georgia,serif;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
@@ -46,7 +43,6 @@
 *{box-sizing:border-box}
 button{font-family:var(--font-ui);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:10px;cursor:pointer}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--font-ui)}
-body.has-sum{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
 body.has-bar{padding-bottom:calc(170px + env(safe-area-inset-bottom))}
 body.has-tabs{padding-bottom:calc(94px + env(safe-area-inset-bottom))}
 body.locked{overflow:hidden}
@@ -84,9 +80,6 @@ main{padding:0 16px;max-width:560px;margin:0 auto}
 section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px 6px;margin:0 0 12px}
 h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:0 0 6px;font-weight:600}
 h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:22px 0 10px;font-weight:500}
-.group-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:0 0 6px}
-.group-head h2{margin:0}
-.group-head .cnt{font-size:12px;color:var(--faint);background:none;border:0;padding:0;white-space:nowrap}
 
 /* ---- Fields ---- */
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px dashed var(--dash)}
@@ -96,7 +89,6 @@ h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fain
 .f{position:relative;width:128px;flex:0 0 auto;display:flex;align-items:baseline;justify-content:flex-end;gap:3px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
 .f input{width:100%;min-width:0;border:0;background:none;color:var(--ink);padding:0;font:15px var(--font-ui);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
 .f span{color:var(--faint);font-size:13px;flex-shrink:0}
-.f input.ex{color:var(--faint);font-style:italic;font-family:var(--font-serif);font-size:18px;font-weight:400}
 .calc{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px dashed var(--dash);font-size:14px;color:var(--mute)}
 .calc:first-of-type{border-top:0}
 .calc b{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:15px;font-weight:600;color:var(--ink)}
@@ -106,16 +98,6 @@ h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--fain
 details summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600;list-style:none}
 details summary::-webkit-details-marker{display:none}
 .note{color:var(--mute);font-size:12px;margin:4px 0 0}
-
-/* ---- "e.g." example banner ---- */
-.eg{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 14px}
-.eg .tag{font:italic 15px var(--font-serif);color:var(--faint);flex-shrink:0;width:30px;height:30px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center}
-.eg p{margin:0;font-size:13px;line-height:1.5;color:var(--mute)}
-.eg b{color:var(--ink);font-weight:600}
-
-.intro{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:0 0 12px;font-size:14px}
-.intro b{display:block;margin-bottom:2px}
-.tip{color:var(--mute);font-size:13px;margin:0 0 12px}
 .chips{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap}
 .chips button{flex:1;min-height:44px;min-width:88px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:999px;font:600 13px var(--font-ui)}
 .chips button[aria-pressed=true]{background:var(--mint);color:var(--mintInk);border-color:var(--mint)}
@@ -160,32 +142,18 @@ details summary::-webkit-details-marker{display:none}
 
 /* ---- Calculator cards on the Calculators list ---- */
 .cc{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:14px 16px;margin:0 0 10px;font:inherit;position:relative}
-.cc .suggested{position:absolute;top:12px;right:12px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mint);background:var(--mintBg);border-radius:999px;padding:3px 9px}
-.cc h3.cc-title{font:400 21px var(--font-serif);margin:0 0 3px;color:var(--ink);text-transform:none;letter-spacing:0;line-height:1.1}
 .cc p{margin:0 0 12px;color:var(--mute);font-size:12.5px;line-height:1.35}
 .cc hr{border:0;border-top:1px dashed var(--dash);margin:0 0 12px}
-.cc .cc-cap{font-size:11px;color:var(--faint)}
-.cc .cc-row{display:flex;align-items:flex-end;justify-content:space-between;margin-top:4px;gap:8px}
-.cc .cc-val{font:400 28px/1 var(--font-serif)}
-.cc .cc-count{color:var(--faint);font-size:11px;white-space:nowrap}
 
 .verdict-chip{font:700 11px var(--font-ui);border-radius:999px;padding:4px 10px;white-space:nowrap;flex-shrink:0}
 .verdict-chip.PURSUE{background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good)}
 .verdict-chip.WATCH{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--amber)}
 .verdict-chip.REJECT{background:color-mix(in srgb,var(--red) 13%,transparent);color:var(--red)}
-.vc-top{display:flex;justify-content:space-between;align-items:center}
-.vc-top .faint{font-size:12px;color:var(--faint)}
-.hero-fig{font:400 52px/1 var(--font-serif);margin:16px 0 4px}
-.vc-cap{font-size:13px;color:var(--mute);margin:0 0 14px}
 .calc.total{border-top:1px solid var(--line);color:var(--ink)}
 .calc.total>span{font-weight:600;color:var(--ink)}
 .calc.total b{font-weight:700}
 .text-link{display:block;margin:0 0 6px;border:0;background:none;padding:6px 0;min-height:44px;color:var(--mint);font:600 13px var(--font-ui);text-align:left}
-.eyebrow.sect{margin:22px 0 10px}
 .note-input{display:block;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);padding:10px 12px;font:400 15px/1.4 var(--font-ui);resize:vertical;margin:0 0 8px}
-.note-row{margin:-6px 0 12px;padding:0 4px}
-.note-btn{display:block;width:100%;text-align:left;border:0;background:none;padding:4px 0;min-height:0;color:var(--faint);font:500 13px var(--font-ui);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.note-btn.has{color:var(--mute);font-style:italic}
 .ro-val{flex:none;min-width:120px;text-align:right;padding:10px 14px;border:1px dashed var(--line);border-radius:12px;font:600 16px var(--font-ui);color:var(--ink);font-variant-numeric:tabular-nums}
 /* ---- Live ledger (Calculator primary screen, design 6c "Verdict docked") ---- */
 /* Geist only on this screen; figures are bold with tight letter-spacing. Colours come from the tokens: accent = controls
@@ -325,16 +293,9 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .ab10-q+.ab10-q{border-top:1px dashed var(--dash);padding-top:12px;margin-top:12px}
 .ab10-l{font:600 12.5px var(--font-ui);color:var(--mute);margin:0 2px 6px}
 .ab10-seg{display:grid;gap:4px;padding:3px;border:1px solid var(--line);border-radius:16px}
-.ab10-seg.n3{grid-template-columns:repeat(3,minmax(0,1fr))}.ab10-seg.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .ab10-seg button{min-width:0;min-height:44px;border:0;border-radius:13px;padding:4px;background:none;color:var(--mute);font:600 12px/1.2 var(--font-ui)}
 .ab10-seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
 .ab10-n{font-size:11.5px;line-height:1.4;color:var(--faint);margin:6px 2px 0}
-.br10{padding:12px 16px 14px}
-.br10-l{display:block;font:600 12.5px var(--font-ui);color:var(--mute);margin:0 0 6px}
-.br10-in{width:100%;min-height:44px;border:0;border-bottom:2px dashed var(--line);border-radius:0;background:none;color:var(--ink);font:700 18px var(--font-ui);padding:0}
-.note-row:has(.rep10){display:flex;align-items:center;gap:10px}
-.note-row:has(.rep10) .note-btn{flex:1;min-width:0}
-.note-row .note-btn.rep10{flex:none;width:auto;min-height:44px;padding:0 14px;border:1.5px solid var(--line);border-radius:999px;color:var(--mint);font:700 12.5px var(--font-ui);display:inline-flex;align-items:center}
 /* How you'll pay (design 11a, 7 Oct 2026): one card, tiles and bridge figures on the page colour */
 .fund11{padding:12px;display:flex;flex-direction:column;gap:10px}
 .fund11 .lg-seg{margin:0}
@@ -389,13 +350,11 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .fund11-btn::after{content:"";position:absolute;inset:-4px -2px}
 .fund11-bar{display:flex;gap:2px;height:12px;padding:2px;margin-top:10px;border-radius:999px;background:var(--bg);overflow:hidden}
 .fund11-seg{display:block;height:100%;border-radius:999px;min-width:3px}
-.k-deposit{background:var(--mint)}.k-sdlt{background:var(--amber)}.k-legal{background:var(--part-blue)}.k-refurb{background:var(--part-pink)}.k-furnishing{background:var(--part-tan)}.k-other{background:var(--part-coral)}.k-bridge{background:var(--mute)}
 .fund11-rows{margin-top:6px}.fund11-rows[hidden]{display:none}
 .fund11-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--dash);font-size:13px;color:var(--mute)}
 .fund11-row:first-child{border-top:0}
 .fund11-row span{flex:1;min-width:0}
 .fund11-row b{font:700 14px var(--font-ui);color:var(--ink)}
-.fund11-sq{flex:none;width:10px;height:10px;border-radius:3px}
 .fund11-cap{font-size:11.5px;line-height:1.4;color:var(--faint);margin-top:8px}
 /* rent to rent (design 7b / 8b) */
 .pin-back{position:relative;display:flex;align-items:center;gap:6px;min-height:28px;padding:0;border:0;background:none;color:var(--ink)}
@@ -425,6 +384,7 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .fund11-oh{align-items:flex-end}
 .fund11-loan{text-align:right;min-width:0}
 .fund11-loanv{display:block;font:700 20px/1.1 var(--font-ui);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--part-blue);margin-top:2px}
+.k-deposit{background:var(--mint)}.k-sdlt{background:var(--amber)}.k-legal{background:var(--part-blue)}.k-refurb{background:var(--part-pink)}.k-furnishing{background:var(--part-tan)}.k-other{background:var(--part-coral)}.k-bridge{background:var(--mute)}
 .fund11-seg.k-own{background:var(--mint)}.fund11-seg.k-loan{background:var(--part-blue)}
 .fund11-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
 .fund11-foot .fund11-cap{flex:1;margin:0}
@@ -444,7 +404,6 @@ body.ledger #v-home .faint{color:var(--faint)}body.ledger #v-home .good{color:va
 .hb-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
 .hb-mt{margin:12px 0 4px}
 .hb-bd{padding:6px 16px 12px}
-.ab10-seg.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .fund11-note{margin:6px 0 0;font-size:11.5px;line-height:1.45;color:var(--faint)}
 .r2r-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px}
 .r2r-tile{min-height:70px;padding:10px 6px}body.ledger #v-home .r2r-tile.on,.r2r-tile.on{border-color:var(--mint)}
@@ -532,8 +491,6 @@ input.big-num.ex,.rent-in input.ex,.lg-chip input.ex{color:var(--faint);font-sty
 .lg-link{border:0;background:none;padding:0;min-height:44px;color:var(--mint);font:600 12.5px var(--font-ui)}
 .lg-seg{margin:12px 0 0}
 .lg-seg button{min-height:44px}
-.lg-fold .pills button{min-height:44px}
-.lg-fold .pills button[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:var(--mintInk)}
 .rent-row{padding:12px 0 4px;border-top:1px dashed var(--dash)}
 .rent-row:first-child{border-top:0}
 .rent-l1{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -603,20 +560,6 @@ body.ledger #v-home .vs-mark{color:var(--bg)}
 .bs-date{font-size:11.5px;color:var(--faint);margin-top:4px}
 .bs-h{font:700 14px var(--font-ui);color:var(--ink);margin:14px 0 4px;text-transform:none;letter-spacing:0}
 .bs-p{font-size:12.5px;line-height:1.5;color:var(--mute);margin:0}
-.select-row{flex-direction:column;align-items:stretch;gap:8px}
-.select-row select{flex:none;width:100%;max-width:none;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:0 10px;font:500 15px var(--font-ui)}
-.strat-pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 8px}
-.strat-pill.more{border-style:dashed;color:var(--faint)}
-.strat-help{font-size:13px;color:var(--mute);line-height:1.45;margin:0 0 14px}
-.pill-strip{display:flex;gap:8px;overflow-x:auto;margin:0 -20px 14px;padding:0 20px 2px;scrollbar-width:none}
-.pill-strip::-webkit-scrollbar{display:none}
-.strat-pill{flex:none;height:38px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--mute);font:500 14px var(--font-ui);min-height:0}
-.strat-pill[aria-pressed=true]{background:var(--mint);border-color:var(--mint);color:var(--mintInk);font-weight:600}
-.result-card{padding:16px 16px 6px;margin:0 0 6px;border:1px solid var(--line);border-radius:18px;background:var(--card)}
-.rc-desc{font-size:13px;color:var(--mute)}
-.rc-line{font-size:13px;color:var(--mute);margin:0 0 10px;line-height:1.45}
-.fig-card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:6px 16px 10px;margin:0 0 12px}
-.fig-card h2{font:600 13px var(--font-ui);color:var(--mute);margin:12px 0 4px}
 .fig-note{margin:4px 0 10px}
 .working{margin:6px 0 14px}
 .working summary{cursor:pointer;padding:10px 0;color:var(--mint);font:600 14px var(--font-ui)}
@@ -627,7 +570,6 @@ body.ledger #v-home .vs-mark{color:var(--bg)}
 
 /* ---- Verdict panel (bottom of a calculator) ---- */
 .verdict{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 6px;margin:16px 0}
-.verdict .num{font:400 52px/1 var(--font-serif);font-variant-numeric:tabular-nums;margin-bottom:4px}
 .verdict .num.good{color:var(--mint)}.verdict .num.bad{color:var(--red)}
 .verdict .cap{color:var(--mute);font-size:13px;margin-bottom:14px}
 .verdict p{margin:0 0 14px;font-size:14px;line-height:1.5;color:var(--mute);border-top:1px dashed var(--dash);padding-top:12px}
@@ -646,7 +588,6 @@ body.ledger #v-home .vs-mark{color:var(--bg)}
 button.primary{background:var(--mint);color:var(--mintInk);border:1.5px solid var(--mint);border-radius:999px;font:600 15px var(--font-ui);min-height:48px}
 button.primary:disabled{background:var(--line);border-color:var(--line);color:var(--faint);opacity:1}
 button.sec{background:var(--bg);color:var(--ink);border:1.5px solid var(--line);border-radius:999px;font:600 15px var(--font-ui);min-height:48px}
-.btn-sec{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border-radius:999px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:600 15px var(--font-ui)}
 .pick{display:block;width:100%;text-align:left;min-height:44px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:12px;padding:10px 14px;margin:0 0 8px;font-size:16px;font-weight:600}
 .pick small{display:block;color:var(--mute);font-size:13px;font-weight:400}
 
@@ -654,10 +595,6 @@ button.sec{background:var(--bg);color:var(--ink);border:1.5px solid var(--line);
 .choice{margin:0 0 14px}
 .choice>label{display:block;font-size:15px;font-weight:500;margin:0 0 8px}
 .choice>label small{display:block;color:var(--mute);font-size:12px;font-weight:400;margin-top:2px}
-.choice .pills{margin:0}
-
-/* ---- Your deal field rows ---- */
-.yd-field .row label small{display:block;color:var(--faint);font-size:11.5px;margin-top:2px}
 
 /* ---- Saved deals (restyle 4b, 15 Oct 2026): one card each, a round tick, the answer in its colour, note / pack / delete under a dashed rule ---- */
 .d6-list{display:flex;flex-direction:column;gap:10px}
@@ -690,9 +627,6 @@ select{min-height:44px;max-width:170px;border:1px solid var(--line);background:v
 /* ---- Onboarding ---- */
 #v-onboard{position:fixed;inset:0;background:var(--bg);color:var(--ink);z-index:30;overflow:auto;padding:0 20px}
 #v-onboard .in{max-width:480px;margin:0 auto}
-.pills{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px}
-.pills button{flex:1;min-width:80px;min-height:44px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:999px;font:600 13px var(--font-ui)}
-.pills button[aria-pressed=true]{border-color:var(--mint);background:var(--mintBg);color:var(--ink)}
 
 /* ---- Settings sheet ---- */
 .overlay{position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:40}
