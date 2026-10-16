@@ -80,7 +80,7 @@
     ta.setAttribute('aria-label', 'Notes'); ta.addEventListener('input', function () { onChange(ta.value); }); return ta;
   }
   function ledgerRow(label, value, cls) {
-    var row = h('div', 'calc'); row.appendChild(h('span', '', label)); row.appendChild(h('b', 'fig' + (cls ? ' ' + cls : ''), value)); return row;
+    var row = h('div', 'lg-stat'); row.appendChild(h('span', '', label)); row.appendChild(h('b', 'fig' + (cls ? ' ' + cls : ''), value)); return row;
   }
   // ---- Calculators list --------------------------------------------------------------------------
   function exampleCount(c, only) {
@@ -158,7 +158,7 @@
   // A worked-out figure shown among the inputs, so nothing in the sum is hidden: stamp duty is not typed, but it is seen.
   // It is filled by update() like a working row ('p' = from the primary screen's flip calculator).
   function readonlyRow(card, k, src) {
-    var row = h('div', 'row ro-row'), lab = h('label', '', k.label), note = k.id === 'sdlt' ? 'Worked out for ' + Calc.taxLabel().short + ' (' + Calc.taxLabel().tax + ')' : k.note;
+    var row = h('div', 'lg-stat ro-row'), lab = h('span', '', k.label), note = k.id === 'sdlt' ? 'Worked out for ' + Calc.taxLabel().short + ' (' + Calc.taxLabel().tax + ')' : k.note;
     if (note) lab.appendChild(h('small', '', note));
     var val = h('b', 'fig ro-val'); row.appendChild(lab); row.appendChild(val); card.appendChild(row);
     nodes.calcs.push([k, val, row, src]);
@@ -187,7 +187,7 @@
   };
   var RENT_RANGE = { monthlyRent: [300, 3000, 25], mortgageRate: [2, 10, 0.05], mgmtPct: [0, 20, 0.5], voidsPct: [0, 20, 0.5], rooms: [1, 10, 1], roomRate: [200, 1200, 5],
     furnishing: [0, 20000, 250], maintPct: [0, 20, 0.5], council: [0, 400, 1], utilities: [0, 800, 5], other: [0, 800, 5], nightlyRate: [40, 400, 5], occupancyPct: [30, 100, 1],
-    commPct: [0, 30, 0.5], maintOnMortgagePct: [0, 30, 0.5], channel: [0, 100, 1], maintOnRentPct: [0, 20, 0.5] };
+    commPct: [0, 30, 0.5], maintOnMortgagePct: [0, 30, 0.5], channel: [0, 100, 1], maintOnRentPct: [0, 20, 0.5], insurance: [0, 200, 1], depositPct: [5, 50, 1], ltv: [50, 85, 1] };
   var EXIT_CARDS = [['none', 'Flip'], ['btl', 'BTL'], ['hmo', 'HMO'], ['sa', 'SA']];
   var EXIT_NAME = { none: 'Flip', btl: 'BRR → BTL', hmo: 'BRR → HMO', sa: 'BRR → SA' };
   // The bridge's five figures (design 1b): net loan in a 60%-140% window like the money sliders, the rest in fixed ranges
@@ -969,49 +969,44 @@
     var st = stratByKey(calcKey) || stratByKey('brr'); calcKey = st.key;
     var plan = st.key === 'brr' ? Calc.simplePlan('brr', brrLet) : null;
     current = Calc.find(plan ? plan.calcId : st.calc); nodes.plan = plan;
-    document.body.classList.toggle('ledger', !!plan || !!R2R_MODES[st.key]);
+    document.body.classList.add('ledger');
     if (plan) { renderLedger(box); return; }
     if (R2R_MODES[st.key]) { renderR2R(box, st.key); return; }
-    box.appendChild(h('p', 'eyebrow', 'Calculator'));
-    box.appendChild(h('h1', 'hero', st.key === 'recycle' ? 'What can you pay?' : 'Run the numbers'));
-    box.appendChild(h('p', 'lede', st.key === 'recycle' ? 'The most you can pay and still pull every pound back out when you refinance.' : plan ? 'Five figures. The result updates as you type.' : 'Pick a strategy and enter your figures. The result updates as you type.'));
+    nodes.figs = [];
+    var recycle = st.key === 'recycle';
 
-    // Calculator and Max price come first; the rent-based ones sit behind "More".
-    var inMain = MAIN_STRATS.indexOf(st.key) >= 0, open = stratMore || !inMain;
-    var picker = h('div', 'strat-pills' + (open ? ' open' : ''));
-    preferredCalcs().map(stratByKey).forEach(function (x) {
-      if (open ? false : MAIN_STRATS.indexOf(x.key) < 0) return;
-      var b = h('button', 'strat-pill', x.name); b.setAttribute('aria-pressed', x.key === st.key);
-      b.onclick = function () { location.hash = '#c/' + x.key; };
-      picker.appendChild(b);
-    });
-    var more = h('button', 'strat-pill more', open ? 'Fewer' : 'More (' + (STRATS.length - MAIN_STRATS.length) + ')'); more.setAttribute('aria-expanded', open);
-    more.onclick = function () { stratMore = !open; renderCalculator(); };
-    picker.appendChild(more); box.appendChild(picker);
-    box.appendChild(h('p', 'strat-help', STRAT_HELP[st.key]));
-
-    // ---- the result card ----
-    var card = h('section', 'result-card');
-    if (st.key === 'recycle') {
-      var top = h('div', 'vc-top'), chip = h('span', 'verdict-chip', ''), ltv = h('span', 'faint', '');
-      top.appendChild(chip); top.appendChild(ltv); card.appendChild(top);
-      var hero = h('div', 'hero-fig fig'), cap = h('div', 'vc-cap'); card.appendChild(hero); card.appendChild(cap);
-      var rowsBox = h('div'); card.appendChild(rowsBox);
-      nodes.mp = { chip: chip, ltv: ltv, hero: hero, cap: cap, rows: rowsBox };
+    // ---- the pinned answer (restyle 4e): title + Save, the strategy picker, the answer ----
+    var pin = h('div', 'pin'), head = h('div', 'pin-head'), savePin = h('button', 'pin-save', 'Save');
+    savePin.type = 'button'; savePin.onclick = saveDeal;
+    head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(savePin); pin.appendChild(head);
+    pin.appendChild(segPicker(preferredCalcs().map(stratByKey).map(function (x) { return [x.key, x.name]; }), st.key, function (k) { location.hash = '#c/' + k; }, { label: 'Strategy', cls: 'pin-seg' }));
+    var res = null;
+    if (recycle) {
+      var top = h('div', 'pin-chiprow'), chip = h('span', 'verdict-chip', ''), ltv = h('span', 'faint', '');
+      top.appendChild(chip); top.appendChild(ltv); pin.appendChild(top);
+      var hero = h('div', 'pin-fig fig'), cap = h('div', 'pin-cap'); pin.appendChild(hero); pin.appendChild(cap);
+      nodes.mp = { chip: chip, ltv: ltv, hero: hero, cap: cap, rows: null };
     } else {
-      var hero2 = h('div', 'hero-fig fig'), cap2 = h('div', 'vc-cap'), line = h('p', 'rc-line'); card.appendChild(hero2); card.appendChild(cap2); card.appendChild(line);
-      var resDef = RESULTS[st.key];
-      var rows = resDef.rows.map(function (r) { var el = ledgerRow(r[0], '', ''); card.appendChild(el); return { el: el, val: el.querySelector('b'), def: r }; });
-      nodes.res = { hero: hero2, cap: cap2, line: line, rows: rows, def: resDef };
+      var hero2 = h('div', 'pin-fig fig'), cap2 = h('div', 'pin-cap'), line = h('p', 'pin-line'); pin.appendChild(hero2); pin.appendChild(cap2); pin.appendChild(line);
+      nodes.res = { hero: hero2, cap: cap2, line: line, rows: [], def: RESULTS[st.key] };
     }
-    box.appendChild(card);
+    box.appendChild(pin);
+    box.appendChild(h('p', 'pg-lede', STRAT_HELP[st.key]));
 
-    // ---- the figures (inputs only; the working sits below) ----
+    // ---- how it does (not Max price: its answer is the panel, its sum is under "How it adds up") ----
+    if (!recycle) {
+      box.appendChild(h('p', 'lg-h', 'How ' + st.name + ' does'));
+      var rc = h('section', 'lg-card');
+      nodes.res.rows = nodes.res.def.rows.map(function (r) { var el = ledgerRow(r[0], '', ''); rc.appendChild(el); return { el: el, val: el.querySelector('b'), def: r }; });
+      box.appendChild(rc);
+    }
+
+    // ---- the figures: the calculator's own slider on each, in cards ----
     var working = [];
-    box.appendChild(h('p', 'eyebrow sect', 'Your figures'));
-    current.layout.forEach(function (sec, idx) {
-      var fig = h('section', 'fig-card'), any = false;
-      if (current.layout.length > 1 && !(st.key === 'recycle')) fig.appendChild(h('h2', '', sec.title));
+    box.appendChild(h('p', 'lg-h', 'Your figures'));
+    current.layout.forEach(function (sec) {
+      var fig = h('section', 'lg-card'), any = false;
+      if (current.layout.length > 1 && !recycle) fig.appendChild(h('p', 'c6-sec', sec.title));
       sec.items.forEach(function (it) {
         if (it.field) { fig.appendChild(buildField(it.field)); any = true; }
         else if (it.choice) { fig.appendChild(buildChoice(it.choice)); any = true; }
@@ -1023,84 +1018,87 @@
       if (any) box.appendChild(fig);
     });
     nodes.note = h('p', 'note fig-note'); box.appendChild(nodes.note);
-    var ul = h('button', 'text-link', 'Set my usual figures \u2192'); ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
 
-    if (st.key === 'recycle') {
-      box.appendChild(h('p', 'eyebrow sect', 'Test an offer'));
-      var oc = h('section', 'fig-card'), orow = h('div', 'row'), olab = h('label', '', 'If you pay'); olab.setAttribute('for', 'f-offer'); olab.appendChild(h('small', '', 'Optional'));
-      var owrap = h('div', 'f pre'), oin = h('input'); oin.id = 'f-offer'; oin.setAttribute('inputmode', 'decimal'); oin.setAttribute('autocomplete', 'off'); oin.value = offerText;
+    if (recycle) {
+      box.appendChild(h('p', 'lg-h', 'Test an offer'));
+      var oc = h('section', 'lg-card'), orow = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), olab = h('label', '', 'If you pay'); olab.setAttribute('for', 'f-offer'); olab.appendChild(h('span', 'unit', ' · optional'));
+      var owrap = h('div', 'rent-in'), oin = h('input'); oin.id = 'f-offer'; oin.setAttribute('inputmode', 'decimal'); oin.setAttribute('autocomplete', 'off'); oin.value = offerText;
       oin.addEventListener('input', function () { offerText = oin.value; update(); }); oin.addEventListener('focus', function () { oin.select(); });
-      owrap.appendChild(h('span', '', '\u00a3')); owrap.appendChild(oin); orow.appendChild(olab); orow.appendChild(owrap); oc.appendChild(orow);
-      var ores = ledgerRow('Enter a price to test', '\u2014', ''); ores.classList.add('total'); oc.appendChild(ores); box.appendChild(oc);
+      owrap.appendChild(h('span', '', '£')); owrap.appendChild(oin); l1.appendChild(olab); l1.appendChild(owrap); orow.appendChild(l1); oc.appendChild(orow);
+      var ores = ledgerRow('Enter a price to test', '—', ''); ores.classList.add('solid'); oc.appendChild(ores); box.appendChild(oc);
       nodes.mp.offerLabel = ores.querySelector('span'); nodes.mp.offerVal = ores.querySelector('b');
-      box.appendChild(h('p', 'note fig-note', 'Max price = LTV \u00d7 end value \u2212 refurb \u2212 legal \u2212 stamp duty. Stamp duty is worked out at the price the calculator finds.'));
     }
-    // the working: every computed row the old calculator screens showed, tucked away
-    if (working.length) {
-      var det = h('details', 'working'), sum = h('summary', '', 'Show the working'); det.appendChild(sum);
-      var body = h('section', 'fig-card'), last = null;
+    // the working: every computed row, folded away as "How it adds up" (Max price: its sum)
+    folds = [];
+    if (working.length || recycle) {
+      if (openFold !== 'work') openFold = null;
+      var wf = fold('work', 'How it adds up'), last = null; wf.sum.textContent = recycle ? 'Max price = LTV × end value − refurb − legal − stamp duty' : '';
+      if (recycle) { var rowsBox = h('div'); wf.body.appendChild(rowsBox); nodes.mp.rows = rowsBox; }
       working.forEach(function (w) {
-        if (w[0] !== last) { body.appendChild(h('h2', '', w[0])); last = w[0]; }
-        var k = w[1], row = h('div', 'calc'), lab = h('span'), val = h('b', 'fig');
+        if (w[0] !== last) { wf.body.appendChild(h('p', 'c6-sec', w[0])); last = w[0]; }
+        var k = w[1], row = h('div', 'lg-stat'), lab = h('span'), val = h('b', 'fig');
         if (k.bold) lab.appendChild(h('b', '', k.label)); else lab.textContent = k.label;
         if (k.note) lab.appendChild(h('small', '', k.note));
-        row.appendChild(lab); row.appendChild(val); body.appendChild(row); nodes.calcs.push([k, val, row, w[2]]);
+        row.appendChild(lab); row.appendChild(val); wf.body.appendChild(row); nodes.calcs.push([k, val, row, w[2]]);
       });
-      det.appendChild(body); box.appendChild(det);
+      box.appendChild(wf.card);
     }
+    var ul = h('button', 'text-link', 'Set my usual figures →'); ul.type = 'button'; ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
 
-    // ---- the bar above the tabs ----
-    var bar = $('sticky-bar'); bar.innerHTML = ''; bar.className = 'sticky-bar';
-    // Save is the main button; only Max price adds "Use as my offer" (the Every strategy screen was removed, 7 Oct 2026).
-    var recycle = st.key === 'recycle', save = h('button', recycle ? 'sec' : 'primary', 'Save'), go = recycle ? h('button', 'primary', 'Use as my offer') : null;
-    save.onclick = saveDeal;
+    // ---- the bar above the tabs: only Max price has one ("Use as my offer"); Save lives in the panel ----
+    var bar = $('sticky-bar'); bar.innerHTML = ''; bar.className = 'sticky-bar one';
+    var go = recycle ? h('button', 'primary', 'Use as my offer') : null;
     if (go) go.onclick = function () {
       var v = current.compute(Calc.stateFor(current, eff(deal))).v;
       if (v.impossible) return;
       deal.purchasePrice = v.maxPrice; store(DEAL, deal); location.hash = '#c/brr';
     };
-    bar.appendChild(save); if (go) bar.appendChild(go); bar.classList.toggle('one', !go); bar.hidden = false; nodes.go = go;
+    if (go) bar.appendChild(go); bar.hidden = !go; nodes.go = go;
     update();
   }
 
   // ---- a calculator, built from its spec -------------------------------------------------------
+  // One figure = one row: label, a typed number, the calculator's slider with its - and + (restyle 4e). The range comes from
+  // the shared tables; money figures slide over a 60%-140% window round the figure, the rest over their usual range
+  // (stretching if typed higher, never limiting typing).
+  function figRange(f) {
+    var cfg = DEAL_ROWS[f.id];
+    if (cfg) return { money: cfg };
+    var rr = RENT_RANGE[f.id]; if (rr) return { rr: rr };
+    var top = Math.max(10, Number(f.def) * 3 || 0);
+    return { rr: [0, top, top >= 100 ? 5 : 1] };
+  }
   function buildField(f) {
-    var row = h('div', 'row'), lab = h('label', '', f.label); lab.setAttribute('for', 'f-' + f.id);
-    if (f.note) lab.appendChild(h('small', '', f.note));
-    var wrap = h('div', 'f' + (f.unit === '£' ? ' pre' : f.unit === '%' ? ' suf' : ''));
-    var input = h('input'); input.id = 'f-' + f.id; input.setAttribute('inputmode', 'decimal'); input.setAttribute('autocomplete', 'off');
-    var mine = Object.prototype.hasOwnProperty.call(deal, f.id);
-    var usualHere = !mine && Object.prototype.hasOwnProperty.call(usual, f.id) && usual[f.id] !== '';
-    input.value = mine ? deal[f.id] : usualHere ? usual[f.id] : (f.def === '' ? '' : f.def);
-    if (!mine && !usualHere && f.def !== '') input.classList.add('ex');
-    input.addEventListener('input', function () {
-      deal[f.id] = input.value; input.classList.remove('ex'); store(DEAL, deal); update();
-    });
-    input.addEventListener('focus', function () { input.select(); });
-    if (f.unit === '£') wrap.appendChild(h('span', '', '£'));
-    wrap.appendChild(input);
-    if (f.unit === '%') wrap.appendChild(h('span', '', '%'));
-    row.appendChild(lab); row.appendChild(wrap);
+    var cur = function () { return num(Calc.stateFor(current, eff(deal))[f.id]); }, start = cur(), rg = figRange(f), pound = f.unit === '£', pct = f.unit === '%';
+    var set = function (v) { deal[f.id] = v; store(DEAL, deal); update(); };
+    var win = null, top = null, o;
+    if (rg.money) {
+      win = valueWindow(rg.money, start, cur);
+      o = { min: win.lo, max: win.hi, step: rg.money.levels[0], levels: rg.money.levels };
+    } else {
+      var sp = rg.rr[2]; top = stretchTop(rg.rr[1], start, Math.max(sp, rg.rr[1] / 10), cur);
+      o = { min: rg.rr[0], max: top.hi, step: sp, levels: [sp, sp / 5, sp / 25].map(function (q) { return sp < 1 ? Math.max(q, 0.01) : Math.max(q, 1); }) };
+    }
+    o.label = f.label; o.get = cur; o.set = set; o.snaps = function () { return [start]; };
+    o.bubble = function (v) { return (pound ? '£' : '') + Number(Number(v).toFixed(2)).toLocaleString('en-GB') + (pct ? '%' : ''); };
+    var row = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', f.label); lab.setAttribute('for', 'f-' + f.id);
+    var w = h('div', 'rent-in'), mine = function () { return Object.prototype.hasOwnProperty.call(deal, f.id) || isTyped(f.id); };
+    var inp = numBox({ id: 'f-' + f.id, decimal: !pound || rg.money === undefined && rg.rr[2] < 1, label: f.label, get: cur,
+      show: function (v) { return pound && v ? Number(v).toLocaleString('en-GB') : String(v); }, set: set, example: function () { return !mine() && f.def !== ''; } });
+    if (pound) w.appendChild(h('span', '', '£')); w.appendChild(inp); if (pct) w.appendChild(h('span', '', '%'));
+    l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
+    var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'sm')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'sm')); row.appendChild(l2);
+    if (f.note) row.appendChild(h('div', 'b1-sub', f.note));
+    nodes.figs.push(function () { if (win) win.settle(); if (top) top.grow(); inp._sync(); sl._sync(); });
     return row;
   }
-  // A choice field (pills), e.g. how a bridging loan's interest is charged. Toggling a pill updates the pressed
-  // state of just this row and recomputes, rather than rebuilding the screen — nothing else on the page loses
-  // focus or scroll position (the onboarding letting-type pills lost typed figures this way; see its own fix).
+  // A choice field: the calculator's segmented picker. Picking updates just this row and recomputes.
   function buildChoice(ch) {
     var wrap = h('div', 'choice'), lab = h('label', '', ch.label);
     if (ch.note) lab.appendChild(h('small', '', ch.note));
     wrap.appendChild(lab);
-    var pills = h('div', 'pills'), have = Object.prototype.hasOwnProperty.call(deal, ch.id) ? deal[ch.id] : ch.def;
-    ch.options.forEach(function (o) {
-      var b = h('button', '', o[1]); b.setAttribute('aria-pressed', have === o[0]);
-      b.onclick = function () {
-        deal[ch.id] = o[0]; store(DEAL, deal);
-        var kids = pills.children; for (var i = 0; i < kids.length; i++) kids[i].setAttribute('aria-pressed', kids[i] === b);
-        update();
-      };
-      pills.appendChild(b);
-    });
-    wrap.appendChild(pills); return wrap;
+    wrap.appendChild(segPicker(ch.options, Object.prototype.hasOwnProperty.call(deal, ch.id) ? deal[ch.id] : ch.def, function (x) { deal[ch.id] = x; store(DEAL, deal); update(); }, { label: ch.label }));
+    return wrap;
   }
   // A short, plain sentence for the verdict panel. Built from the calculator's own numbers, not invented copy.
   function verdictSentence(c, v) {
@@ -1117,6 +1115,7 @@
     if (nodes.ledger) { refreshLedger(); return; }
     if (!current || (!nodes.res && !nodes.mp)) return;
     var s = Calc.stateFor(current, eff(deal)), v = current.compute(s).v;
+    if (nodes.figs) nodes.figs.forEach(function (f) { f(); });
     nodes.calcs.forEach(function (x) {
       var k = x[0], val = v[k.id];
       x[1].textContent = k.verdict === 'flip' ? flipMarginText(val) : k.verdict === 'cashRoi' ? cashRoiText(val) : fmt(k.fmt, val); if (k.tone) tone(x[1], val);
@@ -1127,7 +1126,7 @@
     nodes.banners.forEach(function (x) { x[1].hidden = !v[x[0]]; });
     if (nodes.res) {
       var hv = heroOf(nodes.res.def.hero, v);
-      nodes.res.hero.textContent = hv.text; nodes.res.hero.className = 'hero-fig fig ' + hv.cls; nodes.res.cap.textContent = hv.cap;
+      nodes.res.hero.textContent = hv.text; nodes.res.hero.className = 'pin-fig fig ' + hv.cls; nodes.res.cap.textContent = hv.cap;
       nodes.res.rows.forEach(function (r) {
         var val = v[r.def[1]]; r.val.textContent = typeof val === 'string' && val.charAt(0) === '\u221e' ? '\u221e' : fmt(r.def[2], val);
         r.val.className = 'fig'; if (r.def[3]) tone(r.val, val);
@@ -1144,7 +1143,7 @@
       var chipText = !ok ? 'Doesn\u2019t recycle' : kind === 'in' ? money(Math.round(left)) + ' left in' : kind === 'out' ? money(Math.round(-left)) + ' pulled out' : 'All capital back';
       mp.chip.textContent = chipText; mp.chip.className = 'verdict-chip ' + (!ok ? 'REJECT' : kind === 'in' ? 'WATCH' : 'PURSUE');
       mp.ltv.textContent = 'at ' + (Number(s.ltv) || 0) + '% LTV';
-      mp.hero.textContent = ok ? money(v.maxPrice) : '\u2014'; mp.hero.className = 'hero-fig fig ' + (ok ? 'good' : 'bad');
+      mp.hero.textContent = ok ? money(v.maxPrice) : '\u2014'; mp.hero.className = 'pin-fig fig ' + (ok ? 'good' : 'bad');
       mp.cap.textContent = ok ? 'Pay this or less and you leave nothing in the deal' : 'Refurb and costs exceed the refinance \u2014 no price works';
       mp.rows.innerHTML = '';
       mp.rows.appendChild(ledgerRow('End value (GDV)', money(Number(s.endValue) || 0), ''));
@@ -1153,11 +1152,11 @@
       mp.rows.appendChild(ledgerRow('Less legal fees', '\u2212' + money(legal), ''));
       if (other) mp.rows.appendChild(ledgerRow('Less other costs', '\u2212' + money(other), ''));
       mp.rows.appendChild(ledgerRow('Less stamp duty (worked out at this price)', '\u2212' + money(v.sdlt), ''));
-      var tot = ledgerRow('Max purchase price', ok ? money(v.maxPrice) : '\u2014', ok ? 'good' : 'bad'); tot.classList.add('total'); mp.rows.appendChild(tot);
+      var tot = ledgerRow('Max purchase price', ok ? money(v.maxPrice) : '\u2014', ok ? 'good' : 'bad'); tot.classList.add('solid'); mp.rows.appendChild(tot);
       // The signed figure: plus = cash still in the deal, minus = cash pulled out (e.g. -\u00a3600). Shown in the card and under "Test an offer".
       var signed = left == null ? '\u2014' : (kind === 'out' ? '\u2212' : '') + money(Math.abs(Math.round(left))), tone2 = kind === 'in' ? 'amber' : 'good';
       var sLabel = left == null ? 'Enter a price to test' : 'Cash left in the deal' + (kind === 'out' ? ' (minus = pulled out)' : '');
-      if (left != null) { var orow = ledgerRow('Cash left at ' + money(offer), signed, tone2); orow.classList.add('total'); mp.rows.appendChild(orow); }
+      if (left != null) { var orow = ledgerRow('Cash left at ' + money(offer), signed, tone2); orow.classList.add('solid'); mp.rows.appendChild(orow); }
       mp.offerLabel.textContent = sLabel; mp.offerVal.textContent = signed; mp.offerVal.className = 'fig ' + (left == null ? '' : tone2);
       if (nodes.go) nodes.go.disabled = !ok;
     }

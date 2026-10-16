@@ -217,9 +217,14 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   const clear = await p.evaluate(() => { const last = [...document.querySelectorAll('#v-home > *')].filter(e => e.offsetParent).pop().getBoundingClientRect().bottom; return { last, tabs: document.getElementById('tabs').getBoundingClientRect().top }; });
   ok('the last thing on the page clears the tab bar', clear.last <= clear.tabs, JSON.stringify(clear));
   await p.evaluate(() => { location.hash = '#c/recycle'; }); await p.waitForTimeout(150);
-  ok('Max price keeps Save and Use as my offer in its bar', await p.isVisible('#sticky-bar') && (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.textContent).join())) === 'Save,Use as my offer');
+  ok('Max price: Save is in the pinned panel, "Use as my offer" alone is in the bar', await p.isVisible('#sticky-bar') && (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.textContent).join())) === 'Use as my offer' && (await p.textContent('.pin .pin-save')) === 'Save');
   await p.evaluate(() => { location.hash = '#c/btl'; }); await p.waitForTimeout(150);
-  ok('the other calculators: Save is the one full-width button (Compare all strategies is gone)', (await p.$$eval('#sticky-bar button', bs => bs.map(b => b.className + ':' + b.textContent).join())) === 'primary:Save' && Math.abs((await p.$eval('#sticky-bar button', e => e.getBoundingClientRect().width)) - 358) < 2 && !(await p.locator('text=Compare every strategy').count()));
+  ok('the other calculators: Save is in the pinned panel, no bar, one slider per figure, no Compare', !(await p.isVisible('#sticky-bar')) && (await p.textContent('.pin .pin-save')) === 'Save' && (await p.locator('#v-home .rent-row .scrub').count()) >= 10 && !(await p.locator('text=Compare every strategy').count()));
+  { const before = await p.textContent('.pin .pin-fig'); await p.fill('#f-monthlyRent', '2000'); await p.waitForTimeout(80);
+    ok('other calculators: typing a figure moves the answer, and the box keeps what was typed', (await p.textContent('.pin .pin-fig')) !== before && (await p.inputValue('#f-monthlyRent')) === '2000');
+    await p.click('.rent-row:has(#f-monthlyRent) .nudge >> nth=1'); await p.waitForTimeout(80);
+    ok('other calculators: the + beside the slider steps the figure by one step (£25)', (await p.inputValue('#f-monthlyRent')) === '2,025' || (await p.inputValue('#f-monthlyRent')) === '2025', await p.inputValue('#f-monthlyRent'));
+    ok('other calculators: the strategy picker is one scrolling segmented row and the chosen one is pressed', (await p.$$eval('.pin-seg button[aria-pressed=true]', b => b.map(x => x.textContent).join())) === 'BTL'); }
   // ---- your targets ----
   await p.evaluate(() => { location.hash = '#c/brr'; }); await p.waitForTimeout(200);
   await p.click('.exit-tile:has(.nm:text-is("BTL"))'); await p.waitForTimeout(80);
@@ -515,8 +520,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ok('an address that names a calculator wins', (await q.textContent('.pin-exit')) === 'R2R HMO');
     ok('rent to rent: R2R SA comes first for nightly lets', (await q.$$eval('.r2r-tile .nm', ns => ns.map(n => n.textContent).join())) === 'R2R SA,R2R HMO');
     await q.goto(BASE + '/index.html#c/btl'); await q.waitForTimeout(250);
-    if (await q.locator('.strat-pill.more').count()) { await q.click('.strat-pill.more').catch(() => {}); await q.waitForTimeout(80); }
-    ok('the strategy list puts SA BTL and R2R SA first', (await q.$$eval('.strat-pill:not(.more)', ps => ps.slice(0, 2).map(p => p.textContent).join())) === 'SA BTL,R2R SA', await q.$$eval('.strat-pill:not(.more)', ps => ps.map(p => p.textContent).join()));
+    ok('the strategy list puts SA BTL and R2R SA first', (await q.$$eval('.pin-seg button', ps => ps.slice(0, 2).map(p => p.textContent).join())) === 'SA BTL,R2R SA', await q.$$eval('.pin-seg button', ps => ps.map(p => p.textContent).join()));
     await c.close();
     // Skip: an investor, straight in, where the app opens normally
     ({ c, q } = await fresh());
@@ -790,7 +794,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     ({ c, q } = await fresh({ onboarded: true, persona: 'source', packTemplates: tplSeed, deal: { purchasePrice: 90000 } }));
     q.on('dialog', d => d.type() === 'prompt' ? d.accept('5 Mill Lane, Preston') : d.accept());
     await q.goto(BASE + '/index.html#c/hmo'); await q.waitForTimeout(300);
-    await q.click('#sticky-bar button:text-is("Save")'); await q.waitForTimeout(150); await q.click('#settings-sheet .st9-link:has-text("Make a deal pack")'); await q.waitForTimeout(300);
+    await q.click('.pin .pin-save'); await q.waitForTimeout(150); await q.click('#settings-sheet .st9-link:has-text("Make a deal pack")'); await q.waitForTimeout(300);
     ok('fixes: a deal saved from HMO BTL: Saved as HMO BTL, its own figures (income, mortgage rate), no refinance rows', (await q.textContent('.pk-savedas')) === 'Saved as HMO BTL' && (await q.locator('.pk-row:has-text("Monthly income")').count()) === 1 && !(await q.locator('.pk-row:has-text("End value")').count()) && (await fld('Town')) === 'Preston');
     await q.click('.pk-go'); await q.waitForTimeout(400);
     const hp = await q.$$eval('.pk-page .dp-page', ps => ps.map(p => p.innerText).join(' '));
