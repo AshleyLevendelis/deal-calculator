@@ -129,20 +129,20 @@ details summary::-webkit-details-marker{display:none}
 .segmented.s6{margin:0}.segmented.s6 button{min-height:44px}
 
 /* ---- Ranked comparison cards ---- */
-.cmp{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:14px 16px 6px;margin:0 0 12px;font:inherit}
-.cmp.best{border-color:var(--mint)}
-.cmp .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding-bottom:8px}
-.cmp .nm{font:600 16px var(--font-ui);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;display:flex;align-items:baseline;gap:10px}
-.cmp .nm small{flex-shrink:0;color:var(--faint);font-weight:400;font-style:italic;font-size:18px;font-family:var(--font-serif)}
-.cmp .top>div:last-child{flex:0 0 auto;max-width:52%;text-align:right}
-.cmp .sub{color:var(--faint);font-size:12px;font-weight:400;margin-top:2px}
-.cmp .big{font:400 28px/1 var(--font-serif)}
-.cmp .cap{color:var(--faint);font-size:11px;text-align:right;margin-top:3px}
-.cmp .st{display:contents}
-.cmp .st div{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-top:1px dashed var(--dash);font-size:13.5px;color:var(--mute)}
-.cmp .st b{color:var(--ink);font-size:14.5px;font-variant-numeric:tabular-nums;font-family:var(--font-ui);font-weight:600}
-.cmp .st b.good{color:var(--mint)}.cmp .st b.bad{color:var(--red)}.cmp .st b.amber{color:var(--amber)}
-.cmp .tag{display:inline-block;background:none;color:var(--mute);border:1px solid var(--line);border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;margin-left:6px;vertical-align:middle}
+/* ---- Compare saved deals (restyle 4c) ---- */
+.c6-ctl{background:var(--card);border-radius:24px;padding:14px 12px 12px;margin-bottom:12px}
+.c6-lab{margin:0 4px 8px;font:600 12.5px var(--font-ui);color:var(--mute)}.c6-lab:not(:first-child){margin-top:12px}
+.c6{display:block;width:100%;text-align:left;border:1.5px solid transparent;border-radius:24px;background:var(--card);color:var(--ink);padding:14px 14px 8px;margin-bottom:10px;font:inherit}
+.c6.best{border-color:var(--mint)}
+.c6-top{display:flex;align-items:center;gap:12px}
+.c6-rank{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--mute);font:700 13px var(--font-ui)}
+.c6.best .c6-rank{background:var(--mint);color:var(--mintInk)}
+.c6-nm{flex:1;min-width:0}.c6-nm b{display:block;font:700 15px var(--font-ui);overflow-wrap:anywhere}.c6-nm small{display:block;font:500 12px var(--font-ui);color:var(--faint);margin-top:1px}
+.c6-roi{flex:none;text-align:right;max-width:46%}.c6-roi b{display:block;font:700 30px/1.05 var(--font-ui);letter-spacing:-.03em}.c6-roi small{display:block;font:500 11.5px var(--font-ui);color:var(--faint);margin-top:2px}
+.c6-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;padding:10px 0 4px;border-top:1px dashed var(--dash)}
+.c6-stat small{display:block;font:500 11.5px var(--font-ui);color:var(--faint)}.c6-stat b{display:block;margin-top:2px;font:700 14.5px var(--font-ui);font-variant-numeric:tabular-nums;color:var(--ink)}
+.c6-stat b.good{color:var(--good)}.c6-stat b.bad{color:var(--red)}.c6-stat b.amber{color:var(--amber)}
+.c6-pdf{display:block;width:100%;min-height:48px;margin-top:4px}
 
 /* ---- Calculator cards on the Calculators list ---- */
 .cc{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:14px 16px;margin:0 0 10px;font:inherit;position:relative}

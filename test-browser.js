@@ -605,7 +605,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await q.click('#t-saved'); await q.waitForTimeout(200);
     await q.$$eval('.d6 input[type=checkbox]', cs => cs.forEach(c => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }));
     await q.waitForTimeout(80); await q.click('#sticky-bar .primary'); await q.waitForTimeout(250);
-    ok('Saved → compare saved deals: Download PDF only, no Client report', (await q.url()).endsWith('#saved-compare') && (await q.$$eval('#v-scompare .btns button', bs => bs.map(b => b.textContent).join())) === 'Download PDF');
+    ok('Saved → compare saved deals: Download PDF only, no Client report', (await q.url()).endsWith('#saved-compare') && (await q.$$eval('#v-scompare .c6-pdf', bs => bs.map(b => b.textContent).join())) === 'Download PDF');
     await q.click('#back'); await q.waitForTimeout(250);
     ok('... and Back ends on Saved', (await q.url()).endsWith('#saved'));
     await q.goto(BASE + '/index.html#saved-compare'); await q.reload(); await q.waitForTimeout(250); await q.click('#back'); await q.waitForTimeout(250);

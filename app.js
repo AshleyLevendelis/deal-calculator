@@ -1308,58 +1308,52 @@
       navigator.share({ files: [file], title: input.title }).catch(function (e) { if (!e || e.name !== 'AbortError') download(); });
     } else download();
   }
-  function stat(label, value, cls) { var d = h('div', '', label), b = h('b', cls || '', value); b.classList.add('fig'); d.insertBefore(b, d.firstChild); return d; }
-  // One ranked card, used for strategies and for saved deals alike. sub is a small line under the name.
+  function stat(label, value, cls) { var d = h('div', 'c6-stat'); d.appendChild(h('small', '', label)); var b = h('b', 'fig ' + (cls || ''), value); d.appendChild(b); return d; }
+  // A ranked card (restyle 4c): a rank circle, the name, the ROI big in its verdict colour, then three stats under a dashed rule.
   function cardFor(r, i, sub, onOpen) {
-    var card = h('button', 'cmp' + (i === 0 ? ' best' : '')), top = h('div', 'top'), nm = h('span', 'nm');
-    nm.appendChild(h('small', '', '#' + (i + 1))); nm.appendChild(document.createTextNode(r.name));
-    if (sub) nm.appendChild(h('div', 'sub', sub));
-    var right = h('div'), big = h('div', 'big fig', r.refinance ? cashRoiText(r.roi) : fmt('pct', r.roi));
+    var card = h('button', 'c6' + (i === 0 ? ' best' : '')), top = h('div', 'c6-top'), nm = h('span', 'c6-nm');
+    card.type = 'button';
+    top.appendChild(h('span', 'c6-rank', String(i + 1)));
+    nm.appendChild(h('b', '', r.name)); if (sub) nm.appendChild(h('small', '', sub)); top.appendChild(nm);
+    var right = h('span', 'c6-roi'), big = h('b', 'fig', r.refinance ? cashRoiText(r.roi) : fmt('pct', r.roi));
     if (r.refinance) setCashRoi(big, r.roi); else tone(big, typeof r.roi === 'number' ? r.roi : (Calc.rank(r.roi) === Infinity ? 1 : 0));
-    right.appendChild(big); right.appendChild(h('div', 'cap', r.refinance ? 'ROI on cash left in' : 'ROI on money in'));
-    top.appendChild(nm); top.appendChild(right); card.appendChild(top);
-    var st = h('div', 'st');
+    if (/^\u221e/.test(big.textContent)) big.textContent = '\u221e';   // "no cash left in" is the caption's job here
+    right.appendChild(big); right.appendChild(h('small', '', /^\u221e/.test(cashRoiText(r.roi)) && r.refinance ? 'No cash left in' : r.refinance ? 'ROI on cash left in' : 'ROI on money in'));
+    top.appendChild(right); card.appendChild(top);
+    var st = h('div', 'c6-stats');
     st.appendChild(stat('Monthly profit', money2(r.monthly), r.monthly < 0 ? 'bad' : ''));
-    st.appendChild(stat('Annual profit', money(r.annual), r.annual < 0 ? 'bad' : ''));
     st.appendChild(stat('Money in', money(r.moneyIn)));
-    st.appendChild(r.refinance ? stat('Left in after refinance', money(r.cashLeft)) : stat('Months to breakeven', r.breakeven == null ? '—' : fmt('months', r.breakeven)));
-    // Only shown where it differs from Money in (a mortgage rolled into that figure) — elsewhere it would just repeat it.
-    if (typeof r.ownMoney === 'number' && Math.abs(r.ownMoney - r.moneyIn) > 0.5) st.appendChild(stat('Your own money', money(r.ownMoney)));
+    st.appendChild(r.refinance ? stat('Left in', money(r.cashLeft)) : stat('Breakeven', r.breakeven == null ? '—' : fmt('months', r.breakeven)));
     card.appendChild(st); card.onclick = onOpen;
     return card;
   }
   // ---- compare saved deals: the ticked deals side by side ---------------------------------------------
   function renderSavedCompare() {
     var box = $('v-scompare'); box.innerHTML = '';
-    box.appendChild(h('p', 'eyebrow', 'COMPARE')); box.appendChild(h('h1', 'hero', 'Deal against deal'));
+    box.appendChild(h('p', 'pg-title', 'Deal against deal'));
     var ticked = getDeals().filter(function (d) { return sel[d.id]; });
     // Bridging Loan and Recycle Price are tools, not strategies: they have no monthly profit or ROI to rank.
     var picked = ticked.filter(function (d) { return Calc.calcs.indexOf(Calc.find(d.calc || 'flip')) >= 0; });
     if (picked.length < 2) {
-      box.appendChild(h('p', 'lede', 'Tick two or more saved deals first, then tap Compare.' + (ticked.length > picked.length ? ' Deals saved from the Bridging Loan and Recycle Price tools cannot be ranked against strategies.' : '')));
-      var back = h('button', 'pick', 'Go to saved deals'); back.onclick = function () { location.hash = '#saved'; }; box.appendChild(back); return;
+      box.appendChild(h('p', 'pg-lede', 'Tick two or more saved deals first, then tap Compare.' + (ticked.length > picked.length ? ' Deals saved from the Bridging Loan and Recycle Price tools cannot be ranked against strategies.' : '')));
+      var back = h('button', 'primary', 'Go to saved deals'); back.type = 'button'; back.onclick = function () { location.hash = '#saved'; }; box.appendChild(back); return;
     }
     if (ticked.length > picked.length) box.appendChild(h('p', 'note', (ticked.length - picked.length) + ' ticked deal(s) from the Bridging Loan or Recycle Price tools are left out — they are not strategies.'));
-    box.appendChild(h('p', 'lede', 'Each deal runs through the calculator it was saved from. Different strategies measure ROI on different amounts, so pick one strategy for a like-for-like view.'));
-    var row = h('div', 'row'), lab = h('label', '', 'Run every deal as'), pick = h('select'); lab.setAttribute('for', 'saved-as'); pick.id = 'saved-as';
-    var o0 = h('option', '', 'Each as saved'); o0.value = ''; pick.appendChild(o0);
-    Calc.calcs.forEach(function (c) { var o = h('option', '', c.name); o.value = c.id; pick.appendChild(o); });
-    pick.value = savedAs; pick.onchange = function () { savedAs = pick.value; renderSavedCompare(); };
-    row.appendChild(lab); row.appendChild(pick); box.appendChild(row);
-    var chips = h('div', 'segmented');
-    SORTS.forEach(function (s) {
-      var b = h('button', '', s[1]); b.setAttribute('aria-pressed', sortBy === s[0]);
-      b.onclick = function () { sortBy = s[0]; renderSavedCompare(); }; chips.appendChild(b);
-    });
-    box.appendChild(chips);
+    box.appendChild(h('p', 'pg-lede', 'Each deal runs through the calculator it was saved from. Different strategies measure ROI on different amounts, so pick one strategy for a like-for-like view.'));
+    var ctl = h('div', 'c6-ctl');
+    ctl.appendChild(h('p', 'c6-lab', 'Run every deal as'));
+    ctl.appendChild(segPicker([['', 'Each as saved']].concat(Calc.calcs.map(function (c) { return [c.id, c.name]; })), savedAs, function (x) { savedAs = x; renderSavedCompare(); }, { label: 'Run every deal as' }));
+    ctl.appendChild(h('p', 'c6-lab', 'Rank by'));
+    ctl.appendChild(segPicker(SORTS, sortBy, function (x) { sortBy = x; renderSavedCompare(); }, { label: 'Rank by' }));
+    box.appendChild(ctl);
     var rows = Calc.compareDeals(picked.map(function (d) { return { id: d.id, name: d.name, calc: d.calc || 'flip', data: dealData(d) }; }), savedAs || undefined);
-    var exp = h('div', 'btns'), eb = h('button', 'primary', 'Download PDF');
-    eb.onclick = function () { exportPdf(savedPdfInput(rows), 'saved-deals-comparison'); };
-    exp.appendChild(eb); box.appendChild(exp);
     sortRows(rows).forEach(function (r, i) {
       var d = picked.filter(function (x) { return x.id === r.key; })[0];
       box.appendChild(cardFor(r, i, r.calcName, function () { openDeal(d, r.calcId); }));
     });
+    var eb = h('button', 'sec c6-pdf', 'Download PDF'); eb.type = 'button';
+    eb.onclick = function () { exportPdf(savedPdfInput(rows), 'saved-deals-comparison'); };
+    box.appendChild(eb);
   }
   // ---- Onboarding (design 10, 7 Oct 2026): who you are, the property and how you let it, then what that changed ----------
   // Shown only on first launch (ONBOARDED not set); both answers are edited afterwards in Settings > About you.
