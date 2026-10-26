@@ -219,6 +219,15 @@
     setTimeout(function () { btns.forEach(function (b) { if (b.getAttribute('aria-pressed') === 'true') show(b); }); }, 0);
     return seg;
   }
+  // Buy | Rent to rent, in the pinned panel's title row (design 10a). Buy is the calculator; Rent to rent is the same screen
+  // with the R2R panel, picker and figures. The last kind used (HMO or SA) is remembered for the session.
+  var r2rKind = null;
+  function modeSwitch(mode) {
+    var seg = segPicker([['buy', 'Buy'], ['r2r', 'Rent to rent']], mode, function (m) {
+      location.hash = m === 'buy' ? '#c/brr' : '#c/' + (r2rKind || preferredCalcs(Object.keys(R2R_MODES))[0]);
+    }, { cls: 'mode-seg', label: 'Buy or rent to rent' });
+    return seg;
+  }
   function setFig(id, v) { deal[id] = v; store(DEAL, deal); refreshLedger(); }
   function refreshLedger() {
     if (nodes.r2r) { refreshR2R(); return; }
@@ -376,7 +385,8 @@
     var card = h('section', 'lg-fold'), head = h('button', 'fold-head'), txt = h('span', 'fold-txt'), tt = h('b', '', title), sum = h('small'), sign = h('span', 'fold-sign');
     head.type = 'button'; txt.appendChild(tt); txt.appendChild(sum); head.appendChild(txt); head.appendChild(sign); card.appendChild(head);
     var body = h('div', 'fold-body'); card.appendChild(body);
-    var f = { key: key, card: card, body: body, sum: sum, title: tt, head: head, sign: sign };
+    var tot = h('span', 'fold-tot'); head.insertBefore(tot, sign);
+    var f = { key: key, card: card, body: body, sum: sum, title: tt, head: head, sign: sign, tot: tot };
     head.onclick = function () { openFold = openFold === key ? null : key; folds.forEach(drawFold); };
     folds.push(f); drawFold(f); return f;
   }
@@ -441,15 +451,15 @@
     // ---- 1. the pinned answer ----
     var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset'), savePin = h('button', 'pin-save', 'Save');
     resetAll.type = 'button'; savePin.type = 'button'; savePin.onclick = saveDeal;
-    right.appendChild(resetAll); right.appendChild(savePin); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
-    head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(right); pin.appendChild(head);
+    head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(modeSwitch('buy')); head.appendChild(savePin); pin.appendChild(head);
+    right.appendChild(resetAll); right.appendChild(h('span', 'pin-exit', EXIT_NAME[exit]));
     var resetIds = bridgeOn ? DEAL_ORDER.concat(BRIDGE_IDS) : DEAL_ORDER, now = function (id) { return BRIDGE_IDS.indexOf(id) >= 0 ? Calc.bridgeFigures(eff(deal))[id] : cur(id); };
     resetAll.onclick = function () {
       resetIds.forEach(function (id) { if (BRIDGE_IDS.indexOf(id) >= 0 && !ledgerStart['typed:' + id]) delete deal[id]; else deal[id] = ledgerStart[id]; });
       store(DEAL, deal); refreshLedger();
     };
     R.push(function () { resetAll.hidden = !resetIds.some(function (id) { return now(id) !== ledgerStart[id]; }); });
-    var eye = h('div', 'pin-eye'); pin.appendChild(eye);
+    var eye = h('div', 'pin-eye'), eyeRow = h('div', 'pin-eyerow'); eyeRow.appendChild(eye); eyeRow.appendChild(right); pin.appendChild(eyeRow);
     var heroRow = h('div', 'pin-row'), hero = h('div', 'pin-fig fig'), side = h('div', 'pin-side'), sideFig = h('div', 'pin-side-fig fig'), sideCap = h('div', 'pin-side-cap');
     side.appendChild(sideFig); side.appendChild(sideCap); heroRow.appendChild(hero); heroRow.appendChild(side); pin.appendChild(heroRow);
     var bar = h('div', 'pin-bar'), barA = h('i', 'a'), barB = h('i', 'b'); bar.appendChild(barA); bar.appendChild(barB); pin.appendChild(bar);
@@ -545,7 +555,7 @@
         // target margin when you sell). 11 Oct 2026, Ashley: the recycle price on a flip read as a good price for a flip.
         var rs = h('span', 'rec-txt'); rs.appendChild(h('span', 'rec-eye', isLet ? 'Recycle price' : 'Flip price')); recTxt = h('b', 'rec-amt fig'); rs.appendChild(recTxt);
         rs.appendChild(h('span', 'rec-note', isLet ? 'Pay this or less to get every pound back' : 'Pay this or less for a ' + flipPct() + ' margin when you sell'));
-        var set = h('span', 'rec-set', 'Set price '); set.appendChild(h('span', 'arr', '→')); recBtn.appendChild(rs); recBtn.appendChild(set);
+        var set = h('span', 'rec-set', 'Use price'); recBtn.appendChild(rs); recBtn.appendChild(set);
         card.appendChild(recBtn);
         recBtn.onclick = function () { if (recP != null) { setFig(id, recP); sl._snap(recP); } };
       }
@@ -571,7 +581,7 @@
           // card is not a button until the price moves again.
           var atRec = recP != null && Math.round(c) === Math.round(recP);
           set.style.visibility = atRec ? 'hidden' : ''; recBtn.disabled = atRec;
-          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', (isLet ? 'Recycle price ' : 'Flip price ') + money(recP) + (atRec ? '. The price is set to it' : '. Set price')); }
+          if (recP != null) { recTxt.textContent = money(recP); recBtn.setAttribute('aria-label', (isLet ? 'Recycle price ' : 'Flip price ') + money(recP) + (atRec ? '. The price is set to it' : '. Use price')); }
         }
       });
     });
@@ -811,7 +821,6 @@
       });
     }
     folds.forEach(function (f) { if (!f.card.parentNode) box.appendChild(f.card); });   // the bridge's fold sits in its card
-    var foot = h('p', 'lg-foot', 'Renting it from someone else? '), r2r = h('button', 'lg-link', 'Rent to rent →'); r2r.type = 'button'; r2r.onclick = function () { location.hash = '#c/r2rhmo'; }; foot.appendChild(r2r); page.appendChild(foot);
     var hb = h('p', 'lg-foot', 'Buying a home to live in? '), hbl = h('button', 'lg-link', 'What you’d pay →'); hbl.type = 'button'; hbl.onclick = function () { location.hash = '#home'; }; hb.appendChild(hbl); page.appendChild(hb);
     var ul = h('button', 'text-link', 'Set my usual figures →'); ul.onclick = function () { location.hash = '#usual'; }; page.appendChild(ul);
     page.appendChild(legalFooter());
@@ -827,49 +836,56 @@
   // and out a month, the 3-target verdict), the two kinds side by side (R2R HMO, R2R SA), then Figures (the money in and
   // the rent you pay as cards, income and running costs folded) or Results (the stat grid and the monthly breakdown).
   // Every figure is the R2R HMO / R2R SA calculator's own (no new maths); fields are its yellow cells, shared by id.
-  var R2R_MODES = { r2rhmo: { name: 'R2R HMO', sub: 'By the room', let: ['roomRate', 'rooms'], run: ['mgmtPct', 'maintOnRentPct', 'council', 'utilities'], letTitle: 'Room income' },
-    r2rsa: { name: 'R2R SA', sub: 'Nightly stays', let: ['nightlyRate', 'rooms', 'occupancyPct'], run: ['commPct', 'maintOnRentPct', 'council', 'utilities', 'channel'], letTitle: 'Nightly income' } };
-  var R2R_MONEY = ['upfront', 'refurb', 'furnishing', 'otherUpfront', 'rentPaid'];
-  var R2R_RANGE = { upfront: [0, 10000, 50], refurb: [0, 30000, 250], furnishing: [0, 20000, 250], otherUpfront: [0, 10000, 50], rentPaid: [300, 5000, 25] };
-  var R2R_SUBS = { upfront: 'Deposit and any rent you pay in advance', refurb: 'Getting it ready to let', furnishing: 'Beds, furniture, linen', otherUpfront: 'Agreement, legal, compliance: anything else up front', rentPaid: 'Paid to the landlord every month' };
+  var R2R_MODES = { r2rhmo: { name: 'R2R HMO', sub: 'By the room', money: ['upfront', 'refurb', 'furnishing', 'otherUpfront'], inc: ['roomRate', 'rooms'], run: ['rentPaid', 'mgmtPct', 'maintOnRentPct', 'council', 'utilities'], incTitle: 'Income' },
+    r2rsa: { name: 'R2R SA', sub: 'Nightly stays', money: ['upfront', 'refurb', 'furnishing', 'otherUpfront'], inc: ['nightlyRate', 'units', 'occupancyPct'], run: ['rentPaid', 'commPct', 'maintOnRentPct', 'council', 'utilities', 'channel'], incTitle: 'Income' } };
+  // The R2R figures (design 10a): label, range [low, high, step] and the sub line. SA uses its own "units" (passed to the
+  // calculator as rooms) so the HMO's four rooms never carry over.
+  var R2R_ROWS = {
+    upfront: { label: 'Deposit and up-front rent', r: [0, 10000, 50], u: '£', sub: 'Paid to the landlord or agent at the start' },
+    refurb: { label: 'Refurb', r: [0, 30000, 250], u: '£' }, furnishing: { label: 'Furnishing', sa: 'Staging and furnishing', r: [0, 20000, 250], u: '£' },
+    otherUpfront: { label: 'Any other costs', r: [0, 10000, 50], u: '£', sub: 'Licences, agreements, setup' },
+    roomRate: { label: 'Room rate', r: [200, 1500, 5], u: '£', sub: 'Per room, a month' }, rooms: { label: 'Rooms', r: [1, 12, 1], u: '' },
+    nightlyRate: { label: 'Nightly rate', r: [30, 500, 1], u: '£' }, units: { label: 'Number of units', r: [1, 10, 1], u: '' }, occupancyPct: { label: 'Occupancy', r: [0, 100, 1], u: '%' },
+    rentPaid: { label: 'Rent you pay the landlord', r: [0, 5000, 25], u: '£', sub: 'Paid every month' }, mgmtPct: { label: 'Management', r: [0, 30, 0.5], u: '%', sub: 'Of income' },
+    commPct: { label: 'Booking commission', r: [0, 30, 0.5], u: '%', sub: 'Of income' }, maintOnRentPct: { label: 'Maintenance', r: [0, 20, 0.5], u: '%', sub: 'Of the rent you pay' },
+    council: { label: 'Council tax', r: [0, 500, 1], u: '£', sub: 'A month' }, utilities: { label: 'Utilities', r: [0, 1000, 5], u: '£', sub: 'A month' }, channel: { label: 'Channel manager', r: [0, 200, 1], u: '£', sub: 'A month' } };
   var r2rStart = null;                 // the figures when the screen opened: Reset and the "from" deltas
-  function r2rRun(key) { var c = Calc.find(key), st = Calc.stateFor(c, eff(deal)); return { state: st, v: c.compute(st).v }; }
+  function r2rEff(key) { var d = Object.assign({}, eff(deal)); if (key === 'r2rsa') d.rooms = d.units === undefined || d.units === '' ? 1 : d.units; return d; }
+  function r2rRun(key) { var c = Calc.find(key), st = Calc.stateFor(c, r2rEff(key)); return { state: st, v: c.compute(st).v }; }
   function refreshR2R() { var k = nodes.r2rKey, cur = r2rRun(k), both = { r2rhmo: r2rRun('r2rhmo'), r2rsa: r2rRun('r2rsa') }; nodes.r2r.forEach(function (f) { f(cur.v, cur.state, both); }); }
   function renderR2R(box, key) {
-    var R = []; nodes.r2r = R; nodes.r2rKey = key; folds = [];
-    var M = R2R_MODES[key], C = Calc.find(key), all = R2R_MONEY.concat(M.let, M.run);
+    var R = []; nodes.r2r = R; nodes.r2rKey = key; folds = []; r2rKind = key;
+    var M = R2R_MODES[key], C = Calc.find(key), sa = key === 'r2rsa', all = M.money.concat(M.inc, M.run);
+    var cur = function (id) { return id === 'units' ? num(r2rEff(key).rooms) : num(Calc.stateFor(C, r2rEff(key))[id]); };
     if (!r2rStart || r2rStart._key !== key) {
-      var st0 = Calc.stateFor(C, eff(deal)); r2rStart = { _key: key, _typed: {} };
-      all.forEach(function (id) { r2rStart[id] = num(st0[id]); r2rStart._typed[id] = Object.prototype.hasOwnProperty.call(deal, id) ? deal[id] : undefined; });
+      r2rStart = { _key: key, _typed: {} };
+      all.forEach(function (id) { r2rStart[id] = cur(id); r2rStart._typed[id] = Object.prototype.hasOwnProperty.call(deal, id) ? deal[id] : undefined; });
     }
     // Back to the start exactly: a figure that was not typed then is untyped again, so Reset never pushes one kind's
     // example figures (4 rooms) into the other kind or the Calculator (figures are shared by id).
     var restore = function (id) { var t = r2rStart._typed[id]; if (t === undefined) delete deal[id]; else deal[id] = t; };
-    if (openFold !== 'let' && openFold !== 'run') openFold = 'let';
-    var cur = function (id) { return num(Calc.stateFor(C, eff(deal))[id]); };
+    var FOLDS = ['r2rMoney', 'r2rIncome', 'r2rCosts']; if (FOLDS.indexOf(openFold) < 0) openFold = null;     // start shut, one open at a time
 
-    // ---- the pinned answer ----
+    // ---- the pinned answer: the same layout as Buy ----
     var pin = h('div', 'pin'), head = h('div', 'pin-head'), right = h('span', 'pin-right'), resetAll = h('button', 'pin-reset', 'Reset'), savePin = h('button', 'pin-save', 'Save');
-    var back = h('button', 'pin-back'); back.type = 'button'; back.setAttribute('aria-label', 'Back to the Calculator'); back.appendChild(h('span', 'chev', '‹')); back.appendChild(h('span', 'pin-title', 'Rent to rent'));
-    back.onclick = function () { location.hash = '#c/brr'; };
     resetAll.type = 'button'; savePin.type = 'button'; savePin.onclick = saveDeal;
-    right.appendChild(resetAll); right.appendChild(savePin); right.appendChild(h('span', 'pin-exit', M.name));
-    head.appendChild(back); head.appendChild(right); pin.appendChild(head);
+    head.appendChild(h('span', 'pin-title', 'Calculator')); head.appendChild(modeSwitch('r2r')); head.appendChild(savePin); pin.appendChild(head);
     resetAll.onclick = function () { all.forEach(restore); store(DEAL, deal); refreshLedger(); };
     R.push(function () { resetAll.hidden = !all.some(function (id) { return cur(id) !== r2rStart[id]; }); });
-    pin.appendChild(h('div', 'pin-eye', 'Monthly profit, after the rent you pay'));
-    var heroRow = h('div', 'pin-row'), hero = h('div', 'pin-fig fig'), side = h('div', 'pin-side'), sideFig = h('div', 'pin-side-fig fig'), sideCap = h('div', 'pin-side-cap', 'ROI on money in');
+    right.appendChild(resetAll); right.appendChild(h('span', 'pin-exit', M.name));
+    var eyeRow = h('div', 'pin-eyerow'); eyeRow.appendChild(h('div', 'pin-eye', 'Monthly profit')); eyeRow.appendChild(right); pin.appendChild(eyeRow);
+    var heroRow = h('div', 'pin-row'), hero = h('div', 'pin-fig fig'), side = h('div', 'pin-side'), sideFig = h('div', 'pin-side-fig fig'), sideCap = h('div', 'pin-side-cap', 'ROI on your money in');
     side.appendChild(sideFig); side.appendChild(sideCap); heroRow.appendChild(hero); heroRow.appendChild(side); pin.appendChild(heroRow);
-    var bar = h('div', 'pin-bar'), barA = h('i', 'a'), barB = h('i', 'b cost'); bar.appendChild(barA); bar.appendChild(barB); pin.appendChild(bar);
-    var caps = h('div', 'pin-caps'), capL = h('span'), capR = h('span'); caps.appendChild(capL); caps.appendChild(capR); pin.appendChild(caps);
+    var tiles = h('div', 'pin-tiles'), mkTile = function (label, cap) { var t = h('div', 'pin-tile'), v = h('b', 'fig'); t.appendChild(h('span', 'pt-l', label)); t.appendChild(v); t.appendChild(h('span', 'pt-c', cap)); tiles.appendChild(t); return v; };
+    var tinV = mkTile('Your own money in', 'Up-front rent, refurb and furnishing'), annV = mkTile('Profit a year', 'Monthly profit × 12');
+    pin.appendChild(tiles);
     var drawVerdict = verdictStrip(pin);
     box.appendChild(pin);
     R.push(function (v) {
-      var mv = Calc.monthlyProfitVerdict(v.monthly), none = num(v.totalIn) <= 0, rv = none ? 'good' : Calc.cashRoiVerdict(v.roi), big = Math.max(num(v.income), num(v.expenses)) || 1;
-      hero.textContent = minusMoney(Math.round(num(v.monthly))); hero.className = 'pin-fig fig ' + (mv || '');
+      var mv = Calc.monthlyProfitVerdict(v.monthly), none = num(v.totalIn) <= 0, rv = none ? 'good' : Calc.cashRoiVerdict(v.roi), neg = num(v.monthly) < 0;
+      hero.textContent = minusMoney(Math.round(num(v.monthly))); hero.className = 'pin-fig fig ' + (neg ? 'bad' : mv === 'good' ? 'good' : 'amber');
       sideFig.textContent = none ? '∞' : pctText(v.roi); sideFig.className = 'pin-side-fig fig ' + (rv || '');
-      barA.style.width = (num(v.income) / big * 100).toFixed(1) + '%'; barB.style.width = (num(v.expenses) / big * 100).toFixed(1) + '%';
-      capL.textContent = 'In ' + money(num(v.income)) + ' a month'; capR.textContent = 'Out ' + money(num(v.expenses));
+      tinV.textContent = money(num(v.totalIn)); annV.textContent = minusMoney(Math.round(num(v.annual))); annV.className = 'fig ' + (num(v.annual) < 0 ? 'bad' : '');
       drawVerdict(Calc.r2rVerdict(v));
     });
 
@@ -879,87 +895,47 @@
       var on = k === key, b = h('button', 'exit-tile r2r-tile' + (on ? ' on' : '')), big = h('span', 'big fig'); b.type = 'button'; b.setAttribute('aria-pressed', on);
       b.appendChild(h('span', 'nm', R2R_MODES[k].name)); b.appendChild(h('span', 'r2r-sub', R2R_MODES[k].sub)); b.appendChild(big);
       b.onclick = function () { if (!on) location.hash = '#c/' + k; };
-      R.push(function (v, st, both) { var w = both[k].v; big.textContent = minusMoney(Math.round(num(w.monthly))) + '/mo'; big.className = 'big fig ' + (Calc.monthlyProfitVerdict(w.monthly) || ''); b.setAttribute('aria-label', R2R_MODES[k].name + ', ' + big.textContent + ' profit'); });
+      R.push(function (v, st, both) { var w = both[k].v, wm = Calc.monthlyProfitVerdict(w.monthly); big.textContent = minusMoney(Math.round(num(w.monthly))) + '/mo'; big.className = 'big fig ' + (num(w.monthly) < 0 ? 'bad' : wm === 'good' ? 'good' : 'amber'); b.setAttribute('aria-label', R2R_MODES[k].name + ', ' + big.textContent + ' profit'); });
       modes.appendChild(b);
     });
     box.appendChild(modes);
 
-    var page = box, VS = viewSwitch(page), fig = VS.fig, res = VS.res;
-
-    // ---- Figures: money in, the rent you pay, then the income and running costs folded ----
-    fig.appendChild(h('p', 'lg-h', 'Money in'));
-    R2R_MONEY.forEach(function (id) {
-      var f = fieldDef(C, id), rr = R2R_RANGE[id], step = rr[2], hint = null, snapTo = null;
-      var rtop = stretchTop(rr[1], r2rStart[id], Math.max(step, rr[1] / 10), function () { return cur(id); });
-      var card = h('section', 'lg-card deal-card'), lab = h('label', 'lg-label', id === 'otherUpfront' ? 'Any other costs' : f.label); lab.setAttribute('for', 'lg-' + id); card.appendChild(lab);
-      var numWrap = h('div', 'lg-num'); numWrap.appendChild(h('span', 'cur', '£'));
-      var box1 = numBox({ id: 'lg-' + id, cls: 'big-num fig', label: f.label, get: function () { return cur(id); }, show: function (v) { return v ? v.toLocaleString('en-GB') : ''; },
-        set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-      numWrap.appendChild(box1); card.appendChild(numWrap);
-      var o = { label: f.label, get: function () { return cur(id); }, set: function (v) { setFig(id, v); }, min: rr[0], max: rtop.hi, step: step, levels: [step, Math.max(1, step / 5), Math.max(1, step / 25)],
-        snaps: function () { return [r2rStart[id]]; }, onLevel: function (lv) { hint = lv; drawSub(); }, onEnd: refreshLedger, bubble: function (v) { return money(v); }, onSnap: function (to) { snapTo = to; drawSub(); } };
-      var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o)); l2.appendChild(sl); l2.appendChild(nudge(1, o)); card.appendChild(l2);
-      var l3 = h('div', 'lg-l3'), sub = h('span', 'lg-sub'), reset = h('button', 'lg-reset'); reset.type = 'button'; l3.appendChild(sub); l3.appendChild(reset); card.appendChild(l3);
-      reset.onclick = function () { restore(id); store(DEAL, deal); refreshLedger(); };
-      var drawSub = function () {
-        sub.classList.toggle('good', hint == null && snapTo != null);
-        sub.textContent = hint != null ? ['Slide your finger down for finer steps', 'Finer: ' + money(o.levels[1]) + ' steps', 'Finest: ' + money(o.levels[2]) + ' steps'][hint]
-          : snapTo != null ? '✓ Snapped to the starting figure' : R2R_SUBS[id];
-      };
-      fig.appendChild(card);
-      R.push(function () { var d = cur(id) - r2rStart[id]; rtop.grow(); box1._sync(); sl._sync(); drawSub(); reset.hidden = d === 0; reset.textContent = signedMoney(d) + ' from ' + money(r2rStart[id]) + ' ↺'; });
-    });
-    var tot = h('div', 'r2r-total'), totV = h('b', 'fig'); tot.appendChild(h('span', '', 'Total money in')); tot.appendChild(totV); fig.appendChild(tot);
-    R.push(function (v) { totV.textContent = money(num(v.totalIn)); });
-    fig.appendChild(h('p', 'lg-h', 'More detail'));
-    var rentFold = function (fk, title, ids, summary) {
-      var fd = fold(fk, title);
-      ids.forEach(function (id) {
-        var f = fieldDef(C, id); if (!f) return;
-        var rr = RENT_RANGE[id] || [0, 1000, 1], sp = rr[2], rtop = stretchTop(rr[1], r2rStart[id], Math.max(sp, rr[1] / 10), function () { return cur(id); });
-        var lv = [sp, sp / 5, sp / 25].map(function (q) { return sp < 1 ? Math.max(q, 0.01) : Math.max(q, 1); });
-        var o = { label: f.label, get: function () { return cur(id); }, set: function (v) { setFig(id, v); }, min: rr[0], max: rtop.hi, step: sp, levels: lv, snaps: function () { return [r2rStart[id]]; }, onEnd: refreshLedger,
-          bubble: function (v) { return (f.unit === '£' ? '£' : '') + v + (f.unit === '%' ? '%' : ''); } };
-        var row = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', f.label); lab.setAttribute('for', 'lg-' + id);
-        if (f.note) lab.appendChild(h('span', 'unit', ' · ' + f.note.replace('per room, per month', 'per room/month')));
-        var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: true, label: f.label, get: function () { return cur(id); }, show: function (v) { return String(v); }, set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
-        if (f.unit === '£') w.appendChild(h('span', '', '£')); w.appendChild(inp); if (f.unit === '%') w.appendChild(h('span', '', '%'));
-        l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
-        var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'sm')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'sm')); row.appendChild(l2);
-        fd.body.appendChild(row);
-        R.push(function () { rtop.grow(); inp._sync(); sl._sync(); });
+    // ---- the figures: three folds, each with its rows, a total on the right and a caption ----
+    var fig = h('div', 'r2r-figs'); box.appendChild(fig);
+    var figRow = function (fd, id) {
+      var d = R2R_ROWS[id], label = sa && d.sa ? d.sa : d.label, rr = d.r, sp = rr[2], top = stretchTop(rr[1], r2rStart[id], Math.max(sp, rr[1] / 10), function () { return cur(id); });
+      var lv = [sp, sp / 5, sp / 25].map(function (q) { return sp < 1 ? Math.max(q, 0.01) : Math.max(q, 1); }), pound = d.u === '£', pct = d.u === '%';
+      var o = { label: label, get: function () { return cur(id); }, set: function (v) { setFig(id, v); }, min: rr[0], max: top.hi, step: sp, levels: lv, snaps: function () { return [r2rStart[id]]; }, onEnd: refreshLedger,
+        bubble: function (v) { return (pound ? '£' : '') + Number(Number(v).toFixed(2)).toLocaleString('en-GB') + (pct ? '%' : ''); } };
+      var row = h('div', 'rent-row'), l1 = h('div', 'rent-l1'), lab = h('label', '', label); lab.setAttribute('for', 'lg-' + id);
+      var w = h('div', 'rent-in'), inp = numBox({ id: 'lg-' + id, decimal: sp < 1, label: label, get: function () { return cur(id); }, show: function (v) { return pound && v ? v.toLocaleString('en-GB') : String(v); }, set: function (v) { setFig(id, v); }, example: function () { return !isTyped(id); } });
+      if (pound) w.appendChild(h('span', '', '£')); w.appendChild(inp); if (pct) w.appendChild(h('span', '', '%'));
+      l1.appendChild(lab); l1.appendChild(w); row.appendChild(l1);
+      var l2 = h('div', 'lg-l2'), sl = scrubber(o); l2.appendChild(nudge(-1, o, 'sm')); l2.appendChild(sl); l2.appendChild(nudge(1, o, 'sm')); row.appendChild(l2);
+      if (d.sub) row.appendChild(h('div', 'b1-sub', d.sub));
+      fd.body.appendChild(row);
+      R.push(function () { top.grow(); inp._sync(); sl._sync(); });
+      return { id: id, label: label, pound: pound };
+    };
+    var addFold = function (fk, title, ids, summary, total, caption) {
+      var fd = fold(fk, title), shown = ids.map(function (id) { return figRow(fd, id); });
+      var cap = h('p', 'note r2r-cap'); fd.body.appendChild(cap);
+      R.push(function (v, st) {
+        fd.sum.textContent = shown.slice(0, 3).map(function (s) { var x = cur(s.id); return s.label + ' ' + (s.pound ? money(x) : s.id === 'rooms' || s.id === 'units' ? x : x + '%'); }).join(' · ');
+        total(fd.tot, v, st); cap.textContent = caption(v, st);
       });
-      R.push(function (v, st) { fd.sum.textContent = summary(v, st); });
       fig.appendChild(fd.card);
     };
-    rentFold('let', M.letTitle, M.let, key === 'r2rhmo'
-      ? function (v, st) { return num(st.rooms) + ' rooms at ' + money(num(st.roomRate)) + ' · ' + money(num(v.income)) + ' a month'; }
-      : function (v, st) { var r = num(st.rooms); return r + ' room' + (r === 1 ? '' : 's') + ' at ' + money(num(st.nightlyRate)) + ' a night · ' + num(st.occupancyPct) + '% full'; });
-    rentFold('run', 'Running costs', M.run, function (v, st) { return money(num(v.expenses) - num(st.rentPaid)) + ' a month on top of the rent'; });
+    addFold('r2rMoney', 'Money in', M.money, null, function (t, v) { t.textContent = money(num(v.totalIn)); t.className = 'fold-tot'; },
+      function () { return 'There’s no purchase, stamp duty or mortgage on rent to rent.'; });
+    addFold('r2rIncome', 'Income', M.inc, null, function (t, v) { t.textContent = money(num(v.income)) + '/mo'; t.className = 'fold-tot good'; },
+      function (v, st) { return sa ? money(num(st.nightlyRate)) + ' a night × ' + num(st.rooms) + ' × 365 × ' + num(st.occupancyPct) + '% ÷ 12' : num(st.rooms) + ' rooms × ' + money(num(st.roomRate)); });
+    addFold('r2rCosts', 'Costs a month', M.run, null, function (t, v) { t.textContent = '−' + money(num(v.expenses)) + '/mo'; t.className = 'fold-tot amber'; },
+      function (v) { return 'Monthly profit ' + minusMoney(Math.round(num(v.monthly))) + ' = income less costs.'; });
+    folds.forEach(function (f) { drawFold(f); });
 
-    // ---- Results: the stat grid, the monthly breakdown, back to the figures ----
-    var tiles = h('div', 'lg-tiles'); res.appendChild(tiles);
-    var T = { monthly: tile('Monthly profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET) + ')'), annual: tile('Annual profit (target ' + money(Calc.MONTHLY_PROFIT_TARGET * 12) + ')'),
-      back: tile('Money back (green ≤ ' + Calc.targets().payback + ', amber ≤ ' + Calc.PAYBACK_OK + ')'), roi: tile('ROI on money in (target ' + roiPct() + ')'),
-      income: tile('Income a month'), costs: tile('Costs a month, incl. rent') };
-    ['monthly', 'annual', 'back', 'roi', 'income', 'costs'].forEach(function (k) { tiles.appendChild(T[k].el); });
-    var brk = h('section', 'lg-card r2r-brk'); res.appendChild(brk);
-    R.push(function (v, st) {
-      var mv = Calc.monthlyProfitVerdict(v.monthly), none = num(v.totalIn) <= 0, bv = Calc.paybackVerdict(v.breakeven, none ? 0 : v.totalIn), rv = none ? 'good' : Calc.cashRoiVerdict(v.roi);
-      T.monthly.val.textContent = money2(num(v.monthly)) + tickOf(mv); T.monthly.val.className = 'fig ' + (mv || '');
-      T.annual.val.textContent = money(num(v.annual)) + tickOf(mv); T.annual.val.className = 'fig ' + (mv || '');
-      T.back.val.textContent = none ? '—' : typeof v.breakeven === 'number' && isFinite(v.breakeven) ? fmt('months', v.breakeven) : 'Never at this profit'; T.back.val.className = 'fig ' + bv;
-      T.roi.val.textContent = (none ? '∞' : pctText(v.roi)) + tickOf(rv); T.roi.val.className = 'fig ' + (rv || '');
-      T.income.val.textContent = money(num(v.income)); T.costs.val.textContent = money(num(v.expenses));
-      var rent = num(st.rentPaid), rows = [['Income', money(num(v.income)), ''], ['Rent you pay', minusMoney(-rent), ''], ['Other running costs', minusMoney(-(num(v.expenses) - rent)), ''],
-        ['Monthly profit', minusMoney(Math.round(num(v.monthly))), 'strong ' + (mv || '')], ['Total money in', money(num(v.totalIn)), '']];
-      brk.innerHTML = ''; rows.forEach(function (r) { var sr = statRow(r[0], r[2]); sr.val.textContent = r[1]; if (/strong/.test(r[2])) sr.row.classList.add('strong'); brk.appendChild(sr.row); });
-    });
-    var backBtn = h('button', 'lg-back', '← Change the figures'); backBtn.type = 'button'; backBtn.onclick = function () { VS.set('figures', true); }; res.appendChild(backBtn);
-
-    var foot = h('p', 'lg-foot', 'Buying it instead? '), brr = h('button', 'lg-link', 'Buy, refurb & refinance →'); brr.type = 'button'; brr.onclick = function () { location.hash = '#c/brr'; }; foot.appendChild(brr); page.appendChild(foot);
-    page.appendChild(legalFooter('Check your landlord’s consent and the contract before you sign.'));
-    VS.set(ledgerView, false);
+    var ul = h('button', 'text-link', 'Set my usual figures →'); ul.type = 'button'; ul.onclick = function () { location.hash = '#usual'; }; box.appendChild(ul);
+    box.appendChild(legalFooter('Check your landlord’s consent and the contract before you sign.'));
     var sbar = $('sticky-bar'); sbar.innerHTML = ''; sbar.hidden = true;
     refreshLedger();
   }
@@ -1177,7 +1153,7 @@
   }
   function saveDeal() {
     var name = prompt('Name this deal (e.g. the address)'); if (!name) return;
-    var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, letting: brrLet, bridge: bridgeOn, fund: fundMode, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
+    var list = getDeals(); list.unshift({ id: newId(), v: 2, calc: current.id, view: calcKey, mode: R2R_MODES[calcKey] ? 'r2r' : 'buy', letting: brrLet, bridge: bridgeOn, fund: fundMode, name: name.trim(), data: eff(deal), savedAt: Date.now() }); store(DEALS, list);
     if (clientReportsOn()) { savedNext(list[0]); return; }
     alert('Saved. Find it under Saved.');
   }
@@ -1206,7 +1182,9 @@
   var sel = {};                                   // ticked saved deals, by id (kept while the app is open)
   var savedAs = '';                               // '' = each deal through the calculator it was saved from
   function openDeal(d, calcId) {
-    deal = Object.assign({}, dealData(d)); store(DEAL, deal); ledgerStart = null;
+    deal = Object.assign({}, dealData(d)); ledgerStart = null;
+    if ((d.calc === 'r2rsa' || calcId === 'r2rsa') && deal.units === undefined && deal.rooms !== undefined) deal.units = deal.rooms;   // saved before SA had its own units
+    store(DEAL, deal);
     fundFromDeal(d);
     if (d.view === 'flip' || d.view === 'brr') { setLet(d.view === 'brr' && d.letting ? d.letting : 'none'); location.hash = '#c/brr'; }
     else if (calcId === 'flip') { setLet('none'); location.hash = '#c/brr'; }     // saved before the screens merged: the basics show both flip and refinance

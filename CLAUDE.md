@@ -491,6 +491,26 @@ first restyle)
   Usual figures, the deal pack builder, Setup and Settings were already on these parts.
 - Old CSS deleted (.deal, .cmp, .fig-card, .result-card, .strat-pill(s), .pills, .working, .eyebrow.sect, .hero-fig ...).
 
+## Buy | Rent to rent in one calculator (design 10a, 26 Oct 2026, hand-off design_handoff_10a_r2r)
+- The pinned panel's title row is Calculator, a Buy | Rent to rent switch (modeSwitch, segPicker class mode-seg: 30px, 44px tap
+  area, max 200px) and Save. The exit pill and Reset moved to the row under it, beside the eyebrow. The footer link "Renting it
+  from someone else? Rent to rent" is gone. Panel padding 8px 18px 10px, big figure 34px, side box 18px; collapsed Buy panel <= 250px.
+- Rent to rent = #c/r2rhmo | #c/r2rsa (renderR2R, rebuilt): panel = Monthly profit (green at the monthly target, amber below it,
+  red when negative), side box ROI "on your money in" (cashRoiVerdict), tiles "Your own money in" (totalIn) and "Profit a year",
+  the verdict strip; then the R2R HMO / R2R SA tiles (each its own monthly profit /mo), then three folds (Money in, Income,
+  Costs a month) shut to start, one open at a time, each closed row = first three figures + total on the right (fold().tot:
+  money in ink, income green, costs amber) and a caption. No Figures | Results switch, no Reset-less "Total money in" card any more.
+  Rows come from R2R_ROWS (ranges as the hand-off). Maths unchanged (r2rhmo / r2rsa compute).
+- SA has its OWN "units" figure (default 1), passed to the calculator as rooms (r2rEff), so the HMO's rooms never carry over; old
+  saved r2rsa deals map rooms to units on opening (openDeal). Saved deals carry mode: 'buy' | 'r2r'; one saved from R2R reopens on
+  Rent to rent with its kind picked. The switch's Rent to rent goes to the kind last used (r2rKind), else the letting preference.
+- Calc.r2rVerdict wording (hand-off): 3/3 "Good deal" (green), 2/3 "Close" (amber), else "Misses your targets" (red); the detail
+  lists the missed targets; the payback chip shows the real months, "Back in 6 months (10.2)" / "(never)". Tests updated.
+- Buy: recycle / flip price button restyled (1px green border, 16px radius, "Use price" 36px pill). The deal labels (End value
+  (GDV), Refurb costs, Legal costs) and order were already as the hand-off asks. NOT built: the hand-off's "do the maths fixes first"
+  (design_handoff_maths_fixes was not in the upload; no "While the works happen" card exists in this app) and its mock's SA example
+  figures (this app keeps the spreadsheet's own R2R SA example, so R2R SA shows its sheet figure, not the mock's £108).
+
 ## Ashley's rules (all kept from the Deal Analyser)
 - Only the YELLOW cells in her spreadsheets are editable fields. Never add an input that is not a yellow cell (one
   named exception, approved by Ashley on 6 Oct 2026: "Any other costs", see Design 7a).

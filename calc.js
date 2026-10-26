@@ -773,10 +773,13 @@
       detail: 'add the rooms and what each earns', misses: [], line: '' };
     var none = n(v.totalIn) <= 0;
     var hits = [monthlyProfitVerdict(v.monthly) === 'good', none || cashRoiVerdict(v.roi) === 'good', paybackVerdict(v.breakeven, none ? 0 : v.totalIn) === 'good'];
-    var names = letTargets().slice(0, 3), k = hits.filter(Boolean).length, misses = names.filter(function (t, i) { return !hits[i]; });
+    var names = letTargets().slice(0, 3), k = hits.filter(Boolean).length;
+    // the third chip says how long it really takes (design 10a): "Back in 6 months (10.2)", or "(never)"
+    names[2] = names[2].replace(/^Money back/, 'Back') + ' (' + (none ? 'nothing in' : typeof v.breakeven === 'number' && isFinite(v.breakeven) ? Math.round(v.breakeven * 10) / 10 : 'never') + ')';
+    var misses = names.filter(function (t, i) { return !hits[i]; });
     return { kind: 'r2r', score: k, of: 3, hits: hits, tones: hits.map(function (x) { return x ? 'good' : 'bad'; }), targets: names,
-      tone: k === 3 ? 'good' : k === 2 ? 'amber' : 'bad', title: k === 3 ? 'Strong deal' : k === 2 ? 'Good deal' : k === 1 ? 'Borderline' : 'Weak deal',
-      detail: k === 3 ? 'hits all 3 targets' : 'hits ' + k + ' of 3 targets', misses: misses, line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
+      tone: k === 3 ? 'good' : k === 2 ? 'amber' : 'bad', title: k === 3 ? 'Good deal' : k === 2 ? 'Close' : 'Misses your targets',
+      detail: k === 3 ? 'hits all 3 targets' : misses.join(', '), misses: misses, line: misses.length ? 'Misses: ' + misses.join(', ') : 'Every target met' };
   }
   // Your own money in, as the How you'll pay card's bar and breakdown (design 11a): one part per kind of cost above zero,
   // in a fixed order, each with its share of the total (the shares add up to 1). own: Calc.ledger(...).exits[x].own.

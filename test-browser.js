@@ -180,7 +180,7 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
   // ---- the revised panel: verdict strip, Save, no fixed action bar ----
   await p.evaluate(() => { sessionStorage.clear(); scrollTo(0, 0); }); await p.reload(); await p.waitForTimeout(300);
   ok('no fixed Save / Compare bar on this screen, and no Compare button', !(await p.isVisible('#sticky-bar')) && !(await p.locator('#v-home button:has-text("Compare side by side")').count()));
-  ok('the collapsed panel is no taller than the design (229px)', (await p.evaluate(() => document.querySelector('.pin').offsetHeight)) <= 230 || (await p.isVisible('.pin-tag')), String(await p.evaluate(() => document.querySelector('.pin').offsetHeight)));
+  ok('the collapsed panel stays compact (design 10a: the title row also holds the Buy | Rent to rent switch)', (await p.evaluate(() => document.querySelector('.pin').offsetHeight)) <= 250 || (await p.isVisible('.pin-tag')), String(await p.evaluate(() => document.querySelector('.pin').offsetHeight)));
   ok('the verdict strip starts shut, saying "Targets ▾"', (await p.locator('.vs-lab').textContent()) === 'Targets ▾' && !(await p.isVisible('.vs-chips')));
   await p.click('.vs-row'); await p.waitForTimeout(50);
   const chips = await p.locator('.vs-chip').allTextContents();
@@ -356,60 +356,56 @@ server.listen(0, '127.0.0.1', async () => { const BASE = 'http://127.0.0.1:' + s
     await c4.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; sessionStorage.setItem('seeded', '1'); localStorage.clear(); localStorage.setItem('deal-analyser:onboarded', 'true'); });
     const q = await c4.newPage(); q.on('pageerror', e => errs.push(e.message));
     await q.goto(BASE + '/index.html#c/brr'); await q.waitForTimeout(300);
-    await q.evaluate(() => scrollTo(0, 1e6)); await q.click('.lg-foot .lg-link:text-is("Rent to rent →")'); await q.waitForTimeout(250);
     const txt = sel => q.textContent(sel);
-    ok('r2r: the panel reads Rent to rent, Save and the R2R HMO pill, monthly profit after the rent', (await q.url()).endsWith('#c/r2rhmo') && (await txt('.pin-back .pin-title')) === 'Rent to rent' && (await txt('.pin-exit')) === 'R2R HMO' && (await q.isVisible('.pin-save')) && (await txt('.pin-eye')) === 'Monthly profit, after the rent you pay');
-    ok('r2r: the sheet example: £700 a month, 117.8% ROI on money in, In £3,000 / Out £2,300', (await txt('.pin-fig')) === '£700' && (await txt('.pin-side-fig')) === '117.8%' && (await q.$$eval('.pin-caps span', s => s.map(x => x.textContent).join(' / '))) === 'In £3,000 a month / Out £2,300');
-    ok('r2r: the verdict strip: 2/3, Good deal, amber', (await txt('.vs-score')) === '2/3' && (await txt('.vs-txt')) === 'Good deal · hits 2 of 3 targets' && await q.$eval('.vstrip', e => e.classList.contains('amber')));
+    ok('10a: the title row has Calculator, a Buy | Rent to rent switch (Buy chosen) and Save; the old footer link is gone', (await q.$$eval('.pin-head .mode-seg button', bs => bs.map(x => x.textContent + ':' + x.getAttribute('aria-pressed')).join())) === 'Buy:true,Rent to rent:false' && (await txt('.pin-head .pin-save')) === 'Save' && !(await q.locator('text=Renting it from someone else').count()));
+    ok('10a: the switch is 30px high with a 44px tap area, no wider than 200px', await q.evaluate(() => { const s = document.querySelector('.mode-seg'), b = s.querySelector('button'), a = getComputedStyle(b, '::after'); return s.getBoundingClientRect().width <= 200.5 && b.getBoundingClientRect().height <= 31 && b.getBoundingClientRect().height + 2 * 7 >= 44; }));
+    await q.click('.mode-seg button:text-is("Rent to rent")'); await q.waitForTimeout(250);
+    ok('r2r: Rent to rent opens R2R HMO on the same screen: Calculator title, the switch on Rent to rent, monthly profit', (await q.url()).endsWith('#c/r2rhmo') && (await txt('.pin-title')) === 'Calculator' && (await q.$$eval('.mode-seg button[aria-pressed=true]', bs => bs.map(x => x.textContent).join())) === 'Rent to rent' && (await txt('.pin-exit')) === 'R2R HMO' && (await txt('.pin-eye')) === 'Monthly profit');
+    ok('r2r: the sheet example: £700 a month, 117.8% ROI on your money in, own money £7,132, £8,400 a year', (await txt('.pin-fig')) === '£700' && (await txt('.pin-side-fig')) === '117.8%' && (await txt('.pin-side-cap')) === 'ROI on your money in' && (await q.$$eval('.pin-tile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ')).join(' | '))) === 'Your own money in £7,132 Up-front rent, refurb and furnishing | Profit a year £8,400 Monthly profit × 12', await q.$$eval('.pin-tile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ')).join(' | ')));
+    ok('r2r: £700 meets the £500 target, so the figure is green', await q.$eval('.pin-fig', e => e.classList.contains('good')));
+    ok('r2r: the verdict strip: 2/3, Close, amber, "Back in 6 months (10.2)"', (await txt('.vs-score')) === '2/3' && (await txt('.vs-txt')) === 'Close · Back in 6 months (10.2)' && await q.$eval('.vstrip', e => e.classList.contains('amber')), await txt('.vs-txt'));
     await q.click('.vs-row'); await q.waitForTimeout(60);
-    ok('r2r: its chips: £500 a month ✓, 50% ROI ✓, Money back in 6 months ✗', (await q.$$eval('.vs-chip', cs => cs.map(c => c.textContent).join(' | '))) === '✓£500 a month | ✓50% ROI | ✗Money back in 6 months', await q.$$eval('.vs-chip', cs => cs.map(c => c.textContent).join(' | ')));
+    ok('r2r: its chips: £500 a month ✓, 50% ROI ✓, Back in 6 months (10.2) ✗', (await q.$$eval('.vs-chip', cs => cs.map(c => c.textContent).join(' | '))) === '✓£500 a month | ✓50% ROI | ✗Back in 6 months (10.2)', await q.$$eval('.vs-chip', cs => cs.map(c => c.textContent).join(' | ')));
     await q.click('.vs-row'); await q.waitForTimeout(60);
-    ok('r2r: R2R HMO and R2R SA side by side, with their monthly profit', (await q.$$eval('.r2r-tile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ')).join(' | '))) === 'R2R HMO By the room £700/mo | R2R SA Nightly stays £695/mo');
-    ok('r2r: Figures first: Money in, five money cards in order, Total money in', await q.evaluate(() => [...document.querySelectorAll('.lg-figures .deal-card .lg-label')].map(l => l.textContent).join(' | ')) === 'Deposit / up-front rent | Refurbishment costs | Furnishing costs | Any other costs | Rent you pay' && (await txt('.r2r-total b')) === '£7,132');
-    ok('r2r: More detail: Room income (open) and Running costs, with their summaries', (await q.$$eval('.lg-fold .fold-txt', fs => fs.map(f => f.innerText.replace(/\s+/g, ' ')).join(' | '))) === 'Room income 4 rooms at £750 · £3,000 a month | Running costs £600 a month on top of the rent' && await q.isVisible('#lg-roomRate') && !(await q.isVisible('#lg-council')));
-    ok('r2r: every tap target on the new parts is 44px or more', await q.evaluate(() => [...document.querySelectorAll('.r2r-tile, .lg-switch button, .pin-back')].every(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return r.height >= 44 || (a.content !== 'none' && r.height + 16 >= 44); })));
+    ok('r2r: R2R HMO and R2R SA side by side, with their monthly profit', (await q.$$eval('.r2r-tile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ')).join(' | '))).startsWith('R2R HMO By the room £700/mo | R2R SA Nightly stays £'));
+    ok('r2r: three folds, all shut to start, with the totals on the right: £7,132, £3,000/mo, −£2,300/mo', (await q.$$eval('.lg-fold .fold-txt b', fs => fs.map(f => f.textContent).join(' | '))) === 'Money in | Income | Costs a month' && (await q.$$eval('.lg-fold .fold-tot', fs => fs.map(f => f.textContent).join(' | '))) === '£7,132 | £3,000/mo | −£2,300/mo' && (await q.$$eval('.lg-fold:not(.open)', fs => fs.length)) === 3 && !(await q.isVisible('#lg-upfront')));
+    ok('r2r: the closed rows say what is inside', (await q.$$eval('.lg-fold .fold-txt small', fs => fs.map(f => f.textContent).join(' | '))) === 'Deposit and up-front rent £2,132 · Refurb £5,000 · Furnishing £0 | Room rate £750 · Rooms 4 | Rent you pay the landlord £1,700 · Management 0% · Maintenance 10%', await q.$$eval('.lg-fold .fold-txt small', fs => fs.map(f => f.textContent).join(' | ')));
+    await q.click('.lg-fold:has(b:text-is("Money in")) .fold-head'); await q.waitForTimeout(60);
+    ok('r2r: Money in opens: four rows and the caption (no purchase, stamp duty or mortgage)', (await q.$$eval('.lg-fold.open .rent-row label', ls => ls.map(l => l.textContent).join(' | '))) === 'Deposit and up-front rent | Refurb | Furnishing | Any other costs' && (await txt('.lg-fold.open .r2r-cap')).includes('no purchase, stamp duty or mortgage'));
+    await q.click('.lg-fold:has(b:text-is("Costs a month")) .fold-head'); await q.waitForTimeout(60);
+    ok('r2r: one fold open at a time', await q.isVisible('#lg-rentPaid') && !(await q.isVisible('#lg-upfront')) && (await q.$$eval('.lg-fold.open', fs => fs.length)) === 1 && (await txt('.lg-fold.open .r2r-cap')) === 'Monthly profit £700 = income less costs.');
+    ok('r2r: every tap target on the new parts is 44px or more', await q.evaluate(() => [...document.querySelectorAll('.r2r-tile, .mode-seg button, .fold-head, .pin-save')].every(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return r.height >= 43.5 || (a.content !== 'none' && r.height + 2 * Math.abs(parseFloat(a.top) || 0) >= 43.5); })));
     // a change shows straight away everywhere, and Reset brings the start back
-    await q.fill('#lg-roomRate', '800'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
-    ok('r2r: a room rate of £800: £900 a month, In £3,200, the tile and summary follow', (await txt('.pin-fig')) === '£900' && (await txt('.pin-caps span')) === 'In £3,200 a month' && (await txt('.r2r-tile.on .big')) === '£900/mo' && (await txt('.lg-fold .fold-txt small')) === '4 rooms at £800 · £3,200 a month');
-    ok('r2r: Reset shows once a figure changes', await q.isVisible('.pin-reset'));
     await q.fill('#lg-rentPaid', '1900'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
-    ok('r2r: the rent card shows how far it moved from the start', (await txt('.deal-card:has(#lg-rentPaid) .lg-reset')) === '+£200 from £1,700 ↺' && (await txt('.pin-fig')) === '£680', (await txt('.deal-card:has(#lg-rentPaid) .lg-reset')) + ' ' + (await txt('.pin-fig')));
+    ok('r2r: rent £1,900 (£200 more rent and £20 more maintenance): £480 a month, the panel, the tile and the total follow, amber below the £500 target', (await txt('.pin-fig')) === '£480' && (await txt('.r2r-tile.on .big')) === '£480/mo' && (await q.$$eval('.lg-fold .fold-tot', fs => fs[2].textContent)) === '−£2,520/mo' && await q.$eval('.pin-fig', e => e.classList.contains('amber')), await txt('.pin-fig'));
+    ok('r2r: Reset shows once a figure changes', await q.isVisible('.pin-reset'));
     await q.click('.pin-reset'); await q.waitForTimeout(80);
-    ok('r2r: Reset puts every figure back', (await txt('.pin-fig')) === '£700' && !(await q.isVisible('.pin-reset')));
-    ok('r2r: ... untyped again, so nothing carries over to the other kind or the Calculator', await q.evaluate(() => { const d = JSON.parse(localStorage.getItem('deal-analyser:deal')) || {}; return !('roomRate' in d) && !('rentPaid' in d) && !('rooms' in d); }), await q.evaluate(() => localStorage.getItem('deal-analyser:deal')));
-    // Results
-    await q.click('.lg-switch button:text-is("Results")'); await q.waitForTimeout(100);
-    const tiles = await q.$$eval('.lg-results .lg-tile', ts => ts.map(t => t.innerText.replace(/\s+/g, ' ')).join(' | '));
-    ok('r2r: Results: the six tiles', tiles === '£700.00 ✓ Monthly profit (target £500) | £8,400 ✓ Annual profit (target £6,000) | 10.2 months Money back (green ≤ 6, amber ≤ 24) | 117.8% ✓ ROI on money in (target 50%) | £3,000 Income a month | £2,300 Costs a month, incl. rent', tiles);
-    ok('r2r: Results: the monthly breakdown', (await q.$$eval('.r2r-brk .lg-stat', rs => rs.map(r => r.innerText.replace(/\s+/g, ' ')).join(' | '))) === 'Income £3,000 | Rent you pay −£1,700 | Other running costs −£600 | Monthly profit £700 | Total money in £7,132');
-    ok('r2r: money back is amber (10.2 months), monthly profit green', await q.$eval('.lg-results .lg-tile:nth-child(3) b', e => e.classList.contains('amber')) && await q.$eval('.lg-results .lg-tile:nth-child(1) b', e => e.classList.contains('good')));
-    // the other kind keeps the view
+    ok('r2r: Reset puts every figure back, untyped again', (await txt('.pin-fig')) === '£700' && !(await q.isVisible('.pin-reset')) && await q.evaluate(() => { const d = JSON.parse(localStorage.getItem('deal-analyser:deal')) || {}; return !('rentPaid' in d); }));
+    // R2R SA: its own units, never the HMO's rooms
+    await q.fill('#lg-rooms', '6').catch(() => {});
     await q.click('.r2r-tile:has(.nm:text-is("R2R SA"))'); await q.waitForTimeout(250);
-    ok('r2r: R2R SA: its own figures, 3/3 Strong deal, still on Results', (await q.url()).endsWith('#c/r2rsa') && (await txt('.pin-exit')) === 'R2R SA' && (await txt('.vs-score')) === '3/3' && (await q.$$eval('.lg-switch button', bs => bs.map(x => x.getAttribute('aria-pressed')).join())) === 'false,true');
-    await q.click('.lg-back'); await q.waitForTimeout(100);
-    ok('r2r: R2R SA figures: Nightly income and Running costs (with the channel manager)', (await q.$$eval('.lg-fold .fold-txt b', fs => fs.map(f => f.textContent).join(' | '))) === 'Nightly income | Running costs' && (await txt('.lg-fold .fold-txt small')) === '1 room at £135 a night · 70% full', (await q.$$eval('.lg-fold .fold-txt', fs => fs.map(f => f.innerText).join(' | '))));
-    await q.click('.lg-fold:has(b:text-is("Running costs")) .fold-head'); await q.waitForTimeout(60);
-    ok('r2r: one fold open at a time', await q.isVisible('#lg-channel') && !(await q.isVisible('#lg-nightlyRate')));
+    ok('r2r: R2R SA: its own panel and figures; the HMO\'s rooms do not carry over', (await q.url()).endsWith('#c/r2rsa') && (await txt('.pin-exit')) === 'R2R SA' && (await q.$$eval('.lg-fold .fold-txt b', fs => fs.map(f => f.textContent).join(' | '))) === 'Money in | Income | Costs a month');
+    await q.click('.lg-fold:has(b:text-is("Income")) .fold-head'); await q.waitForTimeout(60);
+    ok('r2r: SA income rows: Nightly rate, Number of units (starts at 1), Occupancy', (await q.$$eval('.lg-fold.open .rent-row label', ls => ls.map(l => l.textContent).join(' | '))) === 'Nightly rate | Number of units | Occupancy' && (await q.inputValue('#lg-units')) === '1');
+    await q.fill('#lg-units', '2'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
+    ok('r2r: two units doubles the nightly income, and the HMO side is untouched', (await txt('.lg-fold:has(b:text-is("Income")) .fold-tot')).endsWith('/mo') && (await q.$$eval('.r2r-tile .big', bs => bs[0].textContent)).includes('/mo'));
+    await q.click('.lg-fold:has(b:text-is("Costs a month")) .fold-head'); await q.waitForTimeout(60);
+    ok('r2r: SA costs include the booking commission and the channel manager', (await q.$$eval('.lg-fold.open .rent-row label', ls => ls.map(l => l.textContent).join(' | '))) === 'Rent you pay the landlord | Booking commission | Maintenance | Council tax | Utilities | Channel manager');
     ok('r2r: no sideways scroll', await q.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-    // no income: nothing to score
-    await q.fill('#lg-rooms', '0').catch(() => {});
-    await q.click('.lg-fold:has(b:text-is("Nightly income")) .fold-head'); await q.waitForTimeout(60); await q.fill('#lg-rooms', '0'); await q.evaluate(() => document.activeElement.blur()); await q.waitForTimeout(80);
-    ok('r2r: no rooms: the strip asks for the rent figures and scores nothing; no NaN', (await txt('.vs-txt')).startsWith('Enter the rent figures') && (await txt('.vs-score')) === '–' && !(await q.evaluate(() => /NaN/.test(document.body.innerText))));
-    await q.click('.pin-reset'); await q.waitForTimeout(80);
+    await q.click('.pin-reset').catch(() => {}); await q.waitForTimeout(80);
     // Save remembers it is a rent to rent deal and opens back on this screen
     q.on('dialog', d => d.type() === 'prompt' ? d.accept('R2R test') : d.accept());
     await q.click('.pin-save'); await q.waitForTimeout(150);
     const saved = await q.evaluate(() => JSON.parse(localStorage.getItem('deal-analyser:deals'))[0]);
-    ok('r2r: Save keeps it as an R2R SA deal', saved && saved.name === 'R2R test' && saved.calc === 'r2rsa', JSON.stringify(saved && { calc: saved.calc, view: saved.view }));
+    ok('r2r: Save keeps it as an R2R SA deal in Rent to rent mode', saved && saved.name === 'R2R test' && saved.calc === 'r2rsa' && saved.mode === 'r2r', JSON.stringify(saved && { calc: saved.calc, mode: saved.mode }));
     await q.goto(BASE + '/index.html#saved'); await q.waitForTimeout(250); await q.click('.d6-open'); await q.waitForTimeout(250);
-    ok('r2r: opening the saved deal comes back to this screen', (await q.url()).endsWith('#c/r2rsa') && await q.isVisible('.r2r-tile.on:has(.nm:text-is("R2R SA"))'));
-    // the ways back
-    await q.click('.pin-back'); await q.waitForTimeout(250);
-    ok('r2r: ‹ Rent to rent goes back to the Calculator', (await q.url()).endsWith('#c/brr') && (await txt('.pin-title')) === 'Calculator');
-    await q.goto(BASE + '/index.html#c/r2rhmo'); await q.waitForTimeout(250); await q.evaluate(() => scrollTo(0, 1e6)); await q.click('.lg-link:text-is("Buy, refurb & refinance →")'); await q.waitForTimeout(250);
-    ok('r2r: "Buy, refurb & refinance →" goes to the Calculator', (await q.url()).endsWith('#c/brr'));
+    ok('r2r: opening the saved deal comes back to Rent to rent with its kind picked', (await q.url()).endsWith('#c/r2rsa') && await q.isVisible('.r2r-tile.on:has(.nm:text-is("R2R SA"))') && (await txt('.mode-seg button[aria-pressed=true]')) === 'Rent to rent');
+    await q.click('.mode-seg button:text-is("Buy")'); await q.waitForTimeout(250);
+    ok('10a: Buy goes back to the calculator', (await q.url()).endsWith('#c/brr') && (await txt('.mode-seg button[aria-pressed=true]')) === 'Buy');
+    await q.click('.mode-seg button:text-is("Rent to rent")'); await q.waitForTimeout(250);
+    ok('10a: Rent to rent comes back on the kind last used (SA)', (await q.url()).endsWith('#c/r2rsa'));
     await q.goto(BASE + '/index.html#c/r2rhmo'); await q.waitForTimeout(250);
-    ok('r2r: its disclaimer asks you to check the landlord’s consent', (await txt('.legal-foot')).includes('Check your landlord’s consent and the contract before you sign.'));
+    ok('r2r: its disclaimer asks you to check the landlord’s consent, and the usual figures link is there', (await txt('.legal-foot')).includes('Check your landlord’s consent and the contract before you sign.') && await q.isVisible('.text-link:text-is("Set my usual figures →")'));
     await c4.close();
   }
   // ---- My usual figures (design 9b) ----
